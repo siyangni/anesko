@@ -1,0 +1,180 @@
+# American Authorship Database - .gitignore
+
+# ===== R SPECIFIC =====
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+.RDataTmp
+
+# User-specific files
+.Ruserdata
+
+# R Environment Variables
+.Renviron
+.Rprofile
+
+# R packages
+*.tar.gz
+*.tgz
+
+# Temporary files
+*~
+*.swp
+*.swo
+
+# ===== DATABASE CREDENTIALS =====
+# Never commit database passwords or connection strings
+config/database.yml
+config/secrets.yml
+.env
+*.env
+database_config.R
+connection_strings.R
+
+# ===== DATA FILES =====
+# Raw data files (often large and sensitive)
+data/raw/
+data/original/
+*.xlsx
+*.xls
+*.csv
+*.tsv
+*.json
+*.xml
+
+# Processed data (regenerated from scripts)
+data/processed/
+data/cleaned/
+data/interim/
+
+# Database dumps
+*.sql
+*.dump
+*.backup
+
+# ===== OUTPUTS =====
+# Generated plots and figures
+outputs/plots/*.png
+outputs/plots/*.jpg
+outputs/plots/*.pdf
+outputs/plots/*.svg
+
+# Generated tables and reports
+outputs/tables/*.html
+outputs/tables/*.tex
+outputs/reports/*.html
+outputs/reports/*.pdf
+
+# Temporary output files
+outputs/temp/
+
+# ===== SHINY SPECIFIC =====
+# Shiny app logs
+shiny-app/*.log
+shiny-app/rsconnect/
+
+# ===== SYSTEM FILES =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ===== IDE SPECIFIC =====
+# RStudio
+.Rproj.user/
+*.Rproj
+
+# VSCode
+.vscode/
+
+# Vim
+*.vim
+
+# ===== DOCUMENTATION =====
+# Rendered documentation
+docs/_build/
+docs/site/
+*.html
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# ===== LOGS AND CACHE =====
+# Log files
+*.log
+logs/
+
+# Cache files
+cache/
+.cache/
+*_cache/
+
+# ===== SENSITIVE RESEARCH DATA =====
+# Personal or sensitive information
+personal/
+sensitive/
+confidential/
+
+# Research notes (keep private until publication)
+notes/personal/
+drafts/confidential/
+
+# ===== EXCEPTIONS (files to include) =====
+# Keep example/template files
+!data/example/
+!config/database_template.R
+!scripts/templates/
+
+# Keep important documentation
+!docs/README.md
+!docs/data_dictionary.md
+
+# ===== LARGE FILES =====
+# Files larger than 100MB (GitHub limit)
+*.zip
+*.tar
+*.rar
+*.7z
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# ===== PROJECT SPECIFIC =====
+# Specific to American Authorship Database
+
+# Original Excel files (keep one clean copy in data/original/)
+AneskoDB*.xlsx
+*_COPY_*.xlsx
+
+# Database connection tests
+test_connection.*
+
+# Temporary analysis files
+temp_analysis.*
+scratch.*
+test.*
