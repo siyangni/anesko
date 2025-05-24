@@ -69,36 +69,3 @@ if(length(missing_packages) == 0) {
   cat("❌ Missing packages:", paste(missing_packages, collapse = ", "), "\n")
   cat("Please install missing packages before proceeding.\n")
 }
-
-# Test database connection
-library(DBI)
-library(RPostgreSQL)
-
-# Replace with your actual credentials
-test_connection <- function() {
-  tryCatch({
-    con <- dbConnect(
-      RPostgreSQL::PostgreSQL(),
-      host = "localhost",
-      dbname = "american_authorship", 
-      user = "your_username",
-      password = "your_password"
-    )
-    
-    if (dbIsValid(con)) {
-      cat("✅ Database connection test successful!\n")
-      dbDisconnect(con)
-      return(TRUE)
-    } else {
-      cat("❌ Database connection failed!\n")
-      return(FALSE)
-    }
-  }, error = function(e) {
-    cat("❌ Database connection error:", e$message, "\n")
-    cat("💡 Make sure PostgreSQL is running: sudo service postgresql start\n")
-    return(FALSE)
-  })
-}
-
-# Uncomment to test connection (after setting up database)
-# test_connection()

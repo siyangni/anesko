@@ -34,6 +34,9 @@ config/secrets.yml
 database_config.R
 connection_strings.R
 
+# PostgreSQL setup files with credentials
+scripts/migration/00_postgresql_admin_setup.sql
+
 # ===== DATA FILES =====
 # Raw data files (often large and sensitive)
 data/raw/
