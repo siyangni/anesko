@@ -130,19 +130,19 @@ dashboardServer <- function(id) {
         )),
         column(3, create_value_box(
           value = stats$unique_authors[1] %||% 0,
-          subtitle = "Unique Authors", 
+          subtitle = "Authors", 
           icon = "users",
           color = "green"
         )),
         column(3, create_value_box(
           value = stats$total_copies_sold[1] %||% 0,
-          subtitle = "Total Copies Sold",
+          subtitle = "Copies Sold",
           icon = "shopping-cart",
           color = "orange"
         )),
         column(3, create_value_box(
           value = paste0(stats$min_year[1] %||% MIN_YEAR, "-", stats$max_year[1] %||% MAX_YEAR),
-          subtitle = "Data Range",
+          subtitle = "Year Range",
           icon = "calendar",
           color = "purple"
         ))
