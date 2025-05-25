@@ -102,13 +102,41 @@ ui <- dashboardPage(
               box(
                 title = "About This Dashboard", status = "primary", solidHeader = TRUE,
                 width = NULL,
-                HTML(markdown::markdownToHTML(text = ABOUT_TEXT, fragment = TRUE))
+                div(
+                  p("This dashboard provides interactive exploration of the American Authorship Database (1860-1920), 
+                    a comprehensive collection of publishing and sales data from major American publishers during 
+                    the transformative period of the late 19th and early 20th centuries."),
+                  br(),
+                  h4("Data Sources:"),
+                  tags$ul(
+                    tags$li("Houghton, Mifflin Co. and predecessors (Harvard University)"),
+                    tags$li("Harper & Brothers (Chadwyck-Healey Microfilm)"),
+                    tags$li("Scribner Archive (Princeton University)"),
+                    tags$li("J. B. Lippincott Deposit (University of Pennsylvania)")
+                  ),
+                  br(),
+                  p(strong("Principal Investigator:"), "Dr. Michael Anesko (Penn State University)")
+                )
               ),
               
               box(
                 title = "Methodology", status = "info", solidHeader = TRUE,
                 width = NULL,
-                HTML(markdown::markdownToHTML(text = METHODOLOGY_TEXT, fragment = TRUE))
+                div(
+                  h4("Data Collection:"),
+                  p("All data has been hand-transcribed from original publisher archives, including sales records, 
+                    royalty statements, and contract information."),
+                  br(),
+                  h4("Coverage:"),
+                  tags$ul(
+                    tags$li("630+ book entries with comprehensive metadata"),
+                    tags$li("63 years of sales data (1858-1920)"),
+                    tags$li("Focus on major publishers and commercially successful works")
+                  ),
+                  br(),
+                  h4("Validation:"),
+                  p("Data has been cross-referenced across multiple sources where possible to ensure accuracy.")
+                )
               )
             ),
             

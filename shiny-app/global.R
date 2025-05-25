@@ -20,7 +20,6 @@ library(htmltools)
 library(scales)
 library(tidyr)
 library(stringr)
-library(markdown)
 
 # Load configuration
 source("config/app_config.R")
@@ -94,7 +93,22 @@ GENDER_COLORS <- c(
 
 # Helper function to format numbers
 format_number <- function(x, suffix = "") {
-  if (is.na(x) || is.null(x)) return("N/A")
+  if (is.null(x) || length(x) == 0) return("N/A")
+  
+  # Handle vectors
+  if (length(x) > 1) {
+    return(sapply(x, format_number, suffix = suffix))
+  }
+  
+  # Check for NA, NULL, or non-numeric values
+  if (is.na(x) || !is.numeric(x)) return("N/A")
+  
+  # Convert to numeric if it's not already
+  x <- as.numeric(x)
+  if (is.na(x) || is.infinite(x)) return("N/A")
+  
+  # Handle negative numbers
+  if (x < 0) return("N/A")
   
   if (x >= 1000000) {
     paste0(round(x / 1000000, 1), "M", suffix)
@@ -133,5 +147,5 @@ safe_query <- function(query_func, default_value = NULL, error_message = "Data u
 # Loading spinner options
 waiter_options <- list(
   html = spin_fading_circles(),
-  color = transparent(0.5)
+  color = "rgba(0,0,0,0.5)"
 ) 

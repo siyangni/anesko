@@ -3,7 +3,8 @@
 
 # Clean and standardize genre codes
 clean_genre <- function(genre) {
-  if (is.null(genre) || is.na(genre) || genre == "") return("Other")
+  # Handle vectors properly
+  if (is.null(genre)) return("Other")
   
   # Standard mappings
   genre_map <- c(
@@ -16,8 +17,10 @@ clean_genre <- function(genre) {
     "B" = "Biography"
   )
   
-  # Return mapped value or "Other"
-  ifelse(genre %in% names(genre_map), genre_map[genre], "Other")
+  # Return mapped value or "Other" - works with vectors
+  ifelse(is.na(genre) | genre == "" | is.null(genre), 
+         "Other", 
+         ifelse(genre %in% names(genre_map), genre_map[genre], "Other"))
 }
 
 # Clean and standardize gender

@@ -111,10 +111,10 @@ SELECT
   be.genre,
   be.publisher,
   be.publication_year,
-  COUNT(DISTINCT bs.year) as years_with_sales,
+  COALESCE(COUNT(DISTINCT CASE WHEN bs.sales_count IS NOT NULL THEN bs.year END), 0) as years_with_sales,
   MIN(bs.year) as first_sale_year,
   MAX(bs.year) as last_sale_year,
-  SUM(bs.sales_count) as total_sales
+  COALESCE(SUM(CASE WHEN bs.sales_count IS NOT NULL THEN bs.sales_count ELSE 0 END), 0) as total_sales
 FROM book_entries be
 LEFT JOIN book_sales bs ON be.book_id = bs.book_id
 GROUP BY be.book_id, be.author_surname, be.gender, be.book_title, be.genre, be.publisher, be.publication_year

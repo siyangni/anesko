@@ -30,7 +30,7 @@ server <- function(input, output, session) {
       # Hide loading screen after initialization
       waiter$hide()
       
-      showNotification("Dashboard loaded successfully!", type = "success", duration = 3)
+      showNotification("Dashboard loaded successfully!", type = "message", duration = 3)
       
     }, error = function(e) {
       waiter$hide()

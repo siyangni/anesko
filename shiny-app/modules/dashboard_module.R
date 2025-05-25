@@ -195,13 +195,23 @@ dashboardServer <- function(id) {
     output$genre_bar_chart <- renderPlotly({
       data <- genre_data()
       
-      if (nrow(data) == 0) {
+      if (is.null(data) || nrow(data) == 0) {
         return(create_bar_plot(data.frame(), "genre", "total_sales"))
       }
       
-      # Clean genre names
+      # Clean genre names safely
       plot_data <- data %>%
-        mutate(genre_clean = clean_genre(genre))
+        mutate(genre_clean = case_when(
+          is.na(genre) | genre == "" ~ "Other",
+          genre == "F" ~ "Fiction",
+          genre == "N" ~ "Non-fiction",
+          genre == "P" ~ "Poetry",
+          genre == "D" ~ "Drama",
+          genre == "J" ~ "Juvenile",
+          genre == "S" ~ "Short Stories",
+          genre == "B" ~ "Biography",
+          TRUE ~ "Other"
+        ))
       
       create_bar_plot(
         data = plot_data,
@@ -235,46 +245,73 @@ dashboardServer <- function(id) {
     
     # Top books table
     output$top_books_table <- DT::renderDataTable({
-      data <- top_books_data()
-      
-      if (nrow(data) == 0) {
-        return(DT::datatable(
-          data.frame(Message = "No data available"),
-          options = list(dom = 't')
-        ))
-      }
-      
-      # Prepare display data
-      display_data <- data %>%
-        select(
-          Author = author_surname,
-          Title = book_title,
-          Genre = genre,
-          Publisher = publisher,
-          `Pub. Year` = publication_year,
-          `Total Sales` = total_sales,
-          `Sales Years` = years_with_sales,
-          `Retail Price` = retail_price
-        ) %>%
-        mutate(
-          Genre = clean_genre(Genre),
-          `Total Sales` = format_number(`Total Sales`),
-          `Retail Price` = ifelse(is.na(`Retail Price`), "N/A", 
-                                 paste0("$", sprintf("%.2f", `Retail Price`)))
-        )
-      
-      DT::datatable(
-        display_data,
-        options = list(
-          pageLength = 10,
-          scrollX = TRUE,
-          order = list(list(5, 'desc')),  # Sort by Total Sales desc
-          columnDefs = list(
-            list(className = "dt-center", targets = c(4, 5, 6, 7))
+      tryCatch({
+        data <- top_books_data()
+        
+        if (is.null(data) || nrow(data) == 0) {
+          return(DT::datatable(
+            data.frame(Message = "No data available"),
+            options = list(dom = 't', pageLength = 5),
+            rownames = FALSE
+          ))
+        }
+        
+        # Prepare display data with safe operations
+        display_data <- data %>%
+          select(
+            Author = author_surname,
+            Title = book_title,
+            Genre = genre,
+            Publisher = publisher,
+            `Pub. Year` = publication_year,
+            `Total Sales` = total_sales,
+            `Sales Years` = years_with_sales,
+            `Retail Price` = retail_price
+          ) %>%
+          mutate(
+            Author = ifelse(is.na(Author) | Author == "", "Unknown", as.character(Author)),
+            Title = ifelse(is.na(Title) | Title == "", "Unknown", as.character(Title)),
+            Genre = ifelse(is.na(Genre) | Genre == "", "Other", 
+                          case_when(
+                            Genre == "F" ~ "Fiction",
+                            Genre == "N" ~ "Non-fiction",
+                            Genre == "P" ~ "Poetry",
+                            Genre == "D" ~ "Drama",
+                            Genre == "J" ~ "Juvenile",
+                            Genre == "S" ~ "Short Stories",
+                            Genre == "B" ~ "Biography",
+                            TRUE ~ "Other"
+                          )),
+            Publisher = ifelse(is.na(Publisher) | Publisher == "", "Unknown", as.character(Publisher)),
+            `Pub. Year` = ifelse(is.na(`Pub. Year`), "Unknown", as.character(`Pub. Year`)),
+            `Total Sales` = ifelse(is.na(`Total Sales`) | !is.numeric(`Total Sales`) | as.numeric(`Total Sales`) == 0, 
+                                  "0", 
+                                  format_number(as.numeric(`Total Sales`))),
+            `Sales Years` = ifelse(is.na(`Sales Years`), "0", as.character(`Sales Years`)),
+            `Retail Price` = ifelse(is.na(`Retail Price`) | !is.numeric(`Retail Price`), "N/A", 
+                                   paste0("$", sprintf("%.2f", as.numeric(`Retail Price`))))
           )
-        ),
-        rownames = FALSE
-      )
+        
+        DT::datatable(
+          display_data,
+          options = list(
+            pageLength = 10,
+            scrollX = TRUE,
+            order = list(list(5, 'desc')),  # Sort by Total Sales desc
+            columnDefs = list(
+              list(className = "dt-center", targets = c(4, 5, 6, 7))
+            )
+          ),
+          rownames = FALSE
+        )
+      }, error = function(e) {
+        # Return error message in table format
+        DT::datatable(
+          data.frame(Error = paste("Data loading error:", e$message)),
+          options = list(dom = 't', pageLength = 5),
+          rownames = FALSE
+        )
+      })
     })
     
   })

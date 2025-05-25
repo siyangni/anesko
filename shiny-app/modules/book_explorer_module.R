@@ -116,8 +116,8 @@ bookExplorerServer <- function(id) {
       div(
         class = "alert alert-info",
         style = "margin-bottom: 20px;",
-        h4(paste("Found", format_number(total_books), "books")),
-        p(paste("Total sales:", format_number(total_sales), "copies"))
+        h4(paste("Found", if(is.numeric(total_books)) format_number(total_books) else total_books, "books")),
+        p(paste("Total sales:", if(is.numeric(total_sales)) format_number(total_sales) else total_sales, "copies"))
       )
     })
     
@@ -154,7 +154,9 @@ bookExplorerServer <- function(id) {
                                  paste0("$", sprintf("%.2f", `Retail Price`))),
           `Royalty Rate` = ifelse(is.na(`Royalty Rate`), "N/A",
                                  paste0(round(`Royalty Rate` * 100, 1), "%")),
-          `Total Sales` = format_number(`Total Sales`)
+          `Total Sales` = ifelse(is.na(`Total Sales`) | !is.numeric(`Total Sales`) | `Total Sales` == 0, 
+                                "0", 
+                                format_number(`Total Sales`))
         )
       
       DT::datatable(
