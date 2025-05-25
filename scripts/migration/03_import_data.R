@@ -54,30 +54,32 @@ cat("\n🧹 Cleaning book entries data...\n")
 book_entries <- book_entries %>%
   mutate(
     # Extract year from Book ID using regex
-    publication_year = as.integer(str_extract(Book_ID, "\\d{4}")),
+    publication_year = as.integer(str_extract(`Book ID`, "\\d{4}")),
     
     # Clean up column names to match database
-    book_id = Book_ID,
-    author_surname = Author_Surname,
+    book_id = `Book ID`,
+    author_surname = `Author Surname`,
     gender = Gender,
-    book_title = Book_Title,
+    book_title = `Book Title`,
     genre = Genre,
     binding = Binding,
     notes = Notes,
-    retail_price = as.numeric(Retail_Price),
+    retail_price = as.numeric(`Retail Price`),
     
     # Handle royalty rate - convert "SS" and percentages
     royalty_rate = case_when(
-      Royalty_Rate == "SS" ~ NA_real_,  # Handle special cases
-      grepl("%", Royalty_Rate) ~ as.numeric(gsub("%", "", Royalty_Rate)) / 100,
-      TRUE ~ as.numeric(Royalty_Rate)
+      `Royalty Rate` == "SS" ~ NA_real_,  # Handle special cases
+      grepl("%", `Royalty Rate`) ~ as.numeric(gsub("%", "", `Royalty Rate`)) / 100,
+      TRUE ~ as.numeric(`Royalty Rate`)
     ),
     
-    contract_terms = Contract_Terms,
+    contract_terms = `Contract Terms`,
     publisher = Publisher
   ) %>%
   select(book_id, author_surname, gender, book_title, genre, binding, 
-         notes, retail_price, royalty_rate, contract_terms, publisher, publication_year)
+         notes, retail_price, royalty_rate, contract_terms, publisher, publication_year) %>%
+  # Remove rows with missing book_id
+  filter(!is.na(book_id) & book_id != "")
 
 # Check for duplicates
 duplicates <- book_entries %>% 
@@ -108,40 +110,29 @@ cat("✅ Inserted", nrow(book_entries), "book entries\n")
 # Clean and prepare book_sales data
 cat("\n🧹 Cleaning sales data...\n")
 
-# The sales table has years as columns (1875-1920)
+# The sales table has years as columns (y1858-y1920)
 # We need to pivot it to long format
 sales_long <- book_sales %>%
-  # Assuming first column is Book_ID
-  rename(book_id = 1) %>%
-  # Pivot all year columns to long format
+  # The first column is already book_ID
+  # Pivot all year columns to long format - they start with "y" followed by 4 digits
   pivot_longer(
-    cols = matches("^\\d{4}$"),  # Columns that are 4-digit years
+    cols = matches("^y\\d{4}$"),  # Columns that are y followed by 4-digit years
     names_to = "year",
     values_to = "sales_count"
   ) %>%
   mutate(
-    year = as.integer(year),
+    year = as.integer(str_extract(year, "\\d{4}")),  # Extract year from "y1875" format
     sales_count = as.integer(sales_count)
   ) %>%
   # Remove NA sales (no sales that year)
-  filter(!is.na(sales_count))
+  filter(!is.na(sales_count)) %>%
+  # Rename to match expected column name
+  rename(book_id = book_ID)
 
 # Check if there are additional columns for limits and rates
-if ("Limits" %in% names(book_sales)) {
-  sales_long <- sales_long %>%
-    left_join(
-      book_sales %>% select(book_id = 1, sales_limit = Limits),
-      by = "book_id"
-    )
-}
-
-if ("Rates" %in% names(book_sales)) {
-  sales_long <- sales_long %>%
-    left_join(
-      book_sales %>% select(book_id = 1, sales_rate = Rates),
-      by = "book_id"
-    )
-}
+# Based on the diagnostic, we have limit1, limit2, etc. and r1, r2, etc.
+# For now, we'll just create empty columns for these as they might need special handling
+# You may want to enhance this later to handle multiple rates and limits
 
 # Ensure we have the required columns
 if (!"sales_limit" %in% names(sales_long)) {
