@@ -1,0 +1,153 @@
+/* Custom styles for American Authorship Dashboard */
+
+/* Main layout improvements */
+.content-wrapper {
+  background-color: #f8f9fa !important;
+}
+
+/* Box styling */
+.box {
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+}
+
+.box-header {
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Value box improvements */
+.small-box {
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.small-box .icon {
+  font-size: 60px;
+}
+
+/* Table styling */
+.dataTables_wrapper {
+  font-size: 14px;
+}
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  margin-bottom: 15px;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+  margin-top: 15px;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: rgba(0,0,0,0.02);
+}
+
+/* Alert styling */
+.alert {
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.alert-info {
+  background-color: #e8f4f8;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+/* Plot container styling */
+.plotly {
+  border-radius: 5px;
+}
+
+/* Sidebar menu improvements */
+.sidebar-menu > li.active > a {
+  border-left: 3px solid #3498db;
+}
+
+.sidebar-menu > li > a:hover {
+  background-color: rgba(255,255,255,0.1);
+}
+
+/* Filter panel styling */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-control {
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.form-control:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+/* Button styling */
+.btn {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.btn-warning {
+  background-color: #f39c12;
+  border-color: #f39c12;
+}
+
+.btn-warning:hover {
+  background-color: #e67e22;
+  border-color: #e67e22;
+}
+
+/* Loading spinner */
+.waiter-overlay {
+  background-color: rgba(33, 37, 41, 0.85) !important;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 10px;
+  }
+  
+  .box {
+    margin-bottom: 15px;
+  }
+  
+  .small-box .icon {
+    font-size: 40px;
+  }
+}
+
+/* Custom utility classes */
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+.mt-10 {
+  margin-top: 10px;
+}
+
+/* Genre color indicators */
+.genre-fiction { color: #e74c3c; }
+.genre-nonfiction { color: #3498db; }
+.genre-poetry { color: #9b59b6; }
+.genre-drama { color: #f39c12; }
+.genre-juvenile { color: #27ae60; }
+.genre-short { color: #1abc9c; }
+.genre-biography { color: #95a5a6; }
+
+/* Gender color indicators */
+.gender-male { color: #3498db; }
+.gender-female { color: #e74c3c; } 
