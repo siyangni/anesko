@@ -37,9 +37,36 @@ source("modules/author_analysis_module.R")
 source("modules/genre_analysis_module.R")
 
 # Initialize database connection pool for better performance
-if (!exists("pool")) {
-  pool <- create_db_pool()
+# Use a more robust approach to handle pool creation and management
+initialize_db_pool <- function() {
+  tryCatch({
+    # Check if pool exists and is valid
+    if (exists("pool", envir = .GlobalEnv) && !is.null(pool)) {
+      # Test if pool is still valid
+      test_result <- tryCatch({
+        pool::dbGetQuery(pool, "SELECT 1 as test")
+      }, error = function(e) NULL)
+      
+      if (!is.null(test_result) && nrow(test_result) == 1) {
+        return(pool)  # Pool is working, return it
+      } else {
+        # Pool is invalid, close it safely
+        tryCatch(pool::poolClose(pool), error = function(e) NULL)
+      }
+    }
+    
+    # Create new pool
+    new_pool <- create_db_pool()
+    assign("pool", new_pool, envir = .GlobalEnv)
+    return(new_pool)
+  }, error = function(e) {
+    warning("Failed to initialize database pool: ", e$message)
+    return(NULL)
+  })
 }
+
+# Initialize the pool
+pool <- initialize_db_pool()
 
 # Global data cache (will be populated on app start)
 cache <- reactiveValues(

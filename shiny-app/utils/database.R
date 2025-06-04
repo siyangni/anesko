@@ -21,15 +21,53 @@ create_db_pool <- function() {
 
 # Safe database query with error handling
 safe_db_query <- function(query, params = NULL) {
+  # First attempt with existing pool
+  result <- try_db_query(query, params)
+  
+  # If first attempt fails, try to reinitialize pool and retry once
+  if (is.null(result)) {
+    cat("Database query failed, attempting to reinitialize pool...\n")
+    
+    # Try to reinitialize the pool
+    new_pool <- tryCatch({
+      initialize_db_pool()
+    }, error = function(e) {
+      warning("Failed to reinitialize pool: ", e$message)
+      return(NULL)
+    })
+    
+    if (!is.null(new_pool)) {
+      assign("pool", new_pool, envir = .GlobalEnv)
+      # Retry the query with new pool
+      result <- try_db_query(query, params)
+    }
+  }
+  
+  # Return result or empty data frame
+  if (is.null(result)) {
+    warning("Database query failed after retry: ", query)
+    return(data.frame())
+  }
+  
+  return(result)
+}
+
+# Helper function to attempt a database query
+try_db_query <- function(query, params = NULL) {
   tryCatch({
+    # Check if pool exists and is valid
+    if (!exists("pool", envir = .GlobalEnv) || is.null(pool)) {
+      return(NULL)
+    }
+    
     if (is.null(params)) {
       pool::dbGetQuery(pool, query)
     } else {
       pool::dbGetQuery(pool, query, params = params)
     }
   }, error = function(e) {
-    warning("Database query failed: ", e$message)
-    return(data.frame())
+    warning("Database query attempt failed: ", e$message)
+    return(NULL)
   })
 }
 

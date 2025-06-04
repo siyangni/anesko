@@ -16,10 +16,22 @@ server <- function(input, output, session) {
   # Initialize database connection and cache
   observe({
     tryCatch({
+      # Ensure we have a valid database pool
+      if (is.null(pool)) {
+        pool <<- initialize_db_pool()
+      }
+      
+      if (is.null(pool)) {
+        showNotification("Database connection failed - pool could not be created", type = "error", duration = 10)
+        waiter$hide()
+        return()
+      }
+      
       # Test database connection
       test_query <- safe_db_query("SELECT 1 as test")
-      if (nrow(test_query) == 0) {
-        showNotification("Database connection failed", type = "error", duration = 10)
+      if (is.null(test_query) || nrow(test_query) == 0) {
+        showNotification("Database connection failed - unable to execute test query", type = "error", duration = 10)
+        waiter$hide()
         return()
       }
       
@@ -58,16 +70,8 @@ server <- function(input, output, session) {
     }
   })
   
-  # Cleanup on session end
-  session$onSessionEnded(function() {
-    if (exists("pool") && !is.null(pool)) {
-      tryCatch({
-        pool::poolClose(pool)
-      }, error = function(e) {
-        cat("Error closing database pool:", e$message, "\n")
-      })
-    }
-  })
+  # Removed the problematic session cleanup code that was closing the shared pool
+  # The pool should persist across sessions for better performance
   
   # Periodic cache refresh (optional)
   observe({
@@ -78,13 +82,18 @@ server <- function(input, output, session) {
         difftime(Sys.time(), cache$last_updated, units = "mins") > CACHE_REFRESH_MINUTES) {
       
       tryCatch({
-        # Refresh cached data
-        cache$books_summary <- safe_db_query("SELECT * FROM book_sales_summary LIMIT 100")
-        cache$last_updated <- Sys.time()
-        
-        showNotification("Data refreshed", type = "message", duration = 2)
+        # Ensure pool is still valid before refreshing
+        if (!is.null(pool)) {
+          # Refresh cached data
+          cache$books_summary <- safe_db_query("SELECT * FROM book_sales_summary LIMIT 100")
+          cache$last_updated <- Sys.time()
+          
+          showNotification("Data refreshed", type = "message", duration = 2)
+        }
       }, error = function(e) {
         cat("Cache refresh failed:", e$message, "\n")
+        # Try to reinitialize pool if cache refresh fails
+        pool <<- initialize_db_pool()
       })
     }
   })

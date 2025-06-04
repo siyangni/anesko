@@ -156,10 +156,28 @@ The dashboard expects these database tables:
 
 ### Common Issues
 
-**Database Connection Failed**
-- Check PostgreSQL is running
-- Verify database credentials
-- Ensure database exists and is accessible
+**Database Connection Failed / App Only Works Once**
+This is usually caused by database connection pool issues. Try these steps:
+
+1. **Test database connection independently**:
+   ```r
+   setwd("shiny-app")
+   source("test_connection.R")
+   ```
+
+2. **Restart PostgreSQL service**:
+   ```bash
+   sudo service postgresql restart
+   ```
+
+3. **Check database credentials in `config/app_config.R`**
+
+4. **Clear R session and restart**:
+   ```r
+   # In R console
+   rm(list = ls())  # Clear workspace
+   .rs.restartR()   # Restart R session (RStudio)
+   ```
 
 **Missing Packages**
 - Run package installation commands above
@@ -174,6 +192,19 @@ The dashboard expects these database tables:
 - Clear browser cache
 - Check `www/style.css` is being loaded
 - Verify CSS syntax
+
+### Debug Mode
+
+To run the app with detailed error messages:
+
+```r
+# Set debug options
+options(shiny.error = browser)
+options(shiny.trace = TRUE)
+
+# Run app
+shiny::runApp("shiny-app/")
+```
 
 ## 📈 Future Enhancements
 
