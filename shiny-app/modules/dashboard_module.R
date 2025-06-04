@@ -117,35 +117,45 @@ dashboardServer <- function(id) {
                 error_message = "Failed to load top books data")
     })
     
-    # Value boxes
+    # Value boxes - Using wider layout with better spacing
     output$value_boxes <- renderUI({
       stats <- summary_stats()
       
-      list(
-        column(3, create_value_box(
-          value = stats$total_books[1] %||% 0,
-          subtitle = "Total Books",
-          icon = "book",
-          color = "blue"
-        )),
-        column(3, create_value_box(
-          value = stats$unique_authors[1] %||% 0,
-          subtitle = "Authors", 
-          icon = "users",
-          color = "green"
-        )),
-        column(3, create_value_box(
-          value = stats$total_copies_sold[1] %||% 0,
-          subtitle = "Copies Sold",
-          icon = "shopping-cart",
-          color = "orange"
-        )),
-        column(3, create_value_box(
-          value = paste0(stats$min_year[1] %||% MIN_YEAR, "-", stats$max_year[1] %||% MAX_YEAR),
-          subtitle = "Year Range",
-          icon = "calendar",
-          color = "purple"
-        ))
+      # Create two rows of wider boxes for better text display
+      tagList(
+        fluidRow(
+          column(6, create_value_box(
+            value = stats$total_books[1] %||% 0,
+            subtitle = "Total Books in Database",
+            icon = "book",
+            color = "blue",
+            width = 12
+          )),
+          column(6, create_value_box(
+            value = stats$unique_authors[1] %||% 0,
+            subtitle = "Unique Authors", 
+            icon = "users",
+            color = "green",
+            width = 12
+          ))
+        ),
+        br(),
+        fluidRow(
+          column(6, create_value_box(
+            value = stats$total_copies_sold[1] %||% 0,
+            subtitle = "Total Copies Sold",
+            icon = "shopping-cart",
+            color = "orange",
+            width = 12
+          )),
+          column(6, create_value_box(
+            value = paste0(stats$min_year[1] %||% MIN_YEAR, "-", stats$max_year[1] %||% MAX_YEAR),
+            subtitle = "Publication Year Range",
+            icon = "calendar",
+            color = "purple",
+            width = 12
+          ))
+        )
       )
     })
     

@@ -147,7 +147,7 @@ format_number <- function(x, suffix = "") {
 }
 
 # Helper function to create value boxes with consistent styling
-create_value_box <- function(value, subtitle, icon, color = "blue", width = 3) {
+create_value_box <- function(value, subtitle, icon, color = "blue", width = 12) {
   valueBox(
     value = format_number(value),
     subtitle = subtitle,
