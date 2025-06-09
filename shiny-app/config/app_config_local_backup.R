@@ -1,17 +1,28 @@
 # Application Configuration
-# Updated for cloud database deployment
+# Contains database settings, constants, and app-wide configurations
 
 # App metadata
 APP_TITLE <- "American Authorship Database (1860-1920)"
 APP_VERSION <- "1.0.0"
 APP_DESCRIPTION <- "Interactive dashboard for exploring American literary marketplace data"
 
-# Load cloud database configuration
-source("config/cloud_config.R")
+# Database configuration
+# Try to load from parent config first, then fallback to environment variables
+if (file.exists("../scripts/config/database_config.R")) {
+  source("../scripts/config/database_config.R")
+} else {
+  # Fallback configuration
+  db_config <- list(
+    host = ifelse(Sys.getenv("DB_HOST") != "", Sys.getenv("DB_HOST"), "localhost"),
+    dbname = ifelse(Sys.getenv("DB_NAME") != "", Sys.getenv("DB_NAME"), "american_authorship"),
+    user = ifelse(Sys.getenv("DB_USER") != "", Sys.getenv("DB_USER"), "siyang"),
+    password = ifelse(Sys.getenv("DB_PASSWORD") != "", Sys.getenv("DB_PASSWORD"), "anesko2024")
+  )
+}
 
 # Connection pool settings
 POOL_SIZE_MIN <- 1
-POOL_SIZE_MAX <- 5  # Neon handles more connections than ElephantSQL
+POOL_SIZE_MAX <- 5
 POOL_IDLE_TIMEOUT <- 60
 
 # Data refresh settings
@@ -63,4 +74,4 @@ royalty statements, and contract information.
 
 **Validation:**
 Data has been cross-referenced across multiple sources where possible to ensure accuracy.
-"
+" 

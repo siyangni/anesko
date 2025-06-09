@@ -1,0 +1,14 @@
+American Authorship Database Deployment
+======================================
+
+Deployed: Mon Jun  9 17:58:26 EDT 2025
+Database: Neon PostgreSQL (Cloud)
+Platform: ShinyApps.io
+Version: 1.0.0
+
+App URL: Will be provided after deployment
+Database: Hosted on Neon.tech
+Source: GitHub repository
+
+For support, contact: Dr. Michael Anesko
+Institution: Penn State University

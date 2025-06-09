@@ -1,0 +1,48 @@
+# Docker Compose for American Authorship Database
+# This sets up both the Shiny app and PostgreSQL database
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: american_authorship_db
+    environment:
+      POSTGRES_DB: american_authorship
+      POSTGRES_USER: authorship_admin
+      POSTGRES_PASSWORD: anesko2024_secure
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/backup.sql:/docker-entrypoint-initdb.d/backup.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - authorship_network
+
+  # Shiny App
+  shiny:
+    build: .
+    container_name: american_authorship_app
+    environment:
+      DB_HOST: postgres
+      DB_NAME: american_authorship
+      DB_USER: authorship_admin
+      DB_PASSWORD: anesko2024_secure
+      DB_PORT: 5432
+    ports:
+      - "3838:3838"
+    depends_on:
+      - postgres
+    volumes:
+      - ./shiny-app/logs:/var/log/shiny-server
+    networks:
+      - authorship_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  authorship_network:
+    driver: bridge 
