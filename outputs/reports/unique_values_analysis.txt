@@ -1,0 +1,812 @@
+UNIQUE VALUES ANALYSIS
+Generated on: 2025-06-22 22:40:31 
+============================================================ 
+
+TABLE: BOOK_ENTRIES 
+======================================== 
+
+Column: book_id 
+------------------------------ 
+Total unique values: 627 
+First 25 unique values:
+  1. ACIB1898A
+  2. ACIB1898B
+  3. BH1870A
+  4. BH1873A
+  5. BH1875A
+  6. BH1877A
+  7. BH1878A
+  8. BH1878B
+  9. BH1879A
+  10. BH1882A
+  11. BH1883A
+  12. BH1884A
+  13. BH1885A
+  14. BH1885B
+  15. BH1886A
+  16. BH1887A
+  17. BH1887B
+  18. BH1887C
+  19. BH1887D
+  20. BH1888A
+  21. BH1889A
+  22. BH1889B
+  23. BH1890A
+  24. BH1890B
+  25. BH1891A
+  ... and 602 more values
+
+Last 25 unique values:
+  603. WH1908A
+  604. WH1909A
+  605. WH1910A
+  606. WH1910B
+  607. WH1911A
+  608. WHB1879A
+  609. WHB1883A
+  610. WHB1884A
+  611. WHB1884B
+  612. WHB1885A
+  613. WHB1887A
+  614. WHB1893A
+  615. WSC1912A
+  616. WSC1913A
+  617. WSC1915A
+  618. WSC1918A
+  619. ZG1910A
+  620. ZG1910B
+  621. ZG1911A
+  622. ZG1911B
+  623. ZG1912A
+  624. ZG1912B
+  625. ZG1913A
+  626. ZG1914A
+  627. ZG1915A
+
+
+Column: author_surname 
+------------------------------ 
+Total unique values: 49 
+Unique values:
+  1. Ade
+  2. Aldrich
+  3. Allen
+  4. Atherton
+  5. Bacheller
+  6. Bellamy
+  7. Bishop
+  8. Boyesen
+  9. Burnham
+  10. Cabell
+  11. Cahan
+  12. Cather
+  13. Chambers
+  14. Chesnutt
+  15. Chopin
+  16. Crane
+  17. Crawford
+  18. Curtis
+  19. DeForest
+  20. Deland
+  21. Dreiser
+  22. Du Maurier
+  23. Fawcett
+  24. Foote
+  25. Freeman
+  26. Fuller
+  27. Garland
+  28. Glasgow
+  29. Grey
+  30. Harben
+  31. Harris
+  32. Harte
+  33. Hay
+  34. Howells
+  35. James
+  36. Jewett
+  37. Johnston
+  38. Kirk
+  39. Kirkland
+  40. Murfree
+  41. Phillips
+  42. Smith
+  43. Stowe
+  44. Tarkington
+  45. Thaxter
+  46. Wallace
+  47. Ward
+  48. Woolson
+  49. Zangwill
+
+
+Column: gender 
+------------------------------ 
+Total unique values: 2 
+Unique values:
+  1. F
+  2. M
+NULL values: 37 
+
+
+Column: book_title 
+------------------------------ 
+Total unique values: 510 
+First 25 unique values:
+  1. A Boy's Town
+  2. A Chance Acquaintance
+  3. A Chariot of Fire
+  4. A Counterfeit Presentment
+  5. A Country Doctor
+  6. A Daughter of Eve
+  7. A Day at Laguerre's
+  8. A Fearful Responsibility
+  9. A First Family of Tasajara
+  10. A Foregone Conclusion
+  11. A Gentleman Vagabond
+  12. A Gentleman of Leisure
+  13. A Hopeless Case
+  14. A House-Hunter in Europe
+  15. A Humble Romance & Other Stories
+  16. A Lesson in Love
+  17. A Likely Story
+  18. A Little Tour in France
+  19. A London Life
+  20. A Marsh Island
+  21. A Midsummer Madness
+  22. A Millionaire of Rough-and-Ready
+  23. A Modern Instance
+  24. A Native of Winby
+  25. A New England Nun
+  ... and 485 more values
+
+Last 25 unique values:
+  486. Understudies
+  487. Unexpected Guests
+  488. Venetian Life
+  489. Vergilius
+  490. Victor Ollmer's Discipline
+  491. Walford
+  492. Walled In
+  493. Washington Square
+  494. Watch and Ward
+  495. We and Our Neighbors
+  496. Westerfelt
+  497. What Maisie Knew
+  498. Where the Battle Was Fought
+  499. Where the Laborers are Few
+  500. Whilomville Stories
+  501. Wife of His Youth
+  502. William Wetmore Story and His Friends
+  503. Winning Lady
+  504. With the Procession
+  505. Within the Gates
+  506. World of Chance
+  507. Young Lucretia & Other Stories
+  508. Young Maids and Old
+  509. Young Mountaineers
+  510. Zury: The Meanest Man in Spring County
+
+
+Column: genre 
+------------------------------ 
+Total unique values: 9 
+Unique values:
+  1. A
+  2. C
+  3. D
+  4. E
+  5. M
+  6. N
+  7. P
+  8. S
+  9. T
+NULL values: 4 
+
+
+Column: binding 
+------------------------------ 
+Total unique values: 2 
+Unique values:
+  1. C
+  2. P
+NULL values: 15 
+
+
+Column: notes 
+------------------------------ 
+Total unique values: 122 
+First 25 unique values:
+  1. $1000 advance
+  2. $1000 advanced
+  3. $121 royalty advance (647 copies)
+  4. $121 royalty advance (807 copies)
+  5. $1212 royalty advance (6466 copies)
+  6. $1334 paid for serial rights
+  7. $150 advance on royalties (575 copies)
+  8. $150 paid for all rights
+  9. $1500 pd advance on 10,000 copies
+  10. $1500 serial rights
+  11. $1500 serial rights for use in Harper's Weekly; sliding scale royalty
+  12. $160 royalty advance (1067 copies)
+  13. $160 royalty advance (711 copies)
+  14. $1940 = 5 year lease on copyright; 20% payable thereafter
+  15. $1940 royalty advance (4311 copies)
+  16. $200 (?)
+  17. $200 pd later on first 1000 copies originally exempt
+  18. $2000 serial rights, England and America
+  19. $218 royalty advance  (970 copies)
+  20. $245 royalty advance  (1000 copies @ 15%; 67 copies @ 20%))
+  21. $245 royalty advance (1078 copies)
+  22. $245 royalty advance (1088 copies)
+  23. $245 royalty advance (1307 copies)
+  24. $245 royalty advance (1616 copies)
+  25. $250 advance
+  ... and 97 more values
+
+Last 25 unique values:
+  98. first 1000 exempt?
+  99. first 300 exempt from royalty
+  100. half profits = 29.95 Sept - Dec 1866
+  101. large paper edition limited to 400 copies
+  102. lease of copyright from British publisher (Blackwood)
+  103. microfilm illegible
+  104. net price
+  105. no royalty paid on copies after 1882; sheet stock imported from Macmillan of 1879 revised text;
+  106. plates & stock sold to WDH, 6/7/1884
+  107. price reduced to $1.25 in 1890s?
+  108. published under pseudonym "Virginia Demarest"
+  109. royalty increased to 20% after 1906
+  110. royalty is 25 cents per set
+  111. royalty reduced to reflect lower price of .75 after 1901
+  112. royalty reduced to reflect lower price of 1.50 after 1880
+  113. sales extrapolated from summary figure
+  114. sales figures redacted from sheet stock records
+  115. see London Ledger
+  116. serialized Atlantic Monthly 1868-70
+  117. sliding scale 15% to 20,000; 20% thereafter
+  118. sliding scale added after 1892
+  119. sliding scale contract 15% to 15,000; 20% thereafter
+  120. sliding scale royalty
+  121. split with T.S. Perry
+  122. uncut paper edition, limited to 300 copies
+NULL values: 435 
+
+
+Column: retail_price 
+------------------------------ 
+Total unique values: 27 
+Unique values:
+  1. 0
+  2. 0.2
+  3. 0.25
+  4. 0.3
+  5. 0.4
+  6. 0.5
+  7. 0.6
+  8. 0.75
+  9. 1
+  10. 1.15
+  11. 1.2
+  12. 1.25
+  13. 1.3
+  14. 1.35
+  15. 1.4
+  16. 1.5
+  17. 1.75
+  18. 2
+  19. 2.25
+  20. 2.5
+  21. 3
+  22. 3.5
+  23. 3.75
+  24. 4
+  25. 5
+  26. 5.75
+  27. 7.5
+NULL values: 4 
+
+
+Column: royalty_rate 
+------------------------------ 
+Total unique values: 16 
+Unique values:
+  1. 0
+  2. 0.025
+  3. 0.05
+  4. 0.057
+  5. 0.0666
+  6. 0.1
+  7. 0.12
+  8. 0.125
+  9. 0.15
+  10. 0.166
+  11. 0.18
+  12. 0.2
+  13. 0.25
+  14. 0.3
+  15. 0.5
+  16. 0.55
+NULL values: 88 
+
+
+Column: contract_terms 
+------------------------------ 
+Total unique values: 44 
+Unique values:
+  1. 10% to 10,000 / 15%
+  2. 10% to 3000 / 12-1/2% to 5000 / 15%
+  3. 10% to 3000 / 15% thereafter
+  4. 10% to 5000 /  12-1/2% to 10000 / 15%
+  5. 10% to 5000 / 15% to 25000 / 20%
+  6. 15% royalty payable at least by 1900
+  7. 15% royalty pd at least by 1900
+  8. 15% to 25,000 / 20%
+  9. 15% to 25,000 / 20% thereafter
+  10. 15% to 5000 / 20% thereafter
+  11. 1900 data = July-Dec
+  12. Correspondence RE contracts
+  13. Harper Book Contracts
+  14. Harper Contract Books
+  15. Harper Contract Books; WDH contract files
+  16. Harper Contract books
+  17. Harper Memo
+  18. Harper Memo, 2-1892
+  19. Harper Memo, 2-23-1892
+  20. Harper Royalty Ledger
+  21. Harper Royalty Ledgers
+  22. Harper contract Books
+  23. Harper contract books
+  24. Harper contract books vol 9
+  25. Harper contracts, A7: 75-76
+  26. Harper contracts, A8: 264
+  27. Harper memo
+  28. Harper royalty ledgers
+  29. Houghton Mifflin Archive
+  30. Houghton Mifflin Co. Tin Box
+  31. Houghton Mifflin Copyright Accounts, Harvard
+  32. International Book Co. Bibliography
+  33. Memo Feb. 1892
+  34. Memo of Agreement, 2-23-1892
+  35. Memo of agreement, WDH & Harpers, 10-6-1885
+  36. WDH Contract file
+  37. WDH Papers, Harvard
+  38. WDH contract file
+  39. WDH contract file; Harper Royalty Ledgers
+  40. WDH contract file; Harper royalty ledgers
+  41. WDH contracts file
+  42. data for 1900 = July-Dec
+  43. originally published under pseudonym of "Henry Hayes"
+  44. serial payments made for syndication: $212.50
+NULL values: 538 
+
+
+Column: publisher 
+------------------------------ 
+Total unique values: 26 
+Unique values:
+  1. All copyrights assigned to Houghton, Mifflin after 1878; Harte paid lump sums of $300 for all rights in each future work
+  2. Century Co.
+  3. Fields, Osgood
+  4. Grosset & Dunlap
+  5. Harper
+  6. Harper & Brothers
+  7. Harper &Brothers
+  8. Harper and Bros.
+  9. Harper and Brothers
+  10. Herbert S. Stone
+  11. Houghton
+  12. Houghton Mifflin
+  13. Houghton, Mifflin
+  14. Houghton, Osgood
+  15. Houghton-Mifflin
+  16. Hougthon
+  17. Hougton, Mifflin
+  18. Houhgton, Mifflin
+  19. Hurd & Houghton
+  20. J. R. Osgood & Co.
+  21. Macmillan (NY)
+  22. Osgood, McIlvaine
+  23. R.H. Russell
+  24. Scibner's
+  25. Scribner's
+  26. Ticknor & Co.
+NULL values: 149 
+
+
+Column: publication_year 
+------------------------------ 
+Total unique values: 58 
+First 25 unique values:
+  1. 1843
+  2. 1851
+  3. 1852
+  4. 1853
+  5. 1859
+  6. 1862
+  7. 1866
+  8. 1867
+  9. 1869
+  10. 1870
+  11. 1871
+  12. 1872
+  13. 1873
+  14. 1874
+  15. 1875
+  16. 1876
+  17. 1877
+  18. 1878
+  19. 1879
+  20. 1880
+  21. 1881
+  22. 1882
+  23. 1883
+  24. 1884
+  25. 1885
+  ... and 33 more values
+
+Last 25 unique values:
+  34. 1894
+  35. 1895
+  36. 1896
+  37. 1897
+  38. 1898
+  39. 1899
+  40. 1900
+  41. 1901
+  42. 1902
+  43. 1903
+  44. 1904
+  45. 1905
+  46. 1906
+  47. 1907
+  48. 1908
+  49. 1909
+  50. 1910
+  51. 1911
+  52. 1912
+  53. 1913
+  54. 1914
+  55. 1915
+  56. 1916
+  57. 1917
+  58. 1918
+NULL values: 7 
+
+
+Column: created_at 
+------------------------------ 
+Total unique values: 1 
+Unique values:
+  1. 2025-05-25 09:56:00.14399
+
+
+Column: updated_at 
+------------------------------ 
+Total unique values: 1 
+Unique values:
+  1. 2025-05-25 09:56:00.14399
+
+
+
+
+TABLE: BOOK_SALES 
+======================================== 
+
+Column: sale_id 
+------------------------------ 
+Total unique values: 27771 
+First 25 unique values:
+  1. 27772
+  2. 27773
+  3. 27774
+  4. 27775
+  5. 27776
+  6. 27777
+  7. 27778
+  8. 27779
+  9. 27780
+  10. 27781
+  11. 27782
+  12. 27783
+  13. 27784
+  14. 27785
+  15. 27786
+  16. 27787
+  17. 27788
+  18. 27789
+  19. 27790
+  20. 27791
+  21. 27792
+  22. 27793
+  23. 27794
+  24. 27795
+  25. 27796
+  ... and 27746 more values
+
+Last 25 unique values:
+  27747. 55518
+  27748. 55519
+  27749. 55520
+  27750. 55521
+  27751. 55522
+  27752. 55523
+  27753. 55524
+  27754. 55525
+  27755. 55526
+  27756. 55527
+  27757. 55528
+  27758. 55529
+  27759. 55530
+  27760. 55531
+  27761. 55532
+  27762. 55533
+  27763. 55534
+  27764. 55535
+  27765. 55536
+  27766. 55537
+  27767. 55538
+  27768. 55539
+  27769. 55540
+  27770. 55541
+  27771. 55542
+
+
+Column: book_id 
+------------------------------ 
+Total unique values: 606 
+First 25 unique values:
+  1. ACIB1898A
+  2. ACIB1898B
+  3. BH1870A
+  4. BH1873A
+  5. BH1875A
+  6. BH1877A
+  7. BH1878A
+  8. BH1878B
+  9. BH1879A
+  10. BH1882A
+  11. BH1883A
+  12. BH1884A
+  13. BH1885A
+  14. BH1885B
+  15. BH1886A
+  16. BH1887A
+  17. BH1887B
+  18. BH1887C
+  19. BH1887D
+  20. BH1888A
+  21. BH1889A
+  22. BH1889B
+  23. BH1890A
+  24. BH1890B
+  25. BH1891A
+  ... and 581 more values
+
+Last 25 unique values:
+  582. WH1908A
+  583. WH1909A
+  584. WH1910A
+  585. WH1910B
+  586. WH1911A
+  587. WHB1879A
+  588. WHB1883A
+  589. WHB1884A
+  590. WHB1884B
+  591. WHB1885A
+  592. WHB1887A
+  593. WHB1893A
+  594. WSC1912A
+  595. WSC1913A
+  596. WSC1915A
+  597. WSC1918A
+  598. ZG1910A
+  599. ZG1910B
+  600. ZG1911A
+  601. ZG1911B
+  602. ZG1912A
+  603. ZG1912B
+  604. ZG1913A
+  605. ZG1914A
+  606. ZG1915A
+
+
+Column: year 
+------------------------------ 
+Total unique values: 58 
+First 25 unique values:
+  1. 1863
+  2. 1864
+  3. 1865
+  4. 1866
+  5. 1867
+  6. 1868
+  7. 1869
+  8. 1870
+  9. 1871
+  10. 1872
+  11. 1873
+  12. 1874
+  13. 1875
+  14. 1876
+  15. 1877
+  16. 1878
+  17. 1879
+  18. 1880
+  19. 1881
+  20. 1882
+  21. 1883
+  22. 1884
+  23. 1885
+  24. 1886
+  25. 1887
+  ... and 33 more values
+
+Last 25 unique values:
+  34. 1896
+  35. 1897
+  36. 1898
+  37. 1899
+  38. 1900
+  39. 1901
+  40. 1902
+  41. 1903
+  42. 1904
+  43. 1905
+  44. 1906
+  45. 1907
+  46. 1908
+  47. 1909
+  48. 1910
+  49. 1911
+  50. 1912
+  51. 1913
+  52. 1914
+  53. 1915
+  54. 1916
+  55. 1917
+  56. 1918
+  57. 1919
+  58. 1920
+
+
+Column: sales_count 
+------------------------------ 
+Total unique values: 1668 
+First 25 unique values:
+  1. -1545
+  2. -1504
+  3. -1460
+  4. -1409
+  5. -1262
+  6. -1209
+  7. -1193
+  8. -1154
+  9. -1035
+  10. -1006
+  11. -984
+  12. -983
+  13. -900
+  14. -850
+  15. -792
+  16. -700
+  17. -693
+  18. -675
+  19. -673
+  20. -600
+  21. -564
+  22. -552
+  23. -523
+  24. -500
+  25. -447
+  ... and 1643 more values
+
+Last 25 unique values:
+  1644. 36100
+  1645. 37971
+  1646. 38687
+  1647. 39256
+  1648. 43819
+  1649. 43961
+  1650. 44436
+  1651. 46003
+  1652. 46100
+  1653. 53407
+  1654. 57007
+  1655. 57051
+  1656. 63759
+  1657. 66716
+  1658. 68906
+  1659. 71044
+  1660. 75320
+  1661. 86617
+  1662. 94163
+  1663. 103785
+  1664. 128063
+  1665. 155791
+  1666. 258684
+  1667. 265367
+  1668. 305989
+
+
+Column: sales_limit 
+------------------------------ 
+No unique values found (all values are NULL)
+NULL values: 27771 
+
+
+Column: sales_rate 
+------------------------------ 
+No unique values found (all values are NULL)
+NULL values: 27771 
+
+
+Column: created_at 
+------------------------------ 
+Total unique values: 28 
+Unique values:
+  1. 2025-05-25 09:56:00.26564
+  2. 2025-05-25 09:56:00.317328
+  3. 2025-05-25 09:56:00.356535
+  4. 2025-05-25 09:56:00.398957
+  5. 2025-05-25 09:56:00.442086
+  6. 2025-05-25 09:56:00.487641
+  7. 2025-05-25 09:56:00.534491
+  8. 2025-05-25 09:56:00.580003
+  9. 2025-05-25 09:56:00.624481
+  10. 2025-05-25 09:56:00.665076
+  11. 2025-05-25 09:56:00.705481
+  12. 2025-05-25 09:56:00.748263
+  13. 2025-05-25 09:56:00.798294
+  14. 2025-05-25 09:56:00.841445
+  15. 2025-05-25 09:56:00.886252
+  16. 2025-05-25 09:56:00.929173
+  17. 2025-05-25 09:56:00.974728
+  18. 2025-05-25 09:56:01.022163
+  19. 2025-05-25 09:56:01.065312
+  20. 2025-05-25 09:56:01.107964
+  21. 2025-05-25 09:56:01.1521
+  22. 2025-05-25 09:56:01.198261
+  23. 2025-05-25 09:56:01.243312
+  24. 2025-05-25 09:56:01.286271
+  25. 2025-05-25 09:56:01.327104
+  26. 2025-05-25 09:56:01.374591
+  27. 2025-05-25 09:56:01.41745
+  28. 2025-05-25 09:56:01.458437
+
+
+Column: updated_at 
+------------------------------ 
+Total unique values: 28 
+Unique values:
+  1. 2025-05-25 09:56:00.26564
+  2. 2025-05-25 09:56:00.317328
+  3. 2025-05-25 09:56:00.356535
+  4. 2025-05-25 09:56:00.398957
+  5. 2025-05-25 09:56:00.442086
+  6. 2025-05-25 09:56:00.487641
+  7. 2025-05-25 09:56:00.534491
+  8. 2025-05-25 09:56:00.580003
+  9. 2025-05-25 09:56:00.624481
+  10. 2025-05-25 09:56:00.665076
+  11. 2025-05-25 09:56:00.705481
+  12. 2025-05-25 09:56:00.748263
+  13. 2025-05-25 09:56:00.798294
+  14. 2025-05-25 09:56:00.841445
+  15. 2025-05-25 09:56:00.886252
+  16. 2025-05-25 09:56:00.929173
+  17. 2025-05-25 09:56:00.974728
+  18. 2025-05-25 09:56:01.022163
+  19. 2025-05-25 09:56:01.065312
+  20. 2025-05-25 09:56:01.107964
+  21. 2025-05-25 09:56:01.1521
+  22. 2025-05-25 09:56:01.198261
+  23. 2025-05-25 09:56:01.243312
+  24. 2025-05-25 09:56:01.286271
+  25. 2025-05-25 09:56:01.327104
+  26. 2025-05-25 09:56:01.374591
+  27. 2025-05-25 09:56:01.41745
+  28. 2025-05-25 09:56:01.458437
+
+
+
+

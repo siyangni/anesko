@@ -8,7 +8,7 @@ library(DBI)
 library(RPostgreSQL)
 
 # Source database configuration
-source("scripts/config/database_config.R")  # You'll create this
+source("scripts/config/database_config.R")
 
 # Connect to database
 con <- dbConnect(
