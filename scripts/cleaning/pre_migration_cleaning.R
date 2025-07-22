@@ -2,12 +2,24 @@
 library(pacman)
 p_load(readxl, dplyr, tidyr, stringr)
 
-# Path to Excel file
-excel_file <- "~/anesko/data/original/anesko_db_original.xlsx"
+# Set working directory to project root if not already there
+if (!file.exists("data/original/anesko_db_original.xlsx")) {
+  # Try to find project root by looking for the data directory
+  if (file.exists("../../data/original/anesko_db_original.xlsx")) {
+    setwd("../..")
+  } else if (file.exists("../data/original/anesko_db_original.xlsx")) {
+    setwd("..")
+  } else {
+    stop("Cannot find project root. Please run this script from the project root directory or ensure data/original/anesko_db_original.xlsx exists")
+  }
+}
+
+# Path to Excel file (relative to project root)
+excel_file <- "data/original/anesko_db_original.xlsx"
 
 # Check if file exists
 if (!file.exists(excel_file)) {
-  stop("Excel file not found. Please ensure the file is in the data/ directory")
+  stop("Excel file not found. Please ensure the file is in the data/original/ directory")
 }
 
 # Read Excel sheets
@@ -17,9 +29,14 @@ book_sales <- read_excel(excel_file, sheet = "Book_Sales_Table")
 cat("Found", nrow(book_entries), "book entries\n")
 cat("Found", nrow(book_sales), "sales records\n")
 
+# Create cleaned data directory if it doesn't exist
+if (!dir.exists("data/cleaned")) {
+  dir.create("data/cleaned", recursive = TRUE)
+}
+
 # Export the original data frames to CSV files (before cleaning)
-write.csv(book_entries, "~/anesko/data/cleaned/book_entries_original.csv", row.names = FALSE)
-write.csv(book_sales, "~/anesko/data/cleaned/book_sales.csv", row.names = FALSE)
+write.csv(book_entries, "data/cleaned/book_entries_original.csv", row.names = FALSE)
+write.csv(book_sales, "data/cleaned/book_sales.csv", row.names = FALSE)
 
 # Clean and prepare book_entries data
 
@@ -121,7 +138,7 @@ cat("Publishers after recoding:\n")
 print(table(book_entries$Publisher, useNA = "ifany"))
 
 # Export the cleaned book_entries data frame to a new CSV file
-write.csv(book_entries, "~/anesko/data/cleaned/book_entries_recoded.csv", row.names = FALSE)
+write.csv(book_entries, "data/cleaned/book_entries_recoded.csv", row.names = FALSE)
 cat("\nCleaned data exported to book_entries_recoded.csv\n")
 
 # ===============================================================================
@@ -135,19 +152,140 @@ print(table(book_entries$Genre, useNA = "ifany"))
 # Recode Genre column
 book_entries <- book_entries %>%
   mutate(Genre = case_when(
-    Genre == "C" ~ "cloth",
-    Genre == "P" ~ "paper",
-    Genre == "D" ~ "deluxe",
-    Genre == "I" ~ "illustrated", 
-    Genre == "R" ~ "cheap reprint",
+    Genre == "A" ~ "Anthology",
+    Genre == "C" ~ "Children's Literature/Juvenile",
+    Genre == "D" ~ "Drama",
+    Genre == "E" ~ "Essay/Other Non-Fiction",
+    Genre == "N" ~ "Novel",
+    Genre == "M" ~ "Memoir",
+    Genre == "S" ~ "Short Story Collection/Novella",
+    Genre == "T" ~ "Travel",
+    Genre == "P" ~ "Poetry",  # Added poetry for P values
     TRUE ~ Genre  # Keep any other values as they are
   ))
 
 cat("\nGenre values after recoding:\n")
 print(table(book_entries$Genre, useNA = "ifany"))
 
+# ===============================================================================
+# BINDING RECODING
+# ===============================================================================
+
+cat("\n=== BINDING RECODING ===\n")
+cat("Original Binding values:\n")
+print(table(book_entries$Binding, useNA = "ifany"))
+
+# Recode Binding column
+book_entries <- book_entries %>%
+  mutate(Binding = case_when(
+    Binding == "C" ~ "Cloth",
+    Binding == "P" ~ "Paper",
+    Binding == "D" ~ "Deluxe",
+    Binding == "I" ~ "Illustrated",
+    Binding == "R" ~ "Reprint",
+    TRUE ~ Binding  # Keep any other values as they are
+  ))
+
+cat("\nBinding values after recoding:\n")
+print(table(book_entries$Binding, useNA = "ifany"))
+
+# ===============================================================================
+# GENDER RECODING
+# ===============================================================================
+
+cat("\n=== GENDER RECODING ===\n")
+cat("Original Gender values:\n")
+print(table(book_entries$Gender, useNA = "ifany"))
+
+# Recode Gender column
+book_entries <- book_entries %>%
+  mutate(Gender = case_when(
+    Gender == "M" ~ "Male",
+    Gender == "F" ~ "Female",
+    TRUE ~ Gender  # Keep any other values as they are
+  ))
+
+cat("\nGender values after recoding:\n")
+print(table(book_entries$Gender, useNA = "ifany"))
+
+# ===============================================================================
+# PUBLISHER FIELD CLEANUP
+# ===============================================================================
+
+cat("\n=== PUBLISHER FIELD CLEANUP ===\n")
+cat("Original Publisher values (showing long entries):\n")
+
+# Show publishers longer than 50 characters before cleanup
+long_publishers <- book_entries$Publisher[!is.na(book_entries$Publisher) & nchar(book_entries$Publisher) > 50]
+if (length(long_publishers) > 0) {
+  unique_long <- unique(long_publishers)
+  for (i in seq_along(unique_long)) {
+    pub <- unique_long[i]
+    count <- sum(book_entries$Publisher == pub, na.rm = TRUE)
+    cat("   ", i, ". (", nchar(pub), " chars, ", count, " books): '",
+        substr(pub, 1, 80), if(nchar(pub) > 80) "..." else "", "'\n", sep = "")
+  }
+} else {
+  cat("   No publishers longer than 50 characters found\n")
+}
+
+# Clean up publisher field by moving note-like entries to notes
+book_entries <- book_entries %>%
+  mutate(
+    # Create new notes by combining existing notes with publisher context
+    Notes = case_when(
+      # For the long Harte copyright note
+      Publisher == "All copyrights assigned to Houghton, Mifflin after 1878; Harte paid lump sums of $300 for all rights in each future work" ~
+        if_else(is.na(Notes) | Notes == "",
+                "All copyrights assigned to Houghton, Mifflin after 1878; Harte paid lump sums of $300 for all rights in each future work",
+                paste(Notes, "All copyrights assigned to Houghton, Mifflin after 1878; Harte paid lump sums of $300 for all rights in each future work", sep = "; ")),
+
+      # For Houghton Mifflin predecessor note
+      Publisher == "Houghton Mifflin (and predecessor / joint imprints)" ~
+        if_else(is.na(Notes) | Notes == "",
+                "Published under Houghton Mifflin and predecessor/joint imprints",
+                paste(Notes, "Published under Houghton Mifflin and predecessor/joint imprints", sep = "; ")),
+
+      # For Hurd & Houghton predecessor note
+      Publisher == "Hurd & Houghton (pre-1878 predecessor)" ~
+        if_else(is.na(Notes) | Notes == "",
+                "Pre-1878 predecessor to Houghton Mifflin",
+                paste(Notes, "Pre-1878 predecessor to Houghton Mifflin", sep = "; ")),
+
+      # Keep existing notes for all other cases
+      TRUE ~ Notes
+    ),
+
+    # Clean up publisher names
+    Publisher = case_when(
+      Publisher == "All copyrights assigned to Houghton, Mifflin after 1878; Harte paid lump sums of $300 for all rights in each future work" ~ "Houghton, Mifflin",
+      Publisher == "Houghton Mifflin (and predecessor / joint imprints)" ~ "Houghton Mifflin",
+      Publisher == "Hurd & Houghton (pre-1878 predecessor)" ~ "Hurd & Houghton",
+      TRUE ~ Publisher
+    )
+  )
+
+cat("\nPublisher cleanup completed:\n")
+
+# Show publishers longer than 50 characters after cleanup
+long_publishers_after <- book_entries$Publisher[!is.na(book_entries$Publisher) & nchar(book_entries$Publisher) > 50]
+if (length(long_publishers_after) > 0) {
+  cat("   ⚠️  Still found", length(unique(long_publishers_after)), "publishers longer than 50 characters\n")
+} else {
+  cat("   ✅ No publishers longer than 50 characters found\n")
+}
+
+# Show updated publisher distribution (top 10)
+cat("\nTop 10 publishers after cleanup:\n")
+publisher_dist <- table(book_entries$Publisher, useNA = "ifany")
+publisher_sorted <- sort(publisher_dist, decreasing = TRUE)
+top_publishers <- head(publisher_sorted, 10)
+for (i in seq_along(top_publishers)) {
+  cat("   ", i, ". ", names(top_publishers)[i], ": ", top_publishers[i], " books\n", sep = "")
+}
+
 # Export the final cleaned book_entries data frame
-write.csv(book_entries, "~/anesko/data/cleaned/book_entries_final.csv", row.names = FALSE)
+write.csv(book_entries, "data/cleaned/book_entries_final.csv", row.names = FALSE)
 cat("\nFinal cleaned data exported to book_entries_final.csv\n")
 
 # ===============================================================================
@@ -173,6 +311,10 @@ cat("Reshaped book_sales_long dimensions:", dim(book_sales_long), "\n")
 cat("Year range:", min(book_sales_long$year, na.rm = TRUE), "to", max(book_sales_long$year, na.rm = TRUE), "\n")
 cat("Sample of reshaped data:\n")
 print(head(book_sales_long, 10))
+
+# Export the reshaped book_sales_long data
+write.csv(book_sales_long, "data/cleaned/book_sales_long.csv", row.names = FALSE)
+cat("\nReshaped book sales data exported to book_sales_long.csv\n")
 
 # ===============================================================================
 # RESTRUCTURE ROYALTY DATA FOR INCOME CALCULATIONS
@@ -319,7 +461,7 @@ if(nrow(multi_tier_books) > 0) {
 }
 
 # Export the corrected royalty structure
-write.csv(royalty_tiers, "~/anesko/data/cleaned/royalty_tiers_corrected.csv", row.names = FALSE)
+write.csv(royalty_tiers, "data/cleaned/royalty_tiers_corrected.csv", row.names = FALSE)
 cat("\nCorrected royalty tiers data exported to royalty_tiers_corrected.csv\n")
 
 

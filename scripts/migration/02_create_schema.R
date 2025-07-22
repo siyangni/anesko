@@ -33,7 +33,7 @@ dbExecute(con, "
 CREATE TABLE book_entries (
   book_id VARCHAR(50) PRIMARY KEY,
   author_surname VARCHAR(255),
-  gender CHAR(1) CHECK (gender IN ('M', 'F')),
+  gender VARCHAR(10) CHECK (gender IN ('Male', 'Female')),
   book_title TEXT,
   genre VARCHAR(100),
   binding VARCHAR(50),
@@ -55,7 +55,7 @@ dbExecute(con, "CREATE INDEX idx_gender ON book_entries(gender)")
 dbExecute(con, "CREATE INDEX idx_publisher ON book_entries(publisher)")
 dbExecute(con, "CREATE INDEX idx_publication_year ON book_entries(publication_year)")
 
-# Create book_sales table
+# Create book_sales table (for year-based sales data)
 cat("💰 Creating book_sales table...\n")
 dbExecute(con, "
 CREATE TABLE book_sales (
@@ -63,8 +63,6 @@ CREATE TABLE book_sales (
   book_id VARCHAR(50) REFERENCES book_entries(book_id) ON DELETE CASCADE,
   year INTEGER NOT NULL,
   sales_count INTEGER,
-  sales_limit INTEGER,
-  sales_rate DECIMAL(10,2),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT unique_book_year UNIQUE (book_id, year)
@@ -74,6 +72,28 @@ CREATE TABLE book_sales (
 # Create index on book_id and year
 dbExecute(con, "CREATE INDEX idx_book_year ON book_sales(book_id, year)")
 dbExecute(con, "CREATE INDEX idx_sales_year ON book_sales(year)")
+
+# Create royalty_tiers table (for royalty structure data)
+cat("📊 Creating royalty_tiers table...\n")
+dbExecute(con, "
+CREATE TABLE royalty_tiers (
+  tier_id SERIAL PRIMARY KEY,
+  book_id VARCHAR(50) REFERENCES book_entries(book_id) ON DELETE CASCADE,
+  tier INTEGER NOT NULL,
+  rate DECIMAL(10,4) NOT NULL,
+  lower_limit INTEGER NOT NULL,
+  upper_limit INTEGER,  -- NULL means infinite
+  sliding_scale BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT unique_book_tier UNIQUE (book_id, tier)
+)
+")
+
+# Create index on book_id and tier
+dbExecute(con, "CREATE INDEX idx_book_tier ON royalty_tiers(book_id, tier)")
+dbExecute(con, "CREATE INDEX idx_royalty_rate ON royalty_tiers(rate)")
+dbExecute(con, "CREATE INDEX idx_sliding_scale ON royalty_tiers(sliding_scale)")
 
 # Create update trigger for updated_at
 cat("⚡ Creating update triggers...\n")
@@ -94,8 +114,14 @@ FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 ")
 
 dbExecute(con, "
-CREATE TRIGGER update_book_sales_modtime 
-BEFORE UPDATE ON book_sales 
+CREATE TRIGGER update_book_sales_modtime
+BEFORE UPDATE ON book_sales
+FOR EACH ROW EXECUTE FUNCTION update_modified_column();
+")
+
+dbExecute(con, "
+CREATE TRIGGER update_royalty_tiers_modtime
+BEFORE UPDATE ON royalty_tiers
 FOR EACH ROW EXECUTE FUNCTION update_modified_column();
 ")
 
@@ -145,9 +171,15 @@ book_sales_info <- dbGetQuery(con, "
 ")
 print(book_sales_info)
 
+cat("\n--- royalty_tiers ---\n")
+royalty_tiers_info <- dbGetQuery(con, "
+  SELECT column_name, data_type, character_maximum_length, is_nullable
+  FROM information_schema.columns
+  WHERE table_name = 'royalty_tiers'
+  ORDER BY ordinal_position
+")
+print(royalty_tiers_info)
+
 # Disconnect
 dbDisconnect(con)
 cat("\n✅ Schema creation complete!\n")
-
-
-

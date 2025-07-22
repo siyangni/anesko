@@ -7,8 +7,16 @@ library(RPostgreSQL)
 
 # Database configuration (TEMPLATE - do not commit actual credentials)
 # Create your actual database config file (not tracked by git)
-# Create database config file with template values
-cat('db_config <- list(
+
+# Only create template config file if it doesn't exist (don't overwrite existing config)
+if (!file.exists("scripts/config/database_config.R")) {
+  # Create config directory if it doesn't exist
+  if (!dir.exists("scripts/config")) {
+    dir.create("scripts/config", recursive = TRUE)
+  }
+
+  # Create database config file with template values
+  cat('db_config <- list(
   host = "localhost",
   dbname = "american_authorship",
   user = "your_username",  # Replace with your actual username
@@ -16,10 +24,14 @@ cat('db_config <- list(
 )
 ', file = "scripts/config/database_config.R")
 
-cat("\n📝 Instructions for setting up database credentials:\n")
-cat("1. Edit scripts/config/database_config.R with your actual credentials, OR\n")
-cat("2. Set environment variables: DB_USER, DB_PASSWORD, DB_HOST, DB_NAME\n")
-cat("   Example: export DB_USER=siyang DB_PASSWORD=yourpassword\n\n")
+  cat("\n📝 Template database config file created at scripts/config/database_config.R\n")
+  cat("📝 Instructions for setting up database credentials:\n")
+  cat("1. Edit scripts/config/database_config.R with your actual credentials, OR\n")
+  cat("2. Set environment variables: DB_USER, DB_PASSWORD, DB_HOST, DB_NAME\n")
+  cat("   Example: export DB_USER=siyang DB_PASSWORD=yourpassword\n\n")
+} else {
+  cat("📁 Using existing database config file: scripts/config/database_config.R\n")
+}
 
 # Test connection - try environment variables first, then config file
 if (Sys.getenv("DB_USER") != "" && Sys.getenv("DB_PASSWORD") != "") {
@@ -56,10 +68,10 @@ tryCatch({
 }, error = function(e) {
   cat("❌ Database connection failed!\n")
   cat("Error:", e$message, "\n")
+  stop("Database connection failed. Please check your configuration.")
 })
 
-# Exit R
-quit()
+cat("✅ Database setup completed successfully!\n")
 
 # Save the actual configuration in a file that's gitignored:
 # scripts/config/database_config.R (not tracked by git)
