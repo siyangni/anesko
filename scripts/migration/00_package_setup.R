@@ -11,12 +11,13 @@ install.packages(c(
 # Data manipulation and analysis
 install.packages(c(
   "dplyr",         # Data manipulation
-  "tidyr",         # Data tidying  
+  "tidyr",         # Data tidying
   "readxl",        # Reading Excel files
   "stringr",       # String manipulation
   "lubridate",     # Date manipulation
   "purrr",         # Functional programming
-  "glue"           # String interpolation
+  "glue",          # String interpolation
+  "here"           # Robust file paths
 ))
 
 # Visualization and Shiny

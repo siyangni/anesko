@@ -21,13 +21,34 @@ if (file.exists(".env")) {
 }
 
 # Database configuration using environment variables
-db_config <- list(
-  host = Sys.getenv("DB_HOST", "localhost"),
-  dbname = Sys.getenv("DB_NAME", "american_authorship"),
-  user = Sys.getenv("DB_USER", "siyang"),
-  password = Sys.getenv("DB_PASSWORD", ""),
-  port = as.numeric(Sys.getenv("DB_PORT", "5432"))
+# First try to load from local config file for development
+config_paths <- c(
+  "../../scripts/config/database_config.R",
+  "../scripts/config/database_config.R",
+  "scripts/config/database_config.R"
 )
+
+config_loaded <- FALSE
+for (config_path in config_paths) {
+  if (file.exists(config_path)) {
+    source(config_path)
+    cat("📁 Using local database config from", config_path, "\n")
+    config_loaded <- TRUE
+    break
+  }
+}
+
+if (!config_loaded) {
+  # Fallback to environment variables for production
+  db_config <- list(
+    host = Sys.getenv("DB_HOST", "localhost"),
+    dbname = Sys.getenv("DB_NAME", "american_authorship"),
+    user = Sys.getenv("DB_USER", "siyang"),
+    password = Sys.getenv("DB_PASSWORD", ""),
+    port = as.numeric(Sys.getenv("DB_PORT", "5432"))
+  )
+  cat("🌐 Using environment variables for database config\n")
+}
 
 # Validate configuration
 if (db_config$host == "localhost" || db_config$password == "") {

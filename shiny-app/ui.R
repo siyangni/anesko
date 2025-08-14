@@ -18,6 +18,8 @@ ui <- dashboardPage(
       menuItem("Explore Books", tabName = "books", icon = icon("book")),
       menuItem("Sales Analysis", tabName = "sales", icon = icon("chart-line")),
       menuItem("Author Analysis", tabName = "authors", icon = icon("users")),
+      menuItem("Author Networks", tabName = "networks", icon = icon("project-diagram")),
+      menuItem("Royalty Analysis", tabName = "royalties", icon = icon("money-bill")),
       menuItem("Genre Analysis", tabName = "genres", icon = icon("list")),
       br(),
       menuItem("About", tabName = "about", icon = icon("info-circle"))
@@ -86,7 +88,19 @@ ui <- dashboardPage(
         tabName = "authors",
         authorAnalysisUI("authors_module")
       ),
-      
+
+      # Author networks tab (NEW)
+      tabItem(
+        tabName = "networks",
+        authorNetworksUI("networks_module")
+      ),
+
+      # Royalty analysis tab (NEW)
+      tabItem(
+        tabName = "royalties",
+        royaltyAnalysisUI("royalties_module")
+      ),
+
       # Genre analysis tab
       tabItem(
         tabName = "genres",
@@ -129,8 +143,11 @@ ui <- dashboardPage(
                   br(),
                   h4("Coverage:"),
                   tags$ul(
-                    tags$li("630+ book entries with comprehensive metadata"),
+                    tags$li("690+ book entries with comprehensive metadata"),
                     tags$li("63 years of sales data (1858-1920)"),
+                    tags$li("Enhanced with unique author identification system"),
+                    tags$li("Expanded dataset including new 2024 entries"),
+                    tags$li("Advanced royalty tier analysis capabilities"),
                     tags$li("Focus on major publishers and commercially successful works")
                   ),
                   br(),

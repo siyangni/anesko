@@ -85,9 +85,9 @@ create_bar_plot <- function(data, x_col, y_col, fill_col = NULL,
   }
   
   p <- p +
-    labs(title = title, 
-         x = str_to_title(gsub("_", " ", x_col)), 
-         y = str_to_title(gsub("_", " ", y_col))) +
+    labs(title = title,
+         x = stringr::str_to_title(gsub("_", " ", x_col)),
+         y = stringr::str_to_title(gsub("_", " ", y_col))) +
     theme_authorship()
   
   if (orientation == "horizontal") {

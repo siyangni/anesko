@@ -8,24 +8,78 @@ export_royalty_tiers <- TRUE # Set to FALSE to skip exporting royalty tiers
 
 # Paths (robust to working directory)
 excel_file <- here::here("data/original/anesko_db_original.xlsx")
+excel_file_new <- here::here(
+  "data/original/anesko_db_original_aug_addition.xlsx"
+)
 cleaned_dir <- here::here("data/cleaned")
 
 # Check paths
 if (!file.exists(excel_file)) {
-  stop("Excel file not found. ",
-       "Please ensure the file is in the data/original/ directory")
+  stop("Original Excel file not found: ", excel_file)
+}
+if (!file.exists(excel_file_new)) {
+  stop("New Excel file not found: ", excel_file_new)
 }
 if (!dir.exists(cleaned_dir)) {
   dir.create(cleaned_dir, recursive = TRUE)
 }
 
-# Read Excel sheets
-book_entries <- read_excel(excel_file, sheet = "Book_Entry_Table")
-book_sales <- read_excel(excel_file, sheet = "Book_Sales_Table")
+# Read original Excel sheets
+book_entries_orig <- read_excel(excel_file, sheet = "Book_Entry_Table")
+book_sales_orig <- read_excel(excel_file, sheet = "Book_Sales_Table")
+
+# Read new Excel sheets
+book_entries_new <- read_excel(excel_file_new, sheet = "Book_Entry")
+book_sales_new <- read_excel(excel_file_new, sheet = "Sales_Table")
 
 if (verbose) {
-  cat("Found", nrow(book_entries), "book entries\n")
-  cat("Found", nrow(book_sales), "sales records\n")
+  cat("Original data:\n")
+  cat("  Book entries:", nrow(book_entries_orig), "\n")
+  cat("  Sales records:", nrow(book_sales_orig), "\n")
+  cat("New data:\n")
+  cat("  Book entries:", nrow(book_entries_new), "\n")
+  cat("  Sales records:", nrow(book_sales_new), "\n")
+}
+
+# Check for duplicate Book IDs between original and new data
+book_ids_orig <- book_entries_orig$`Book ID`
+book_ids_new <- book_entries_new$`Book ID`
+duplicates <- intersect(book_ids_orig, book_ids_new)
+
+if (length(duplicates) > 0) {
+  cat("WARNING: Found", length(duplicates), "duplicate Book IDs:\n")
+  cat("  ", paste(duplicates, collapse = ", "), "\n")
+  cat("Keeping original data for duplicates, skipping new entries\n")
+
+  # Remove duplicates from new data
+  book_entries_new <- book_entries_new[
+    !book_entries_new$`Book ID` %in% duplicates,
+  ]
+  book_sales_new <- book_sales_new[
+    !book_sales_new$book_ID %in% duplicates,
+  ]
+}
+
+# Ensure consistent data types before combining
+# Convert all character columns to character to avoid type conflicts
+book_entries_orig <- book_entries_orig %>%
+  mutate(across(everything(), as.character))
+book_entries_new <- book_entries_new %>%
+  mutate(across(everything(), as.character))
+
+book_sales_orig <- book_sales_orig %>%
+  mutate(across(everything(), as.character))
+book_sales_new <- book_sales_new %>%
+  mutate(across(everything(), as.character))
+
+# Combine original and new data
+book_entries <- bind_rows(book_entries_orig, book_entries_new)
+book_sales <- bind_rows(book_sales_orig, book_sales_new)
+
+if (verbose) {
+  cat("Combined data:\n")
+  cat("  Book entries:", nrow(book_entries), "\n")
+  cat("  Sales records:", nrow(book_sales), "\n")
 }
 
 
@@ -129,13 +183,21 @@ book_entries <- book_entries %>%
         "Scribner's", "Scibner's", "Scribners", "Scribner’s", "Scibner’s"
       ) ~ "Scribner's",
       Publisher %in% c("Ticknor & Co.", "Ticknor & Co") ~ "Ticknor & Co.",
-      Publisher %in% c("Century Co.", "The Century Co.", "Century Company") ~ "Century Co.",
+      Publisher %in% c(
+        "Century Co.", "The Century Co.", "Century Company"
+      ) ~ "Century Co.",
       Publisher %in% c("Macmillan (NY)", "Macmillan") ~ "Macmillan (NY)",
       Publisher == "Grosset & Dunlap" ~ "Grosset & Dunlap",
-      Publisher %in% c("R.H. Russell", "R. H. Russell", "R H Russell", "R.H.Russell") ~ "R. H. Russell",
+      Publisher %in% c(
+        "R.H. Russell", "R. H. Russell", "R H Russell", "R.H.Russell"
+      ) ~ "R. H. Russell",
       Publisher == "Herbert S. Stone" ~ "Herbert S. Stone",
-      Publisher %in% c("Houghton, Osgood", "Houghton, Osgood & Co.") ~ "Houghton, Osgood",
-      Publisher %in% c("J. R. Osgood & Co.", "J.R. Osgood & Co.") ~ "J. R. Osgood & Co.",
+      Publisher %in% c(
+        "Houghton, Osgood", "Houghton, Osgood & Co."
+      ) ~ "Houghton, Osgood",
+      Publisher %in% c(
+        "J. R. Osgood & Co.", "J.R. Osgood & Co."
+      ) ~ "J. R. Osgood & Co.",
       Publisher == "Osgood, McIlvaine" ~ "Osgood, McIlvaine",
       TRUE ~ Publisher
     )
@@ -156,23 +218,59 @@ cat("\n=== GENRE RECODING ===\n")
 cat("Original Genre values:\n")
 print(table(book_entries$Genre, useNA = "ifany"))
 
-# Recode Genre column
+# Recode Genre column with consistent standardization
 book_entries <- book_entries %>%
   mutate(Genre = case_when(
     Genre == "A" ~ "Anthology",
     Genre == "C" ~ "Children's Literature/Juvenile",
     Genre == "D" ~ "Drama",
     Genre == "E" ~ "Essay/Other Non-Fiction",
+    Genre == "essays" ~ "Essay/Other Non-Fiction",  # FIXED: Map to same category as "E"
+    Genre == "Essay" ~ "Essay/Other Non-Fiction",   # FIXED: Standardize existing "Essay" entries
     Genre == "N" ~ "Novel",
     Genre == "M" ~ "Memoir",
     Genre == "S" ~ "Short Story Collection/Novella",
     Genre == "T" ~ "Travel",
-    Genre == "P" ~ "Poetry",  # Added poetry for P values
+    Genre == "P" ~ "Poetry",
+    Genre == "J" ~ "Children's Literature/Juvenile",  # FIXED: Map legacy "J" code
     TRUE ~ Genre  # Keep any other values as they are
   ))
 
 cat("\nGenre values after recoding:\n")
 print(table(book_entries$Genre, useNA = "ifany"))
+
+# =============================================================================
+# AUTHOR ID CREATION
+# =============================================================================
+
+cat("\n=== CREATING AUTHOR ID ===\n")
+cat("Extracting author identifiers from Book ID...\n")
+
+# Extract author identifier from Book ID (letters before the year)
+# Also clean Notes field to prevent CSV parsing issues
+book_entries <- book_entries %>%
+  mutate(
+    # Clean Notes field - remove problematic characters that break CSV
+    Notes = if_else(
+      !is.na(Notes),
+      str_replace_all(Notes, '"', "'"),  # Replace quotes with apostrophes
+      Notes
+    ),
+    # Extract author identifier from Book ID (letters before the year)
+    author_id = str_extract(`Book ID`, "^[A-Za-z]+")
+  )
+
+if (verbose) {
+  cat("Sample author IDs:\n")
+  sample_ids <- book_entries %>%
+    select(`Book ID`, author_id, `Author Surname`) %>%
+    slice_head(n = 10)
+  print(sample_ids)
+
+  cat("\nUnique author IDs and their counts:\n")
+  author_id_counts <- table(book_entries$author_id)
+  print(head(sort(author_id_counts, decreasing = TRUE), 15))
+}
 
 # ===============================================================================
 # BINDING RECODING
@@ -216,11 +314,24 @@ cat("\nGender values after recoding:\n")
 print(table(book_entries$Gender, useNA = "ifany"))
 
 
+# Convert empty strings to NA for proper NULL handling in database
+book_entries <- book_entries %>%
+  mutate(across(where(is.character), ~ ifelse(.x == "", NA_character_, .x)))
+
+if (verbose) {
+  cat("Converted empty strings to NA for database NULL handling\n")
+}
+
 # Export cleaned book entries (canonicalized)
-write.csv(
+# Use write.table with specific quote settings to handle commas properly
+write.table(
   book_entries,
   file.path(cleaned_dir, "book_entry_cleaned.csv"),
-  row.names = FALSE
+  sep = ",",
+  row.names = FALSE,
+  col.names = TRUE,
+  quote = TRUE,  # Quote all fields to handle commas
+  na = ""        # Write NA as empty string (will be converted to NULL in DB)
 )
 
 # ===============================================================================

@@ -19,68 +19,48 @@ create_db_pool <- function() {
   })
 }
 
-# Safe database query with error handling
+# Safe database query with error handling (simplified for reliability)
 safe_db_query <- function(query, params = NULL) {
-  # First attempt with existing pool
-  result <- try_db_query(query, params)
-  
-  # If first attempt fails, try to reinitialize pool and retry once
-  if (is.null(result)) {
-    cat("Database query failed, attempting to reinitialize pool...\n")
-    
-    # Try to reinitialize the pool
-    new_pool <- tryCatch({
-      initialize_db_pool()
-    }, error = function(e) {
-      warning("Failed to reinitialize pool: ", e$message)
-      return(NULL)
-    })
-    
-    if (!is.null(new_pool)) {
-      assign("pool", new_pool, envir = .GlobalEnv)
-      # Retry the query with new pool
-      result <- try_db_query(query, params)
-    }
-  }
-  
-  # Return result or empty data frame
-  if (is.null(result)) {
-    warning("Database query failed after retry: ", query)
-    return(data.frame())
-  }
-  
-  return(result)
-}
-
-# Helper function to attempt a database query
-try_db_query <- function(query, params = NULL) {
   tryCatch({
-    # Check if pool exists and is valid
-    if (!exists("pool", envir = .GlobalEnv) || is.null(pool)) {
-      return(NULL)
-    }
-    
-    if (is.null(params)) {
-      pool::dbGetQuery(pool, query)
+    # Use direct connection instead of pool for reliability
+    if (exists("db_config") && !is.null(db_config)) {
+      con <- DBI::dbConnect(
+        RPostgreSQL::PostgreSQL(),
+        host = db_config$host,
+        dbname = db_config$dbname,
+        user = db_config$user,
+        password = db_config$password
+      )
+
+      result <- if (is.null(params)) {
+        DBI::dbGetQuery(con, query)
+      } else {
+        DBI::dbGetQuery(con, query, params = params)
+      }
+
+      DBI::dbDisconnect(con)
+      return(result)
     } else {
-      pool::dbGetQuery(pool, query, params = params)
+      warning("Database configuration not available")
+      return(data.frame())
     }
   }, error = function(e) {
-    warning("Database query attempt failed: ", e$message)
-    return(NULL)
+    warning("Database query failed: ", e$message)
+    return(data.frame())
   })
 }
+
 
 # Get summary statistics
 get_summary_stats <- function() {
   query <- "
-    SELECT 
+    SELECT
       (SELECT COUNT(*) FROM book_entries) as total_books,
       (SELECT COUNT(*) FROM book_sales) as total_sales_records,
       (SELECT COUNT(DISTINCT author_surname) FROM book_entries) as unique_authors,
       (SELECT COUNT(DISTINCT publisher) FROM book_entries WHERE publisher IS NOT NULL) as unique_publishers,
-      (SELECT MIN(year) FROM book_sales) as min_year,
-      (SELECT MAX(year) FROM book_sales) as max_year,
+      (SELECT MIN(publication_year) FROM book_entries WHERE publication_year IS NOT NULL) as min_year,
+      (SELECT MAX(publication_year) FROM book_entries WHERE publication_year IS NOT NULL) as max_year,
       (SELECT SUM(sales_count) FROM book_sales WHERE sales_count IS NOT NULL) as total_copies_sold
   "
   safe_db_query(query)
@@ -103,7 +83,7 @@ get_books_summary <- function() {
 }
 
 # Get sales data by year and genre
-get_sales_by_year_genre <- function(year_start = MIN_YEAR, year_end = MAX_YEAR) {
+get_sales_by_year_genre <- function(year_start = 1860, year_end = 1920) {
   query <- "
     SELECT 
       bs.year,
@@ -122,18 +102,19 @@ get_sales_by_year_genre <- function(year_start = MIN_YEAR, year_end = MAX_YEAR) 
   safe_db_query(query, params = list(year_start, year_end))
 }
 
-# Get author gender analysis
+# Get author gender analysis (updated for new schema)
 get_gender_analysis <- function() {
   query <- "
-    SELECT 
+    SELECT
       be.gender,
       COUNT(*) as book_count,
       COALESCE(SUM(bs.total_sales), 0) as total_sales,
       COALESCE(AVG(bs.total_sales), 0) as avg_sales_per_book,
-      COUNT(DISTINCT be.author_surname) as unique_authors
+      COUNT(DISTINCT be.author_surname) as unique_authors,
+      COUNT(DISTINCT be.author_id) as unique_author_ids
     FROM book_entries be
     LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
-    WHERE be.gender IN ('M', 'F')
+    WHERE be.gender IN ('Male', 'Female')
     GROUP BY be.gender
   "
   safe_db_query(query)
@@ -229,8 +210,8 @@ get_decade_summary <- function() {
 }
 
 # Search books
-search_books <- function(search_term = "", genre_filter = NULL, gender_filter = NULL, 
-                        year_range = c(MIN_YEAR, MAX_YEAR), publisher_filter = NULL) {
+search_books <- function(search_term = "", genre_filter = NULL, gender_filter = NULL,
+                        year_range = c(1860, 1920), publisher_filter = NULL) {
   
   where_conditions <- c("1=1")  # Base condition
   params <- list()
@@ -299,12 +280,128 @@ search_books <- function(search_term = "", genre_filter = NULL, gender_filter = 
   safe_db_query(query, params = params)
 }
 
-# Get unique values for filters
+# Get unique values for filters (updated for new schema)
 get_filter_options <- function() {
   list(
     genres = safe_db_query("SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"),
     publishers = safe_db_query("SELECT DISTINCT publisher FROM book_entries WHERE publisher IS NOT NULL ORDER BY publisher"),
     genders = safe_db_query("SELECT DISTINCT gender FROM book_entries WHERE gender IS NOT NULL ORDER BY gender"),
-    years = safe_db_query("SELECT MIN(publication_year) as min_year, MAX(publication_year) as max_year FROM book_entries")
+    years = safe_db_query("SELECT MIN(publication_year) as min_year, MAX(publication_year) as max_year FROM book_entries"),
+    author_ids = safe_db_query("SELECT DISTINCT author_id FROM book_entries WHERE author_id IS NOT NULL ORDER BY author_id")
   )
-} 
+}
+
+# NEW FUNCTIONS FOR ENHANCED DATABASE FEATURES
+
+# Get author analysis using new author_id field
+get_author_analysis <- function() {
+  query <- "
+    SELECT
+      be.author_id,
+      be.author_surname,
+      be.gender,
+      COUNT(*) as book_count,
+      MIN(be.publication_year) as first_publication,
+      MAX(be.publication_year) as last_publication,
+      COALESCE(SUM(bs.total_sales), 0) as total_sales,
+      COALESCE(AVG(bs.total_sales), 0) as avg_sales_per_book,
+      COALESCE(AVG(be.retail_price), 0) as avg_retail_price,
+      COALESCE(AVG(be.royalty_rate), 0) as avg_royalty_rate
+    FROM book_entries be
+    LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
+    WHERE be.author_id IS NOT NULL
+    GROUP BY be.author_id, be.author_surname, be.gender
+    HAVING COUNT(*) >= 2  -- Authors with multiple books
+    ORDER BY total_sales DESC
+  "
+  safe_db_query(query)
+}
+
+# Get books by specific author using author_id
+get_books_by_author <- function(author_id) {
+  query <- "
+    SELECT
+      be.book_id,
+      be.book_title,
+      be.genre,
+      be.binding,
+      be.publisher,
+      be.publication_year,
+      be.retail_price,
+      be.royalty_rate,
+      COALESCE(bs.total_sales, 0) as total_sales,
+      COALESCE(bs.years_with_sales, 0) as years_with_sales,
+      bs.first_sale_year,
+      bs.last_sale_year
+    FROM book_entries be
+    LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
+    WHERE be.author_id = $1
+    ORDER BY be.publication_year
+  "
+  safe_db_query(query, params = list(author_id))
+}
+
+# Get royalty tier analysis
+get_royalty_analysis <- function() {
+  query <- "
+    SELECT
+      rt.tier,
+      COUNT(*) as tier_count,
+      AVG(rt.rate) as avg_rate,
+      MIN(rt.rate) as min_rate,
+      MAX(rt.rate) as max_rate,
+      COUNT(DISTINCT rt.book_id) as unique_books,
+      AVG(rt.lower_limit) as avg_lower_limit,
+      AVG(rt.upper_limit) as avg_upper_limit
+    FROM royalty_tiers rt
+    GROUP BY rt.tier
+    ORDER BY rt.tier
+  "
+  safe_db_query(query)
+}
+
+# Get comprehensive book details with royalty tiers
+get_book_details <- function(book_id) {
+  # Get basic book info
+  book_query <- "
+    SELECT
+      be.*,
+      COALESCE(bs.total_sales, 0) as total_sales,
+      COALESCE(bs.years_with_sales, 0) as years_with_sales,
+      bs.first_sale_year,
+      bs.last_sale_year
+    FROM book_entries be
+    LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
+    WHERE be.book_id = $1
+  "
+
+  # Get royalty tiers
+  royalty_query <- "
+    SELECT
+      tier,
+      rate,
+      lower_limit,
+      upper_limit,
+      sliding_scale
+    FROM royalty_tiers
+    WHERE book_id = $1
+    ORDER BY tier
+  "
+
+  # Get sales time series
+  sales_query <- "
+    SELECT
+      year,
+      sales_count
+    FROM book_sales
+    WHERE book_id = $1
+      AND sales_count IS NOT NULL
+    ORDER BY year
+  "
+
+  list(
+    book_info = safe_db_query(book_query, params = list(book_id)),
+    royalty_tiers = safe_db_query(royalty_query, params = list(book_id)),
+    sales_timeseries = safe_db_query(sales_query, params = list(book_id))
+  )
+}

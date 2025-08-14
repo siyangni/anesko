@@ -1,35 +1,22 @@
 # Data Processing Utility Functions
 # Functions for data transformation, aggregation, and preparation
+# Updated for new PostgreSQL database schema with author_id and proper NULLs
 
-# Clean and standardize genre codes
+# Clean and standardize genre codes (updated for new database values)
 clean_genre <- function(genre) {
   # Handle vectors properly
   if (is.null(genre)) return("Other")
-  
-  # Standard mappings
-  genre_map <- c(
-    "F" = "Fiction",
-    "N" = "Non-fiction", 
-    "P" = "Poetry",
-    "D" = "Drama",
-    "J" = "Juvenile",
-    "S" = "Short Stories",
-    "B" = "Biography"
-  )
-  
-  # Return mapped value or "Other" - works with vectors
-  ifelse(is.na(genre) | genre == "" | is.null(genre), 
-         "Other", 
-         ifelse(genre %in% names(genre_map), genre_map[genre], "Other"))
+
+  # New database already has cleaned genre values:
+  # Novel, Poetry, Drama, Essay/Other Non-Fiction, etc.
+  # Just handle NULLs and return as-is
+  ifelse(is.na(genre) | is.null(genre), "Other", genre)
 }
 
-# Clean and standardize gender
+# Clean and standardize gender (updated for new database values)
 clean_gender <- function(gender) {
-  case_when(
-    gender == "M" ~ "Male",
-    gender == "F" ~ "Female", 
-    TRUE ~ "Unknown"
-  )
+  # New database already has "Male"/"Female" values, just handle NULLs
+  ifelse(is.na(gender) | is.null(gender), "Unknown", gender)
 }
 
 # Calculate royalty rate statistics
@@ -262,4 +249,154 @@ aggregate_by_period <- function(data, period = "year", date_col = "year") {
         .groups = "drop"
       )
   )
-} 
+}
+
+# =============================================================================
+# NEW FUNCTIONS FOR ENHANCED DATABASE FEATURES
+# =============================================================================
+
+# Process author data using new author_id field
+process_author_data <- function(author_data) {
+  if (nrow(author_data) == 0) return(data.frame())
+
+  author_data %>%
+    mutate(
+      # Career span
+      career_span = last_publication - first_publication + 1,
+
+      # Productivity metrics
+      books_per_year = ifelse(career_span > 0, book_count / career_span, book_count),
+
+      # Success categories
+      author_category = case_when(
+        book_count == 1 ~ "Single Publication",
+        book_count <= 3 ~ "Occasional Author (2-3 books)",
+        book_count <= 10 ~ "Regular Author (4-10 books)",
+        TRUE ~ "Prolific Author (10+ books)"
+      ),
+
+      # Sales performance
+      sales_performance = case_when(
+        total_sales == 0 ~ "No Sales",
+        total_sales < 5000 ~ "Low Sales",
+        total_sales < 20000 ~ "Moderate Sales",
+        total_sales < 100000 ~ "High Sales",
+        TRUE ~ "Bestselling Author"
+      )
+    )
+}
+
+# Create author network data for relationship analysis
+create_author_network <- function(book_data) {
+  if (nrow(book_data) == 0) return(list(nodes = data.frame(), edges = data.frame()))
+
+  # Create nodes (authors)
+  nodes <- book_data %>%
+    group_by(author_id, author_surname, gender) %>%
+    summarise(
+      book_count = n(),
+      total_sales = sum(total_sales, na.rm = TRUE),
+      avg_year = mean(publication_year, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      node_size = pmax(1, log10(total_sales + 1) * 2),
+      node_color = case_when(
+        gender == "Male" ~ "#1f77b4",
+        gender == "Female" ~ "#ff7f0e",
+        TRUE ~ "#2ca02c"
+      )
+    )
+
+  # Create edges (shared publishers or similar publication years)
+  edges <- book_data %>%
+    select(author_id, publisher, publication_year) %>%
+    inner_join(., ., by = "publisher", suffix = c("_1", "_2")) %>%
+    filter(
+      author_id_1 != author_id_2,
+      abs(publication_year_1 - publication_year_2) <= 5
+    ) %>%
+    group_by(author_id_1, author_id_2) %>%
+    summarise(
+      shared_publishers = n_distinct(publisher),
+      weight = shared_publishers,
+      .groups = "drop"
+    ) %>%
+    filter(weight > 0)
+
+  list(nodes = nodes, edges = edges)
+}
+
+# Analyze royalty tier patterns
+analyze_royalty_patterns <- function(royalty_data) {
+  if (nrow(royalty_data) == 0) return(data.frame())
+
+  royalty_data %>%
+    group_by(tier) %>%
+    summarise(
+      book_count = n_distinct(book_id),
+      avg_rate = mean(rate, na.rm = TRUE),
+      median_rate = median(rate, na.rm = TRUE),
+      min_rate = min(rate, na.rm = TRUE),
+      max_rate = max(rate, na.rm = TRUE),
+      avg_lower_limit = mean(lower_limit, na.rm = TRUE),
+      avg_upper_limit = mean(upper_limit, na.rm = TRUE),
+      sliding_scale_pct = mean(sliding_scale, na.rm = TRUE) * 100,
+      .groups = "drop"
+    ) %>%
+    mutate(
+      tier_description = case_when(
+        tier == 1 ~ "Initial Tier",
+        tier == 2 ~ "Second Tier",
+        tier == 3 ~ "Third Tier",
+        tier == 4 ~ "Final Tier",
+        TRUE ~ paste("Tier", tier)
+      )
+    )
+}
+
+# Create publication timeline with enhanced features
+create_enhanced_timeline <- function(book_data) {
+  if (nrow(book_data) == 0) return(data.frame())
+
+  book_data %>%
+    group_by(publication_year, gender, genre) %>%
+    summarise(
+      book_count = n(),
+      total_sales = sum(total_sales, na.rm = TRUE),
+      avg_price = mean(retail_price, na.rm = TRUE),
+      unique_authors = n_distinct(author_id),
+      unique_publishers = n_distinct(publisher),
+      .groups = "drop"
+    ) %>%
+    filter(!is.na(publication_year))
+}
+
+# Calculate market share analysis
+calculate_market_share <- function(data, group_by_col) {
+  if (!group_by_col %in% names(data) || nrow(data) == 0) return(data.frame())
+
+  data %>%
+    group_by(!!sym(group_by_col)) %>%
+    summarise(
+      total_sales = sum(total_sales, na.rm = TRUE),
+      book_count = n(),
+      unique_authors = n_distinct(author_id),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      market_share = total_sales / sum(total_sales, na.rm = TRUE),
+      market_share_pct = market_share * 100,
+      cumulative_share = cumsum(market_share_pct)
+    ) %>%
+    arrange(desc(market_share))
+}
+
+# Handle NULL values in data for visualization
+clean_data_for_viz <- function(data) {
+  data %>%
+    mutate(
+      across(where(is.character), ~ ifelse(is.na(.x), "Unknown", .x)),
+      across(where(is.numeric), ~ ifelse(is.na(.x), 0, .x))
+    )
+}

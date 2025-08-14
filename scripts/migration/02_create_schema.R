@@ -27,13 +27,14 @@ con <- dbConnect(
 
 cat("🔗 Connected to database\n")
 
-# Create book_entries table
+# Create book_entries table (drop if exists)
 cat("📚 Creating book_entries table...\n")
+dbExecute(con, "DROP TABLE IF EXISTS book_entries CASCADE")
 dbExecute(con, "
 CREATE TABLE book_entries (
   book_id VARCHAR(50) PRIMARY KEY,
   author_surname VARCHAR(255),
-  gender VARCHAR(10) CHECK (gender IN ('Male', 'Female')),
+  gender VARCHAR(10) CHECK (gender IN ('Male', 'Female') OR gender IS NULL),
   book_title TEXT,
   genre VARCHAR(100),
   binding VARCHAR(50),
@@ -43,6 +44,7 @@ CREATE TABLE book_entries (
   contract_terms TEXT,
   publisher VARCHAR(255),
   publication_year INTEGER,
+  author_id VARCHAR(20),  -- Author identifier extracted from book_id
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
@@ -54,9 +56,11 @@ dbExecute(con, "CREATE INDEX idx_genre ON book_entries(genre)")
 dbExecute(con, "CREATE INDEX idx_gender ON book_entries(gender)")
 dbExecute(con, "CREATE INDEX idx_publisher ON book_entries(publisher)")
 dbExecute(con, "CREATE INDEX idx_publication_year ON book_entries(publication_year)")
+dbExecute(con, "CREATE INDEX idx_author_id ON book_entries(author_id)")
 
 # Create book_sales table (for year-based sales data)
 cat("💰 Creating book_sales table...\n")
+dbExecute(con, "DROP TABLE IF EXISTS book_sales CASCADE")
 dbExecute(con, "
 CREATE TABLE book_sales (
   sale_id SERIAL PRIMARY KEY,
@@ -75,6 +79,7 @@ dbExecute(con, "CREATE INDEX idx_sales_year ON book_sales(year)")
 
 # Create royalty_tiers table (for royalty structure data)
 cat("📊 Creating royalty_tiers table...\n")
+dbExecute(con, "DROP TABLE IF EXISTS royalty_tiers CASCADE")
 dbExecute(con, "
 CREATE TABLE royalty_tiers (
   tier_id SERIAL PRIMARY KEY,

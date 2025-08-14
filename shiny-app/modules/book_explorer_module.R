@@ -21,10 +21,10 @@ bookExplorerUI <- function(id) {
           selectInput(ns("genre_filter"), "Genre:",
                      choices = NULL, multiple = TRUE),
           
-          # Gender filter
+          # Gender filter (updated for new database schema)
           checkboxGroupInput(ns("gender_filter"), "Author Gender:",
-                           choices = list("Male" = "M", "Female" = "F"),
-                           selected = c("M", "F")),
+                           choices = list("Male" = "Male", "Female" = "Female"),
+                           selected = c("Male", "Female")),
           
           # Year range
           sliderInput(ns("year_range"), "Publication Year Range:",
@@ -187,7 +187,7 @@ bookExplorerServer <- function(id) {
     observeEvent(input$reset_filters, {
       updateTextInput(session, "search_term", value = "")
       updateSelectInput(session, "genre_filter", selected = character(0))
-      updateCheckboxGroupInput(session, "gender_filter", selected = c("M", "F"))
+      updateCheckboxGroupInput(session, "gender_filter", selected = c("Male", "Female"))
       updateSliderInput(session, "year_range", value = DEFAULT_YEAR_RANGE)
       updateSelectInput(session, "publisher_filter", selected = character(0))
     })

@@ -97,5 +97,30 @@ server <- function(input, output, session) {
       })
     }
   })
-  
-} 
+
+  # =============================================================================
+  # MODULE SERVERS
+  # =============================================================================
+
+  # Dashboard module
+  dashboardServer("dashboard_module")
+
+  # Book explorer module
+  bookExplorerServer("books_module")
+
+  # Sales analysis module
+  salesAnalysisServer("sales_module")
+
+  # Author analysis module
+  authorAnalysisServer("authors_module")
+
+  # Author networks module (NEW)
+  authorNetworksServer("networks_module")
+
+  # Royalty analysis module (NEW)
+  royaltyAnalysisServer("royalties_module")
+
+  # Genre analysis module
+  genreAnalysisServer("genres_module")
+
+}

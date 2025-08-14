@@ -73,7 +73,7 @@ Imports the cleaned CSV files into the database tables.
 - `author_surname` (VARCHAR)
 - `gender` (CHAR)
 - `book_title` (TEXT)
-- `genre` (VARCHAR) - cleaned values: cloth, paper, deluxe, illustrated, cheap reprint
+- `genre` (VARCHAR) - cleaned values: Novel, Poetry, Drama, etc.
 - `binding` (VARCHAR)
 - `notes` (TEXT)
 - `retail_price` (DECIMAL)
@@ -107,11 +107,21 @@ The `pre_migration_cleaning.R` script performs comprehensive data cleaning:
 - Standardizes spacing and punctuation
 
 ### Genre Recoding
-- C → cloth
-- P → paper  
-- D → deluxe
-- I → illustrated
-- R → cheap reprint
+- A → Anthology
+- C → Children's Literature/Juvenile
+- D → Drama
+- E → Essay/Other Non-Fiction
+- N → Novel
+- P → Poetry
+- S → Short Story Collection/Novella
+- T → Travel
+
+### Binding Recoding
+- C → Cloth
+- P → Paper
+- D → Deluxe
+- I → Illustrated
+- R → Reprint
 
 ### Sales Data Restructuring
 - Converts wide format (y1858, y1859, etc.) to long format
@@ -131,18 +141,22 @@ The `pre_migration_cleaning.R` script performs comprehensive data cleaning:
 
 ## File Dependencies
 
-```
-scripts/cleaning/pre_migration_cleaning.R
-├── Reads: data/original/anesko_db_original.xlsx
-└── Creates: 
-    ├── data/cleaned/book_entries_final.csv
-    ├── data/cleaned/book_sales_long.csv
-    └── data/cleaned/royalty_tiers_corrected.csv
-
-scripts/migration/03_import_data.R
-├── Reads: data/cleaned/*.csv (created above)
-└── Imports to: PostgreSQL database
-```
+This script:
+- Reads the original Excel files:
+  - `data/original/anesko_db_original.xlsx` (main dataset)
+  - `data/original/anesko_db_original_aug_addition.xlsx` (additional entries)
+- Combines and deduplicates the datasets
+- Performs all data cleaning operations:
+  - Publisher normalization and canonicalization
+  - Genre recoding (A→Anthology, N→Novel, etc.)
+  - Binding recoding (C→Cloth, P→Paper, etc.)
+  - Gender recoding (M→Male, F→Female)
+  - Reshapes book sales data to long format
+  - Creates normalized royalty tiers structure
+- Exports cleaned CSV files to `data/cleaned/`:
+  - `book_entry_cleaned.csv` - cleaned book entries
+  - `book_sales_cleaned.csv` - reshaped sales data (long format)
+  - `royalty_tiers_cleaned.csv` - normalized royalty structure
 
 ## Troubleshooting
 

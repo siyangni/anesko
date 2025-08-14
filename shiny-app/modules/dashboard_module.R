@@ -63,33 +63,40 @@ dashboardServer <- function(id) {
     
     # Reactive data
     summary_stats <- reactive({
-      safe_query(get_summary_stats, 
-                default_value = data.frame(
-                  total_books = 0, total_sales_records = 0, unique_authors = 0,
-                  unique_publishers = 0, min_year = MIN_YEAR, max_year = MAX_YEAR,
-                  total_copies_sold = 0
-                ),
-                error_message = "Failed to load summary statistics")
+      tryCatch({
+        get_summary_stats()
+      }, error = function(e) {
+        warning("Failed to load summary statistics: ", e$message)
+        data.frame(
+          total_books = 0, total_sales_records = 0, unique_authors = 0,
+          unique_publishers = 0, min_year = 1860, max_year = 1920,
+          total_copies_sold = 0
+        )
+      })
     })
     
     sales_trend_data <- reactive({
-      safe_query(function() {
+      tryCatch({
         get_sales_by_year_genre() %>%
           group_by(year) %>%
           summarise(total_sales = sum(total_sales, na.rm = TRUE), .groups = "drop")
-      }, 
-      default_value = data.frame(year = MIN_YEAR:MAX_YEAR, total_sales = 0),
-      error_message = "Failed to load sales trend data")
+      }, error = function(e) {
+        warning("Failed to load sales trend data: ", e$message)
+        data.frame(year = 1860:1920, total_sales = 0)
+      })
     })
     
     gender_data <- reactive({
-      safe_query(get_gender_analysis,
-                default_value = data.frame(gender = c("M", "F"), book_count = c(0, 0)),
-                error_message = "Failed to load gender analysis")
+      tryCatch({
+        get_gender_analysis()
+      }, error = function(e) {
+        warning("Failed to load gender analysis: ", e$message)
+        data.frame(gender = c("Male", "Female"), book_count = c(0, 0))
+      })
     })
     
     genre_data <- reactive({
-      safe_query(function() {
+      tryCatch({
         get_books_summary() %>%
           group_by(genre) %>%
           summarise(
@@ -100,21 +107,28 @@ dashboardServer <- function(id) {
           filter(!is.na(genre), total_sales > 0) %>%
           arrange(desc(total_sales)) %>%
           slice_head(n = 10)
-      },
-      default_value = data.frame(genre = character(0), total_sales = numeric(0)),
-      error_message = "Failed to load genre data")
+      }, error = function(e) {
+        warning("Failed to load genre data: ", e$message)
+        data.frame(genre = character(0), total_sales = numeric(0))
+      })
     })
     
     publisher_data <- reactive({
-      safe_query(function() get_publisher_performance(min_books = 3),
-                default_value = data.frame(publisher = character(0), total_sales = numeric(0)),
-                error_message = "Failed to load publisher data")
+      tryCatch({
+        get_publisher_performance(min_books = 3)
+      }, error = function(e) {
+        warning("Failed to load publisher data: ", e$message)
+        data.frame(publisher = character(0), total_sales = numeric(0))
+      })
     })
-    
+
     top_books_data <- reactive({
-      safe_query(function() get_top_books(limit = 15),
-                default_value = data.frame(),
-                error_message = "Failed to load top books data")
+      tryCatch({
+        get_top_books(limit = 15)
+      }, error = function(e) {
+        warning("Failed to load top books data: ", e$message)
+        data.frame()
+      })
     })
     
     # Value boxes - Using wider layout with better spacing
@@ -149,7 +163,11 @@ dashboardServer <- function(id) {
             width = 12
           )),
           column(6, create_value_box(
-            value = paste0(stats$min_year[1] %||% MIN_YEAR, "-", stats$max_year[1] %||% MAX_YEAR),
+            value = {
+              min_yr <- if(is.na(stats$min_year[1]) || is.null(stats$min_year[1])) 1860 else stats$min_year[1]
+              max_yr <- if(is.na(stats$max_year[1]) || is.null(stats$max_year[1])) 1920 else stats$max_year[1]
+              paste0(min_yr, " - ", max_yr)
+            },
             subtitle = "Publication Year Range",
             icon = "calendar",
             color = "purple",
@@ -184,12 +202,13 @@ dashboardServer <- function(id) {
         return(create_pie_chart(data.frame(), "gender", "book_count"))
       }
       
-      # Clean up gender labels
+      # Clean up gender labels (updated for new database schema)
       plot_data <- data %>%
         mutate(gender_label = case_when(
-          gender == "M" ~ "Male Authors",
-          gender == "F" ~ "Female Authors",
-          TRUE ~ "Unknown"
+          gender == "Male" ~ "Male Authors",
+          gender == "Female" ~ "Female Authors",
+          is.na(gender) ~ "Unknown",
+          TRUE ~ paste(gender, "Authors")
         )) %>%
         filter(book_count > 0)
       
@@ -209,23 +228,28 @@ dashboardServer <- function(id) {
         return(create_bar_plot(data.frame(), "genre", "total_sales"))
       }
       
-      # Clean genre names safely
+      # Standardize genre names (handle data inconsistencies)
       plot_data <- data %>%
-        mutate(genre_clean = case_when(
+        mutate(genre_display = case_when(
           is.na(genre) | genre == "" ~ "Other",
-          genre == "F" ~ "Fiction",
-          genre == "N" ~ "Non-fiction",
-          genre == "P" ~ "Poetry",
-          genre == "D" ~ "Drama",
-          genre == "J" ~ "Juvenile",
-          genre == "S" ~ "Short Stories",
-          genre == "B" ~ "Biography",
-          TRUE ~ "Other"
-        ))
-      
+          genre == "J" ~ "Children's Literature/Juvenile",  # Legacy single-letter code
+          genre == "Essay" ~ "Essay/Other Non-Fiction",     # Standardize essay naming (match existing)
+          TRUE ~ genre  # Use actual genre names from database
+        )) %>%
+        # Re-aggregate after standardization to combine inconsistent categories
+        group_by(genre_display) %>%
+        summarise(
+          total_sales = sum(total_sales, na.rm = TRUE),
+          book_count = sum(book_count, na.rm = TRUE),
+          .groups = "drop"
+        ) %>%
+        arrange(desc(total_sales)) %>%
+        # Take top 8 genres for better visualization
+        slice_head(n = 8)
+
       create_bar_plot(
         data = plot_data,
-        x_col = "genre_clean",
+        x_col = "genre_display",
         y_col = "total_sales",
         title = "Sales by Genre",
         orientation = "horizontal"

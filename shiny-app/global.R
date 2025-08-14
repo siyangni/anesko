@@ -34,6 +34,8 @@ source("modules/dashboard_module.R")
 source("modules/book_explorer_module.R")
 source("modules/sales_analysis_module.R")
 source("modules/author_analysis_module.R")
+source("modules/author_networks_module.R")  # NEW
+source("modules/royalty_analysis_module.R")  # NEW
 source("modules/genre_analysis_module.R")
 
 # Initialize database connection pool for better performance
@@ -148,8 +150,15 @@ format_number <- function(x, suffix = "") {
 
 # Helper function to create value boxes with consistent styling
 create_value_box <- function(value, subtitle, icon, color = "blue", width = 12) {
+  # Handle both numeric and string values
+  formatted_value <- if(is.numeric(value)) {
+    format_number(value)
+  } else {
+    as.character(value)  # Keep strings as-is (like year ranges)
+  }
+
   valueBox(
-    value = format_number(value),
+    value = formatted_value,
     subtitle = subtitle,
     icon = icon(icon),
     color = color,
