@@ -129,7 +129,13 @@ royalty_data <- royalty_tiers_data %>%
     rate = as.numeric(rate),
     lower_limit = as.integer(lower_limit),
     upper_limit = ifelse(is.infinite(upper_limit), NA_integer_, as.integer(upper_limit)),
-    sliding_scale = as.logical(as.character(sliding_scale))  # Handle character "0"/"1"
+    # Fix sliding_scale conversion: properly handle 0/1 values
+    sliding_scale = case_when(
+      sliding_scale == 0 | sliding_scale == "0" ~ FALSE,
+      sliding_scale == 1 | sliding_scale == "1" ~ TRUE,
+      is.na(sliding_scale) ~ NA,
+      TRUE ~ NA
+    )
   ) %>%
   select(book_id, tier, rate, lower_limit, upper_limit, sliding_scale) %>%
   # Remove any rows with missing book_id or invalid tiers

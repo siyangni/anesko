@@ -75,6 +75,17 @@ royaltyAnalysisUI <- function(id) {
             "Sliding Scale Only",
             value = FALSE
           ),
+
+          # Add info about sliding scale filter
+          conditionalPanel(
+            condition = "input.sliding_scale_only == true",
+            ns = ns,
+            div(
+              style = "background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 4px; padding: 8px; margin-top: 5px;",
+              icon("info-circle"),
+              " Filtering for books with sliding scale royalty structures only."
+            )
+          ),
           
           actionButton(
             ns("update_analysis"),
@@ -173,11 +184,16 @@ royaltyAnalysisServer <- function(id) {
       )
     })
     
-    # Reactive data
-    royalty_data <- eventReactive(input$update_analysis, {
-      
+    # Reactive data with improved error handling
+    royalty_data <- reactive({
+      # Validate inputs
+      year_range <- input$year_range
+      if (is.null(year_range) || length(year_range) != 2) {
+        year_range <- c(1860, 1920)
+      }
+
       base_query <- "
-        SELECT 
+        SELECT
           rt.*,
           be.book_title,
           be.author_surname,
@@ -192,25 +208,40 @@ royaltyAnalysisServer <- function(id) {
         LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
         WHERE be.publication_year BETWEEN $1 AND $2
       "
-      
-      params <- list(input$year_range[1], input$year_range[2])
-      
+
+      params <- list(year_range[1], year_range[2])
+
       # Add sliding scale filter
-      if (input$sliding_scale_only) {
+      if (!is.null(input$sliding_scale_only) && input$sliding_scale_only) {
         base_query <- paste(base_query, "AND rt.sliding_scale = TRUE")
       }
-      
-      # Add specific filters based on analysis type
-      if (input$analysis_type == "publishers" && !is.null(input$publisher_select)) {
-        base_query <- paste(base_query, "AND be.publisher = ANY($3)")
-        params <- append(params, list(input$publisher_select))
-      } else if (input$analysis_type == "authors" && !is.null(input$author_select)) {
-        base_query <- paste(base_query, "AND be.author_id = ANY($3)")
-        params <- append(params, list(input$author_select))
+
+      # Add specific filters based on analysis type with proper parameter handling
+      if (!is.null(input$analysis_type) && input$analysis_type == "publishers" &&
+          !is.null(input$publisher_select) && length(input$publisher_select) > 0) {
+        # Use IN clause instead of ANY for PostgreSQL compatibility
+        publisher_placeholders <- paste0("$", 3:(2 + length(input$publisher_select)), collapse = ",")
+        base_query <- paste0(base_query, " AND be.publisher IN (", publisher_placeholders, ")")
+        params <- c(params, as.list(input$publisher_select))
+      } else if (!is.null(input$analysis_type) && input$analysis_type == "authors" &&
+                 !is.null(input$author_select) && length(input$author_select) > 0) {
+        # Use IN clause instead of ANY for PostgreSQL compatibility
+        author_placeholders <- paste0("$", 3:(2 + length(input$author_select)), collapse = ",")
+        base_query <- paste0(base_query, " AND be.author_id IN (", author_placeholders, ")")
+        params <- c(params, as.list(input$author_select))
       }
-      
-      safe_db_query(base_query, params = params)
-    }, ignoreNULL = FALSE)
+
+      tryCatch({
+        result <- safe_db_query(base_query, params = params)
+        if (is.null(result)) {
+          return(data.frame())
+        }
+        return(result)
+      }, error = function(e) {
+        warning("Error in royalty data query: ", e$message)
+        return(data.frame())
+      })
+    })
     
     # Main plot
     output$main_plot <- renderPlotly({
@@ -323,29 +354,83 @@ royaltyAnalysisServer <- function(id) {
       )
     })
     
-    # Tier details table
+    # Tier details table with comprehensive error handling
     output$tier_table <- DT::renderDataTable({
-      data <- royalty_data()
-      if (nrow(data) == 0) return(data.frame())
-      
-      tier_details <- analyze_royalty_patterns(data) %>%
-        select(
-          Tier = tier,
-          `Book Count` = book_count,
-          `Avg Rate` = avg_rate,
-          `Rate Range` = paste0(round(min_rate * 100, 1), "% - ", round(max_rate * 100, 1), "%"),
-          `Sliding Scale %` = sliding_scale_pct
-        ) %>%
-        mutate(
-          `Avg Rate` = paste0(round(`Avg Rate` * 100, 1), "%"),
-          `Sliding Scale %` = paste0(round(`Sliding Scale %`, 1), "%")
+      tryCatch({
+        data <- royalty_data()
+
+        # Handle empty data
+        if (is.null(data) || nrow(data) == 0) {
+          return(DT::datatable(
+            data.frame(Message = "No royalty tier data available for the selected criteria."),
+            options = list(dom = 't', ordering = FALSE),
+            rownames = FALSE
+          ))
+        }
+
+        # Validate required columns exist
+        required_cols <- c("tier", "book_id", "rate", "sliding_scale")
+        missing_cols <- setdiff(required_cols, names(data))
+        if (length(missing_cols) > 0) {
+          return(DT::datatable(
+            data.frame(Error = paste("Missing required columns:", paste(missing_cols, collapse = ", "))),
+            options = list(dom = 't', ordering = FALSE),
+            rownames = FALSE
+          ))
+        }
+
+        # Analyze royalty patterns with error handling
+        tier_analysis <- tryCatch({
+          analyze_royalty_patterns(data)
+        }, error = function(e) {
+          warning("Error in analyze_royalty_patterns: ", e$message)
+          return(NULL)
+        })
+
+        if (is.null(tier_analysis) || nrow(tier_analysis) == 0) {
+          return(DT::datatable(
+            data.frame(Message = "Unable to analyze royalty tier patterns."),
+            options = list(dom = 't', ordering = FALSE),
+            rownames = FALSE
+          ))
+        }
+
+        # Format the tier details with error handling
+        tier_details <- tryCatch({
+          tier_analysis %>%
+            select(
+              Tier = tier,
+              `Book Count` = book_count,
+              `Avg Rate` = avg_rate,
+              `Min Rate` = min_rate,
+              `Max Rate` = max_rate,
+              `Sliding Scale %` = sliding_scale_pct
+            ) %>%
+            mutate(
+              `Avg Rate` = paste0(round(`Avg Rate` * 100, 1), "%"),
+              `Rate Range` = paste0(round(`Min Rate` * 100, 1), "% - ", round(`Max Rate` * 100, 1), "%"),
+              `Sliding Scale %` = paste0(round(`Sliding Scale %`, 1), "%")
+            ) %>%
+            select(Tier, `Book Count`, `Avg Rate`, `Rate Range`, `Sliding Scale %`)
+        }, error = function(e) {
+          warning("Error formatting tier details: ", e$message)
+          return(data.frame(Error = paste("Error formatting data:", e$message)))
+        })
+
+        DT::datatable(
+          tier_details,
+          options = list(pageLength = 10, scrollX = TRUE),
+          rownames = FALSE
         )
-      
-      DT::datatable(
-        tier_details,
-        options = list(pageLength = 10, scrollX = TRUE),
-        rownames = FALSE
-      )
+
+      }, error = function(e) {
+        # Final catch-all error handler
+        DT::datatable(
+          data.frame(Error = paste("Unexpected error in tier table:", e$message)),
+          options = list(dom = 't', ordering = FALSE),
+          rownames = FALSE
+        )
+      })
     })
     
     # Book details table

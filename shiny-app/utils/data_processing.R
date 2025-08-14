@@ -288,71 +288,136 @@ process_author_data <- function(author_data) {
 
 # Create author network data for relationship analysis
 create_author_network <- function(book_data) {
-  if (nrow(book_data) == 0) return(list(nodes = data.frame(), edges = data.frame()))
+  # Handle empty input
+  if (is.null(book_data) || nrow(book_data) == 0) {
+    return(list(nodes = data.frame(), edges = data.frame()))
+  }
 
-  # Create nodes (authors)
-  nodes <- book_data %>%
-    group_by(author_id, author_surname, gender) %>%
-    summarise(
-      book_count = n(),
-      total_sales = sum(total_sales, na.rm = TRUE),
-      avg_year = mean(publication_year, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(
-      node_size = pmax(1, log10(total_sales + 1) * 2),
-      node_color = case_when(
-        gender == "Male" ~ "#1f77b4",
-        gender == "Female" ~ "#ff7f0e",
-        TRUE ~ "#2ca02c"
+  # Validate required columns
+  required_cols <- c("author_id", "author_surname", "gender", "publisher", "publication_year", "total_sales")
+  missing_cols <- setdiff(required_cols, names(book_data))
+  if (length(missing_cols) > 0) {
+    warning("Missing required columns in book_data: ", paste(missing_cols, collapse = ", "))
+    return(list(nodes = data.frame(), edges = data.frame()))
+  }
+
+  # Create nodes (authors) with error handling
+  tryCatch({
+    nodes <- book_data %>%
+      group_by(author_id, author_surname, gender) %>%
+      summarise(
+        book_count = n(),
+        total_sales = sum(total_sales, na.rm = TRUE),
+        avg_year = mean(publication_year, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      mutate(
+        # Ensure node_size is always positive and reasonable
+        node_size = pmax(3, pmin(20, log10(total_sales + 1) * 2)),
+        node_color = case_when(
+          gender == "Male" ~ "#1f77b4",
+          gender == "Female" ~ "#ff7f0e",
+          TRUE ~ "#2ca02c"
+        )
       )
-    )
 
-  # Create edges (shared publishers or similar publication years)
-  edges <- book_data %>%
-    select(author_id, publisher, publication_year) %>%
-    inner_join(., ., by = "publisher", suffix = c("_1", "_2")) %>%
-    filter(
-      author_id_1 != author_id_2,
-      abs(publication_year_1 - publication_year_2) <= 5
-    ) %>%
-    group_by(author_id_1, author_id_2) %>%
-    summarise(
-      shared_publishers = n_distinct(publisher),
-      weight = shared_publishers,
-      .groups = "drop"
-    ) %>%
-    filter(weight > 0)
+    # Handle case where no nodes were created
+    if (nrow(nodes) == 0) {
+      return(list(nodes = data.frame(), edges = data.frame()))
+    }
 
-  list(nodes = nodes, edges = edges)
+    # Create edges (shared publishers or similar publication years)
+    edges <- tryCatch({
+      book_data %>%
+        select(author_id, publisher, publication_year) %>%
+        filter(!is.na(publisher), !is.na(publication_year)) %>%
+        inner_join(., ., by = "publisher", suffix = c("_1", "_2"), relationship = "many-to-many") %>%
+        filter(
+          author_id_1 != author_id_2,
+          abs(publication_year_1 - publication_year_2) <= 5
+        ) %>%
+        group_by(author_id_1, author_id_2) %>%
+        summarise(
+          shared_publishers = n_distinct(publisher),
+          weight = shared_publishers,
+          .groups = "drop"
+        ) %>%
+        filter(weight > 0)
+    }, error = function(e) {
+      warning("Error creating network edges: ", e$message)
+      data.frame()
+    })
+
+    # Ensure edges is a data.frame even if empty
+    if (is.null(edges)) {
+      edges <- data.frame()
+    }
+
+    return(list(nodes = nodes, edges = edges))
+
+  }, error = function(e) {
+    warning("Error creating author network: ", e$message)
+    return(list(nodes = data.frame(), edges = data.frame()))
+  })
 }
 
-# Analyze royalty tier patterns
+# Analyze royalty tier patterns with enhanced error handling
 analyze_royalty_patterns <- function(royalty_data) {
-  if (nrow(royalty_data) == 0) return(data.frame())
+  # Validate input
+  if (is.null(royalty_data) || nrow(royalty_data) == 0) {
+    return(data.frame())
+  }
 
-  royalty_data %>%
-    group_by(tier) %>%
-    summarise(
-      book_count = n_distinct(book_id),
-      avg_rate = mean(rate, na.rm = TRUE),
-      median_rate = median(rate, na.rm = TRUE),
-      min_rate = min(rate, na.rm = TRUE),
-      max_rate = max(rate, na.rm = TRUE),
-      avg_lower_limit = mean(lower_limit, na.rm = TRUE),
-      avg_upper_limit = mean(upper_limit, na.rm = TRUE),
-      sliding_scale_pct = mean(sliding_scale, na.rm = TRUE) * 100,
-      .groups = "drop"
-    ) %>%
-    mutate(
-      tier_description = case_when(
-        tier == 1 ~ "Initial Tier",
-        tier == 2 ~ "Second Tier",
-        tier == 3 ~ "Third Tier",
-        tier == 4 ~ "Final Tier",
-        TRUE ~ paste("Tier", tier)
-      )
-    )
+  # Check for required columns
+  required_cols <- c("tier", "book_id", "rate", "sliding_scale")
+  missing_cols <- setdiff(required_cols, names(royalty_data))
+  if (length(missing_cols) > 0) {
+    warning("Missing required columns in royalty_data: ", paste(missing_cols, collapse = ", "))
+    return(data.frame())
+  }
+
+  tryCatch({
+    result <- royalty_data %>%
+      # Filter out invalid data
+      filter(!is.na(tier), !is.na(book_id), !is.na(rate)) %>%
+      group_by(tier) %>%
+      summarise(
+        book_count = n_distinct(book_id),
+        avg_rate = mean(rate, na.rm = TRUE),
+        median_rate = median(rate, na.rm = TRUE),
+        min_rate = min(rate, na.rm = TRUE),
+        max_rate = max(rate, na.rm = TRUE),
+        avg_lower_limit = mean(lower_limit, na.rm = TRUE),
+        avg_upper_limit = mean(upper_limit, na.rm = TRUE),
+        sliding_scale_pct = mean(as.numeric(sliding_scale), na.rm = TRUE) * 100,
+        .groups = "drop"
+      ) %>%
+      mutate(
+        # Ensure all numeric values are valid
+        avg_rate = ifelse(is.na(avg_rate) | is.infinite(avg_rate), 0, avg_rate),
+        median_rate = ifelse(is.na(median_rate) | is.infinite(median_rate), 0, median_rate),
+        min_rate = ifelse(is.na(min_rate) | is.infinite(min_rate), 0, min_rate),
+        max_rate = ifelse(is.na(max_rate) | is.infinite(max_rate), 0, max_rate),
+        sliding_scale_pct = ifelse(is.na(sliding_scale_pct) | is.infinite(sliding_scale_pct), 0, sliding_scale_pct),
+
+        # Add tier descriptions
+        tier_description = case_when(
+          tier == 1 ~ "Initial Tier",
+          tier == 2 ~ "Second Tier",
+          tier == 3 ~ "Third Tier",
+          tier == 4 ~ "Final Tier",
+          TRUE ~ paste("Tier", tier)
+        )
+      ) %>%
+      # Ensure we have valid tiers
+      filter(!is.na(tier), book_count > 0)
+
+    return(result)
+
+  }, error = function(e) {
+    warning("Error in analyze_royalty_patterns: ", e$message)
+    return(data.frame())
+  })
 }
 
 # Create publication timeline with enhanced features

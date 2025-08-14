@@ -243,31 +243,53 @@ create_correlation_heatmap <- function(cor_matrix, title = "Correlation Matrix")
 
 # Create pie chart for categorical data
 create_pie_chart <- function(data, category_col, value_col, title = "Distribution") {
-  
+
   if (nrow(data) == 0) {
-    return(ggplot() + theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"), 
+    return(ggplot() + theme_void() +
+           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"),
                     size = 6, color = "gray60"))
   }
-  
+
   # Prepare data
   plot_data <- data %>%
     arrange(desc(.data[[value_col]])) %>%
     mutate(
       percentage = .data[[value_col]] / sum(.data[[value_col]]) * 100,
-      label = paste0(.data[[category_col]], "\n", 
+      label = paste0(.data[[category_col]], "\n",
                     round(percentage, 1), "%")
     )
-  
+
   # Use plotly for interactive pie chart
-  plot_ly(plot_data, 
-          labels = ~get(category_col), 
+  plot_ly(plot_data,
+          labels = ~get(category_col),
           values = ~get(value_col),
           type = 'pie',
           textinfo = 'label+percent',
           marker = list(colors = rainbow(nrow(plot_data)))) %>%
     layout(title = title,
            showlegend = FALSE)
+}
+
+# Create empty plotly plot with message
+plotly_empty <- function(message = "No data available") {
+  plot_ly() %>%
+    add_annotations(
+      x = 0.5,
+      y = 0.5,
+      text = message,
+      xref = "paper",
+      yref = "paper",
+      xanchor = "center",
+      yanchor = "middle",
+      showarrow = FALSE,
+      font = list(size = 16, color = "gray60")
+    ) %>%
+    layout(
+      xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
+      yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
+      plot_bgcolor = "rgba(0,0,0,0)",
+      paper_bgcolor = "rgba(0,0,0,0)"
+    )
 }
 
 # Create summary statistics table

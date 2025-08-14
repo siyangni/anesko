@@ -113,13 +113,29 @@ authorNetworksUI <- function(id) {
 authorNetworksServer <- function(id) {
   moduleServer(id, function(input, output, session) {
     
-    # Reactive data
-    network_data <- eventReactive(input$update_network, {
-      req(input$gender_filter)
-      
+    # Reactive data with better initialization and error handling
+    network_data <- reactive({
+      # Ensure we have valid inputs
+      gender_filter <- input$gender_filter
+      if (is.null(gender_filter) || length(gender_filter) == 0) {
+        gender_filter <- c("Male", "Female")  # Default to both genders
+      }
+
+      year_range <- input$year_range
+      if (is.null(year_range) || length(year_range) != 2) {
+        year_range <- c(1860, 1920)  # Default range
+      }
+
+      min_books <- input$min_books
+      if (is.null(min_books) || !is.numeric(min_books)) {
+        min_books <- 2  # Default minimum
+      }
+
       # Get author data with filters
-      author_query <- "
-        SELECT 
+      # Create gender filter clause
+      gender_placeholders <- paste0("$", 3:(2 + length(gender_filter)), collapse = ",")
+      author_query <- paste0("
+        SELECT
           be.author_id,
           be.author_surname,
           be.gender,
@@ -130,129 +146,219 @@ authorNetworksServer <- function(id) {
         FROM book_entries be
         LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
         WHERE be.author_id IS NOT NULL
-          AND be.gender = ANY($1)
-          AND be.publication_year BETWEEN $2 AND $3
-      "
-      
-      book_data <- safe_db_query(
-        author_query, 
-        params = list(
-          input$gender_filter,
-          input$year_range[1],
-          input$year_range[2]
-        )
-      )
-      
-      if (nrow(book_data) == 0) return(NULL)
-      
+          AND be.gender IN (", gender_placeholders, ")
+          AND be.publication_year BETWEEN $1 AND $2
+      ")
+
+      # Create parameter list with year range first, then gender values
+      params <- c(list(year_range[1], year_range[2]), as.list(gender_filter))
+
+      book_data <- safe_db_query(author_query, params = params)
+
+      # Handle empty query results
+      if (is.null(book_data) || nrow(book_data) == 0) {
+        return(list(
+          nodes = data.frame(),
+          edges = data.frame(),
+          message = "No books found matching the selected criteria."
+        ))
+      }
+
       # Filter authors with minimum books
       author_counts <- book_data %>%
         group_by(author_id) %>%
         summarise(book_count = n(), .groups = "drop") %>%
-        filter(book_count >= input$min_books)
-      
+        filter(book_count >= min_books)
+
+      if (nrow(author_counts) == 0) {
+        return(list(
+          nodes = data.frame(),
+          edges = data.frame(),
+          message = paste("No authors found with at least", min_books, "books in the selected criteria.")
+        ))
+      }
+
       filtered_data <- book_data %>%
         filter(author_id %in% author_counts$author_id)
-      
+
       # Create network based on type
-      create_author_network(filtered_data)
-    }, ignoreNULL = FALSE)
+      network_result <- create_author_network(filtered_data)
+
+      # Add success message if we have data
+      if (!is.null(network_result) && nrow(network_result$nodes) > 0) {
+        network_result$message <- paste("Network created with", nrow(network_result$nodes), "authors and", nrow(network_result$edges), "connections.")
+      } else {
+        network_result$message <- "No network connections found between authors with the selected criteria."
+      }
+
+      return(network_result)
+    })
     
-    # Network plot
+    # Network plot with improved error handling
     output$network_plot <- renderPlotly({
       net_data <- network_data()
-      if (is.null(net_data) || nrow(net_data$nodes) == 0) {
-        return(plotly_empty("No network data available"))
+
+      # Handle various error conditions
+      if (is.null(net_data)) {
+        return(plotly_empty("Unable to load network data. Please check your database connection."))
       }
-      
+
+      if (is.null(net_data$nodes) || nrow(net_data$nodes) == 0) {
+        message <- if (!is.null(net_data$message)) net_data$message else "No network data available"
+        return(plotly_empty(message))
+      }
+
       nodes <- net_data$nodes
       edges <- net_data$edges
-      
+
+      # Validate required columns exist
+      required_cols <- c("author_id", "author_surname", "gender", "book_count", "total_sales", "node_size")
+      missing_cols <- setdiff(required_cols, names(nodes))
+      if (length(missing_cols) > 0) {
+        return(plotly_empty(paste("Missing required data columns:", paste(missing_cols, collapse = ", "))))
+      }
+
       # Create network visualization
-      p <- plot_ly() %>%
-        add_markers(
-          data = nodes,
-          x = ~runif(nrow(nodes)), 
-          y = ~runif(nrow(nodes)),
-          size = ~node_size,
-          color = ~gender,
-          colors = c("Male" = "#1f77b4", "Female" = "#ff7f0e"),
-          text = ~paste(
-            "Author:", author_surname,
-            "<br>ID:", author_id,
-            "<br>Gender:", gender,
-            "<br>Books:", book_count,
-            "<br>Total Sales:", scales::comma(total_sales)
-          ),
-          hovertemplate = "%{text}<extra></extra>",
-          name = "Authors"
-        ) %>%
-        layout(
-          title = "Author Network",
-          xaxis = list(showgrid = FALSE, showticklabels = FALSE, title = ""),
-          yaxis = list(showgrid = FALSE, showticklabels = FALSE, title = ""),
-          showlegend = TRUE
-        )
-      
-      p
+      tryCatch({
+        p <- plot_ly() %>%
+          add_markers(
+            data = nodes,
+            x = ~runif(nrow(nodes)),
+            y = ~runif(nrow(nodes)),
+            size = ~node_size,
+            color = ~gender,
+            colors = c("Male" = "#1f77b4", "Female" = "#ff7f0e"),
+            text = ~paste(
+              "Author:", author_surname,
+              "<br>ID:", author_id,
+              "<br>Gender:", gender,
+              "<br>Books:", book_count,
+              "<br>Total Sales:", scales::comma(total_sales)
+            ),
+            hovertemplate = "%{text}<extra></extra>",
+            name = "Authors"
+          ) %>%
+          layout(
+            title = "Author Network",
+            xaxis = list(showgrid = FALSE, showticklabels = FALSE, title = ""),
+            yaxis = list(showgrid = FALSE, showticklabels = FALSE, title = ""),
+            showlegend = TRUE
+          )
+
+        return(p)
+      }, error = function(e) {
+        return(plotly_empty(paste("Error creating network plot:", e$message)))
+      })
     })
     
-    # Network statistics
+    # Network statistics with improved error handling
     output$network_stats <- renderTable({
       net_data <- network_data()
-      if (is.null(net_data)) return(data.frame())
-      
+
+      # Handle null or empty data
+      if (is.null(net_data) || is.null(net_data$nodes) || nrow(net_data$nodes) == 0) {
+        return(data.frame(
+          Metric = "Status",
+          Value = if (!is.null(net_data$message)) net_data$message else "No data available"
+        ))
+      }
+
       nodes <- net_data$nodes
       edges <- net_data$edges
-      
-      data.frame(
-        Metric = c(
-          "Total Authors",
-          "Male Authors", 
-          "Female Authors",
-          "Connections",
-          "Avg Books per Author",
-          "Total Sales"
-        ),
-        Value = c(
-          nrow(nodes),
-          sum(nodes$gender == "Male", na.rm = TRUE),
-          sum(nodes$gender == "Female", na.rm = TRUE),
-          nrow(edges),
-          round(mean(nodes$book_count, na.rm = TRUE), 1),
-          scales::comma(sum(nodes$total_sales, na.rm = TRUE))
+
+      # Validate required columns
+      if (!"gender" %in% names(nodes) || !"book_count" %in% names(nodes) || !"total_sales" %in% names(nodes)) {
+        return(data.frame(
+          Metric = "Error",
+          Value = "Missing required data columns for statistics"
+        ))
+      }
+
+      tryCatch({
+        data.frame(
+          Metric = c(
+            "Total Authors",
+            "Male Authors",
+            "Female Authors",
+            "Connections",
+            "Avg Books per Author",
+            "Total Sales"
+          ),
+          Value = c(
+            nrow(nodes),
+            sum(nodes$gender == "Male", na.rm = TRUE),
+            sum(nodes$gender == "Female", na.rm = TRUE),
+            if (!is.null(edges)) nrow(edges) else 0,
+            round(mean(nodes$book_count, na.rm = TRUE), 1),
+            scales::comma(sum(nodes$total_sales, na.rm = TRUE))
+          )
         )
-      )
+      }, error = function(e) {
+        data.frame(
+          Metric = "Error",
+          Value = paste("Error calculating statistics:", e$message)
+        )
+      })
     })
     
-    # Author details table
+    # Author details table with improved error handling
     output$author_table <- DT::renderDataTable({
       net_data <- network_data()
-      if (is.null(net_data)) return(data.frame())
-      
-      nodes <- net_data$nodes %>%
-        select(
-          `Author ID` = author_id,
-          `Author Name` = author_surname,
-          Gender = gender,
-          `Book Count` = book_count,
-          `Total Sales` = total_sales,
-          `Avg Year` = avg_year
-        ) %>%
-        mutate(
-          `Total Sales` = scales::comma(`Total Sales`),
-          `Avg Year` = round(`Avg Year`, 0)
+
+      # Handle null or empty data
+      if (is.null(net_data) || is.null(net_data$nodes) || nrow(net_data$nodes) == 0) {
+        empty_message <- if (!is.null(net_data$message)) net_data$message else "No author data available"
+        return(DT::datatable(
+          data.frame(Message = empty_message),
+          options = list(dom = 't', ordering = FALSE),
+          rownames = FALSE
+        ))
+      }
+
+      nodes <- net_data$nodes
+
+      # Validate required columns exist
+      required_cols <- c("author_id", "author_surname", "gender", "book_count", "total_sales", "avg_year")
+      missing_cols <- setdiff(required_cols, names(nodes))
+      if (length(missing_cols) > 0) {
+        return(DT::datatable(
+          data.frame(Error = paste("Missing columns:", paste(missing_cols, collapse = ", "))),
+          options = list(dom = 't', ordering = FALSE),
+          rownames = FALSE
+        ))
+      }
+
+      tryCatch({
+        formatted_nodes <- nodes %>%
+          select(
+            `Author ID` = author_id,
+            `Author Name` = author_surname,
+            Gender = gender,
+            `Book Count` = book_count,
+            `Total Sales` = total_sales,
+            `Avg Year` = avg_year
+          ) %>%
+          mutate(
+            `Total Sales` = scales::comma(`Total Sales`),
+            `Avg Year` = round(`Avg Year`, 0)
+          )
+
+        DT::datatable(
+          formatted_nodes,
+          options = list(
+            pageLength = 15,
+            scrollX = TRUE,
+            dom = 'Bfrtip'
+          ),
+          rownames = FALSE
         )
-      
-      DT::datatable(
-        nodes,
-        options = list(
-          pageLength = 15,
-          scrollX = TRUE,
-          dom = 'Bfrtip'
-        ),
-        rownames = FALSE
-      )
+      }, error = function(e) {
+        DT::datatable(
+          data.frame(Error = paste("Error formatting table:", e$message)),
+          options = list(dom = 't', ordering = FALSE),
+          rownames = FALSE
+        )
+      })
     })
   })
 }
