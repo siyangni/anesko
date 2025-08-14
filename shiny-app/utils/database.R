@@ -4,17 +4,29 @@
 # Create database connection pool
 create_db_pool <- function() {
   tryCatch({
-    pool::dbPool(
+    cat("🔧 Creating database connection pool...\n")
+    cat("   Host:", db_config$host, "\n")
+    cat("   Database:", db_config$dbname, "\n")
+    cat("   User:", db_config$user, "\n")
+
+    # Use RPostgreSQL for reliability (works on shinyapps.io)
+    pool <- pool::dbPool(
       drv = RPostgreSQL::PostgreSQL(),
       host = db_config$host,
       dbname = db_config$dbname,
       user = db_config$user,
       password = db_config$password,
+      port = if(is.null(db_config$port)) 5432 else db_config$port,
       minSize = POOL_SIZE_MIN,
       maxSize = POOL_SIZE_MAX,
-      idleTimeout = POOL_IDLE_TIMEOUT * 1000  # Convert to milliseconds
+      idleTimeout = POOL_IDLE_TIMEOUT * 1000
     )
+
+    cat("✅ Database connection pool created successfully\n")
+    return(pool)
+
   }, error = function(e) {
+    cat("💥 Database pool creation failed:", e$message, "\n")
     stop("Failed to create database connection pool: ", e$message)
   })
 }
@@ -29,7 +41,8 @@ safe_db_query <- function(query, params = NULL) {
         host = db_config$host,
         dbname = db_config$dbname,
         user = db_config$user,
-        password = db_config$password
+        password = db_config$password,
+        port = if(is.null(db_config$port)) 5432 else db_config$port
       )
 
       result <- if (is.null(params)) {

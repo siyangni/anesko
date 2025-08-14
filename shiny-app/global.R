@@ -13,6 +13,13 @@ library(lubridate)
 library(DBI)
 library(RPostgreSQL)
 library(pool)
+
+# Try to load RPostgres if available (optional for better SSL support)
+tryCatch({
+  library(RPostgres)
+}, error = function(e) {
+  # RPostgres not available, will use RPostgreSQL only
+})
 library(shinyWidgets)
 library(waiter)
 library(fresh)
