@@ -127,6 +127,11 @@ GENDER_COLORS <- c(
   "F" = "#e74c3c"     # Female - Red
 )
 
+# Define %||% operator for NULL coalescing
+`%||%` <- function(x, y) {
+  if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) y else x
+}
+
 # Helper function to format numbers
 format_number <- function(x, suffix = "") {
   if (is.null(x) || length(x) == 0) return("N/A")

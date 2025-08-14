@@ -418,3 +418,317 @@ get_book_details <- function(book_id) {
     sales_timeseries = safe_db_query(sales_query, params = list(book_id))
   )
 }
+
+# =============================================================================
+# NEW ANALYTICS FUNCTIONS FOR SALES ANALYSIS MODULE
+# =============================================================================
+
+# Function 1: Get sales of binding state edition of book title in date range
+get_book_sales_by_title_binding <- function(book_title, binding_state, start_year, end_year) {
+  query <- "
+    SELECT
+      be.book_id,
+      be.book_title,
+      be.author_surname,
+      be.binding,
+      SUM(bs.sales_count) as total_sales,
+      COUNT(bs.year) as years_with_sales,
+      MIN(bs.year) as first_sale_year,
+      MAX(bs.year) as last_sale_year
+    FROM book_entries be
+    JOIN book_sales bs ON be.book_id = bs.book_id
+    WHERE LOWER(be.book_title) LIKE LOWER($1)
+      AND LOWER(be.binding) LIKE LOWER($2)
+      AND bs.year BETWEEN $3 AND $4
+      AND bs.sales_count IS NOT NULL
+    GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
+    ORDER BY total_sales DESC
+  "
+  safe_db_query(query, params = list(
+    paste0("%", book_title, "%"),
+    paste0("%", binding_state, "%"),
+    start_year,
+    end_year
+  ))
+}
+
+# Function 2: Get average sales by binding state/genre and gender in date range
+get_average_sales_by_binding_genre_gender <- function(binding_state = NULL, genre = NULL, gender = NULL, start_year, end_year) {
+  where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
+  params <- list(start_year, end_year)
+  param_count <- 2
+
+  if (!is.null(binding_state) && binding_state != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
+    params <- c(params, list(paste0("%", binding_state, "%")))
+  }
+
+  if (!is.null(genre) && genre != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
+    params <- c(params, list(paste0("%", genre, "%")))
+  }
+
+  if (!is.null(gender) && gender != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("be.gender = $", param_count))
+    params <- c(params, list(gender))
+  }
+
+  where_clause <- paste(where_conditions, collapse = " AND ")
+
+  query <- paste0("
+    SELECT
+      be.binding,
+      be.genre,
+      be.gender,
+      COUNT(DISTINCT be.book_id) as book_count,
+      AVG(bs.sales_count) as avg_sales_per_year,
+      SUM(bs.sales_count) / COUNT(DISTINCT be.book_id) as avg_total_sales_per_book
+    FROM book_entries be
+    JOIN book_sales bs ON be.book_id = bs.book_id
+    WHERE ", where_clause, "
+    GROUP BY be.binding, be.genre, be.gender
+    ORDER BY avg_total_sales_per_book DESC
+  ")
+
+  safe_db_query(query, params = params)
+}
+
+# Function 3: Get total sales by binding state/genre and gender in date range
+get_total_sales_by_binding_genre_gender <- function(binding_state = NULL, genre = NULL, gender = NULL, start_year, end_year) {
+  where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
+  params <- list(start_year, end_year)
+  param_count <- 2
+
+  if (!is.null(binding_state) && binding_state != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
+    params <- c(params, list(paste0("%", binding_state, "%")))
+  }
+
+  if (!is.null(genre) && genre != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
+    params <- c(params, list(paste0("%", genre, "%")))
+  }
+
+  if (!is.null(gender) && gender != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("be.gender = $", param_count))
+    params <- c(params, list(gender))
+  }
+
+  where_clause <- paste(where_conditions, collapse = " AND ")
+
+  query <- paste0("
+    SELECT
+      be.binding,
+      be.genre,
+      be.gender,
+      COUNT(DISTINCT be.book_id) as book_count,
+      SUM(bs.sales_count) as total_sales
+    FROM book_entries be
+    JOIN book_sales bs ON be.book_id = bs.book_id
+    WHERE ", where_clause, "
+    GROUP BY be.binding, be.genre, be.gender
+    ORDER BY total_sales DESC
+  ")
+
+  safe_db_query(query, params = params)
+}
+
+# Helper function to calculate royalty income for a book based on sales and royalty structure
+calculate_royalty_income <- function(book_id, total_sales, retail_price, royalty_rate, royalty_tiers = NULL) {
+  if (is.na(total_sales) || total_sales <= 0 || is.na(retail_price) || retail_price <= 0) {
+    return(0)
+  }
+
+  # If no complex royalty tiers, use simple calculation
+  if (is.null(royalty_tiers) || nrow(royalty_tiers) == 0) {
+    if (is.na(royalty_rate) || royalty_rate <= 0) {
+      return(0)
+    }
+    return(total_sales * retail_price * royalty_rate)
+  }
+
+  # Complex royalty calculation with tiers
+  total_income <- 0
+  remaining_sales <- total_sales
+
+  for (i in 1:nrow(royalty_tiers)) {
+    tier <- royalty_tiers[i, ]
+    tier_lower <- tier$lower_limit
+    tier_upper <- if (is.na(tier$upper_limit)) Inf else tier$upper_limit
+    tier_rate <- tier$rate
+
+    if (remaining_sales <= 0) break
+
+    # Calculate sales in this tier
+    tier_sales <- min(remaining_sales, tier_upper - tier_lower + 1)
+    if (tier_sales > 0) {
+      tier_income <- tier_sales * retail_price * tier_rate
+      total_income <- total_income + tier_income
+      remaining_sales <- remaining_sales - tier_sales
+    }
+  }
+
+  return(total_income)
+}
+
+# Function 4: Get royalty income from sale of binding state/book title in date range
+get_royalty_income_by_book_binding <- function(book_title, binding_state, start_year, end_year) {
+  # First get the sales data
+  sales_data <- get_book_sales_by_title_binding(book_title, binding_state, start_year, end_year)
+
+  if (nrow(sales_data) == 0) {
+    return(data.frame())
+  }
+
+  # Get book details with royalty information
+  result <- data.frame()
+
+  for (i in 1:nrow(sales_data)) {
+    book_id <- sales_data$book_id[i]
+    total_sales <- sales_data$total_sales[i]
+
+    # Get book details
+    book_details <- get_book_details(book_id)
+    book_info <- book_details$book_info
+    royalty_tiers <- book_details$royalty_tiers
+
+    if (nrow(book_info) > 0) {
+      retail_price <- book_info$retail_price[1]
+      royalty_rate <- book_info$royalty_rate[1]
+
+      # Calculate royalty income
+      royalty_income <- calculate_royalty_income(
+        book_id, total_sales, retail_price, royalty_rate, royalty_tiers
+      )
+
+      # Add to result
+      result <- rbind(result, data.frame(
+        book_id = book_id,
+        book_title = sales_data$book_title[i],
+        author_surname = sales_data$author_surname[i],
+        binding = sales_data$binding[i],
+        total_sales = total_sales,
+        retail_price = retail_price,
+        royalty_income = royalty_income,
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+
+  return(result)
+}
+
+# Function 5: Get total royalty income from author's books in date range
+get_total_royalty_income_by_author <- function(author_surname, start_year, end_year) {
+  query <- "
+    SELECT
+      be.book_id,
+      be.book_title,
+      be.author_surname,
+      be.author_id,
+      be.retail_price,
+      be.royalty_rate,
+      SUM(bs.sales_count) as total_sales
+    FROM book_entries be
+    JOIN book_sales bs ON be.book_id = bs.book_id
+    WHERE LOWER(be.author_surname) LIKE LOWER($1)
+      AND bs.year BETWEEN $2 AND $3
+      AND bs.sales_count IS NOT NULL
+    GROUP BY be.book_id, be.book_title, be.author_surname, be.author_id, be.retail_price, be.royalty_rate
+    ORDER BY be.book_title
+  "
+
+  books_data <- safe_db_query(query, params = list(
+    paste0("%", author_surname, "%"),
+    start_year,
+    end_year
+  ))
+
+  if (nrow(books_data) == 0) {
+    return(data.frame())
+  }
+
+  # Calculate royalty income for each book
+  result <- data.frame()
+  total_royalty_income <- 0
+
+  for (i in 1:nrow(books_data)) {
+    book_id <- books_data$book_id[i]
+    total_sales <- books_data$total_sales[i]
+    retail_price <- books_data$retail_price[i]
+    royalty_rate <- books_data$royalty_rate[i]
+
+    # Get royalty tiers for this book
+    book_details <- get_book_details(book_id)
+    royalty_tiers <- book_details$royalty_tiers
+
+    # Calculate royalty income
+    royalty_income <- calculate_royalty_income(
+      book_id, total_sales, retail_price, royalty_rate, royalty_tiers
+    )
+
+    total_royalty_income <- total_royalty_income + royalty_income
+
+    # Add to result
+    result <- rbind(result, data.frame(
+      book_id = book_id,
+      book_title = books_data$book_title[i],
+      author_surname = books_data$author_surname[i],
+      total_sales = total_sales,
+      retail_price = retail_price,
+      royalty_income = royalty_income,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  # Add summary row
+  if (nrow(result) > 0) {
+    result <- rbind(result, data.frame(
+      book_id = "TOTAL",
+      book_title = paste("TOTAL FOR", author_surname),
+      author_surname = author_surname,
+      total_sales = sum(result$total_sales, na.rm = TRUE),
+      retail_price = NA,
+      royalty_income = total_royalty_income,
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  return(result)
+}
+
+# Function 6: Get average sales by book title and binding state in date range
+get_average_sales_by_book_binding <- function(book_title, binding_state, start_year, end_year) {
+  query <- "
+    SELECT
+      be.book_id,
+      be.book_title,
+      be.author_surname,
+      be.binding,
+      AVG(bs.sales_count) as avg_sales_per_year,
+      COUNT(bs.year) as years_with_sales,
+      SUM(bs.sales_count) as total_sales,
+      MIN(bs.year) as first_sale_year,
+      MAX(bs.year) as last_sale_year
+    FROM book_entries be
+    JOIN book_sales bs ON be.book_id = bs.book_id
+    WHERE LOWER(be.book_title) LIKE LOWER($1)
+      AND LOWER(be.binding) LIKE LOWER($2)
+      AND bs.year BETWEEN $3 AND $4
+      AND bs.sales_count IS NOT NULL
+    GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
+    ORDER BY avg_sales_per_year DESC
+  "
+  safe_db_query(query, params = list(
+    paste0("%", book_title, "%"),
+    paste0("%", binding_state, "%"),
+    start_year,
+    end_year
+  ))
+}

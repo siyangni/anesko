@@ -235,14 +235,19 @@ authorNetworksServer <- function(id) {
               "<br>Books:", book_count,
               "<br>Total Sales:", scales::comma(total_sales)
             ),
-            hovertemplate = "%{text}<extra></extra>",
-            name = "Authors"
+            hovertemplate = "%{text}<extra></extra>"
           ) %>%
           layout(
             title = "Author Network",
             xaxis = list(showgrid = FALSE, showticklabels = FALSE, title = ""),
             yaxis = list(showgrid = FALSE, showticklabels = FALSE, title = ""),
-            showlegend = TRUE
+            showlegend = TRUE,
+            legend = list(
+              x = 1.02,
+              y = 1,
+              xanchor = 'left',
+              yanchor = 'top'
+            )
           )
 
         return(p)
