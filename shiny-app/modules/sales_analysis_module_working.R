@@ -31,22 +31,10 @@ salesAnalysisUI <- function(id) {
                        selected = "book_sales")
           ),
           column(3,
-            selectizeInput(ns("book_title"), "Book Title:",
-                           choices = NULL,
-                           multiple = FALSE,
-                           options = list(
-                             placeholder = "Select or type book title...",
-                             create = FALSE
-                           ))
+            textInput(ns("book_title"), "Book Title:", placeholder = "Enter book title...")
           ),
           column(3,
-            selectizeInput(ns("binding_state"), "Binding State:",
-                           choices = NULL,
-                           multiple = FALSE,
-                           options = list(
-                             placeholder = "Select or type binding state...",
-                             create = FALSE
-                           ))
+            textInput(ns("binding_state"), "Binding State:", placeholder = "e.g., cloth, paper...")
           )
         ),
 
@@ -111,25 +99,6 @@ salesAnalysisUI <- function(id) {
 salesAnalysisServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
-    # Initialize dropdown options
-    observe({
-      # Get book titles and binding states for dropdowns
-      book_titles <- safe_query(get_book_titles,
-                               default_value = data.frame(book_title = character(0)))
-      binding_states <- safe_query(get_binding_states,
-                                  default_value = data.frame(binding = character(0)))
-
-      # Update book title choices
-      if (nrow(book_titles) > 0) {
-        updateSelectizeInput(session, "book_title", choices = book_titles$book_title, server = TRUE)
-      }
-
-      # Update binding state choices
-      if (nrow(binding_states) > 0) {
-        updateSelectizeInput(session, "binding_state", choices = binding_states$binding, server = TRUE)
-      }
-    })
-
     # Navigation handlers
     observeEvent(input$view_author_analysis, {
       showNotification("Navigate to Author Analysis tab for gender comparisons and author-focused analytics",
@@ -168,7 +137,7 @@ salesAnalysisServer <- function(id) {
               data.frame(Error = "Please enter a book title")
             } else {
               get_book_sales_by_title_binding(
-                input$book_title,
+                input$book_title %||% "",
                 input$binding_state %||% "",
                 start_year, end_year
               )
@@ -181,7 +150,7 @@ salesAnalysisServer <- function(id) {
               data.frame(Error = "Please enter a book title")
             } else {
               get_royalty_income_by_book_binding(
-                input$book_title,
+                input$book_title %||% "",
                 input$binding_state %||% "",
                 start_year, end_year
               )
@@ -194,7 +163,7 @@ salesAnalysisServer <- function(id) {
               data.frame(Error = "Please enter a book title")
             } else {
               get_average_sales_by_book_binding(
-                input$book_title,
+                input$book_title %||% "",
                 input$binding_state %||% "",
                 start_year, end_year
               )
@@ -261,11 +230,11 @@ salesAnalysisServer <- function(id) {
         display_results$avg_total_sales_per_book <- round(display_results$avg_total_sales_per_book, 1)
       }
       if ("royalty_income" %in% names(display_results)) {
-        display_results$royalty_income <- paste0("USD ", format(round(display_results$royalty_income, 2), big.mark = ","))
+        display_results$royalty_income <- paste0("$", format(round(display_results$royalty_income, 2), big.mark = ","))
       }
       if ("retail_price" %in% names(display_results)) {
         display_results$retail_price <- ifelse(is.na(display_results$retail_price), "N/A",
-                                              paste0("USD ", format(display_results$retail_price, digits = 2)))
+                                              paste0("$", format(display_results$retail_price, digits = 2)))
       }
 
       DT::datatable(
@@ -304,10 +273,10 @@ salesAnalysisServer <- function(id) {
         "royalty_book" = {
           if ("royalty_income" %in% names(results) && nrow(results) > 0) {
             plot_ly(results, x = ~book_title, y = ~royalty_income, type = "bar",
-                   text = ~paste("Sales:", total_sales, "<br>Price: USD", retail_price),
-                   hovertemplate = "%{text}<br>Royalty: USD %{y:,.2f}<extra></extra>") %>%
+                   text = ~paste("Sales:", total_sales, "<br>Price: $", retail_price),
+                   hovertemplate = "%{text}<br>Royalty: $%{y:,.2f}<extra></extra>") %>%
               layout(title = "Royalty Income by Book", xaxis = list(title = "Book Title"),
-                     yaxis = list(title = "Royalty Income (USD)"))
+                     yaxis = list(title = "Royalty Income ($)"))
           } else {
             plotly_empty()
           }

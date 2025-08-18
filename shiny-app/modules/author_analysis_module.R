@@ -35,8 +35,14 @@ authorAnalysisUI <- function(id) {
             conditionalPanel(
               condition = "input.analysis_type == 'author_royalty' || input.analysis_type == 'author_overview'",
               ns = ns,
-              textInput(ns("author_name"), "Author Surname:",
-                       placeholder = "Enter author surname...")
+              selectizeInput(ns("author_name"), "Author Surname:",
+                             choices = NULL,
+                             multiple = FALSE,
+                             options = list(
+                               placeholder = "Select author surname...",
+                               create = TRUE,
+                               persist = TRUE
+                             ))
             ),
             conditionalPanel(
               condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
@@ -56,8 +62,13 @@ authorAnalysisUI <- function(id) {
             conditionalPanel(
               condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
               ns = ns,
-              textInput(ns("binding_filter"), "Binding Type:",
-                       placeholder = "e.g., cloth, paper...")
+              selectizeInput(ns("binding_filter"), "Binding Type:",
+                             choices = NULL,
+                             multiple = FALSE,
+                             options = list(
+                               placeholder = "Select or type binding type...",
+                               create = FALSE
+                             ))
             )
           )
         ),
@@ -143,8 +154,9 @@ authorAnalysisUI <- function(id) {
 authorAnalysisServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
-    # Initialize genre choices
+    # Initialize genre choices and binding states
     observe({
+      # Genre choices
       genres <- safe_query(function() {
         query <- "SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"
         result <- safe_db_query(query)
@@ -154,8 +166,51 @@ authorAnalysisServer <- function(id) {
         }
         return(c("All Genres" = ""))
       }, default_value = c("All Genres" = ""))
-
       updateSelectInput(session, "genre_filter", choices = genres)
+
+      # Binding states
+
+      # Author surname choices for royalty/overview analyses
+      author_choices <- safe_query(function() {
+        query <- "
+          SELECT
+            be.author_surname,
+            COUNT(*) AS book_count,
+            COALESCE(SUM(bs.total_sales), 0) AS total_sales
+          FROM book_entries be
+          LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
+          WHERE be.author_surname IS NOT NULL
+            AND (
+              be.royalty_rate IS NOT NULL OR
+              EXISTS (SELECT 1 FROM royalty_tiers rt WHERE rt.book_id = be.book_id)
+            )
+          GROUP BY be.author_surname
+          HAVING COUNT(*) >= 1
+          ORDER BY book_count DESC, total_sales DESC, be.author_surname
+          LIMIT 200
+        "
+        df <- safe_db_query(query)
+        if (!is.null(df) && nrow(df) > 0) {
+          labels <- paste0(df$author_surname, " (", df$book_count, ifelse(df$book_count == 1, " book", " books"), ")")
+          return(stats::setNames(df$author_surname, labels))
+        }
+        return(character(0))
+      }, default_value = character(0))
+
+      updateSelectizeInput(
+        session, "author_name",
+        choices = author_choices,
+        selected = NULL,
+        server = TRUE
+      )
+
+      binding_states <- safe_query(get_binding_states,
+                                   default_value = data.frame(binding = character(0)))
+      if (nrow(binding_states) > 0) {
+        updateSelectizeInput(session, "binding_filter",
+                             choices = binding_states$binding,
+                             server = TRUE)
+      }
     })
 
     # Reactive values for storing results
@@ -287,6 +342,14 @@ authorAnalysisServer <- function(id) {
           if (input$metric_type == "average") {
             male_avg <- mean(results[results$gender == "Male", "avg_total_sales_per_book"], na.rm = TRUE)
             female_avg <- mean(results[results$gender == "Female", "avg_total_sales_per_book"], na.rm = TRUE)
+            # Guard against NaN values from mean(numeric(0))
+            if (is.nan(male_avg)) male_avg <- NA_real_
+            if (is.nan(female_avg)) female_avg <- NA_real_
+
+            # Safe performance comparison and color
+            perf_pct <- if (!is.na(male_avg) && male_avg > 0 && !is.na(female_avg)) round((female_avg / male_avg - 1) * 100, 1) else NA_real_
+            perf_value <- if (!is.na(perf_pct) && is.finite(perf_pct)) paste0(perf_pct, "%") else "N/A"
+            perf_color <- if (!is.na(perf_pct) && perf_pct > 0) "green" else "orange"
 
             fluidRow(
               column(4, create_value_box(
@@ -302,10 +365,10 @@ authorAnalysisServer <- function(id) {
                 color = "red"
               )),
               column(4, create_value_box(
-                value = paste0(round((female_avg/male_avg - 1) * 100, 1), "%"),
+                value = perf_value,
                 subtitle = "Female vs Male Performance",
                 icon = "balance-scale",
-                color = if((female_avg/male_avg - 1) > 0) "green" else "orange"
+                color = perf_color
               ))
             )
           } else {
@@ -387,11 +450,20 @@ authorAnalysisServer <- function(id) {
                 if (input$metric_type == "average") {
                   male_avg <- mean(male_data$avg_total_sales_per_book, na.rm = TRUE)
                   female_avg <- mean(female_data$avg_total_sales_per_book, na.rm = TRUE)
+                  # Guard against NaN comparisons when one gender has no data
+                  if (is.nan(male_avg)) male_avg <- NA_real_
+                  if (is.nan(female_avg)) female_avg <- NA_real_
+                  comparison_msg <- if (isTRUE(female_avg > male_avg)) {
+                    "Female authors outperformed male authors"
+                  } else if (isTRUE(male_avg > female_avg)) {
+                    "Male authors outperformed female authors"
+                  } else {
+                    "Performance similar or insufficient data for comparison"
+                  }
                   tagList(
                     p(paste("Male authors averaged", round(male_avg, 0), "sales per book")),
                     p(paste("Female authors averaged", round(female_avg, 0), "sales per book")),
-                    p(if (female_avg > male_avg) "Female authors outperformed male authors"
-                      else "Male authors outperformed female authors")
+                    p(comparison_msg)
                   )
                 } else {
                   male_total <- sum(male_data$total_sales, na.rm = TRUE)

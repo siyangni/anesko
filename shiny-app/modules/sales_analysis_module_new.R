@@ -31,22 +31,22 @@ salesAnalysisUI <- function(id) {
                        selected = "book_sales")
           ),
           column(3,
-            selectizeInput(ns("book_title"), "Book Title:",
-                           choices = NULL,
-                           multiple = FALSE,
-                           options = list(
-                             placeholder = "Select or type book title...",
-                             create = FALSE
-                           ))
+            selectInput(ns("book_title"), "Book Title:",
+                       choices = NULL,
+                       selectize = TRUE,
+                       options = list(
+                         placeholder = "Select or type book title...",
+                         create = FALSE
+                       ))
           ),
           column(3,
-            selectizeInput(ns("binding_state"), "Binding State:",
-                           choices = NULL,
-                           multiple = FALSE,
-                           options = list(
-                             placeholder = "Select or type binding state...",
-                             create = FALSE
-                           ))
+            selectInput(ns("binding_state"), "Binding State:",
+                       choices = NULL,
+                       selectize = TRUE,
+                       options = list(
+                         placeholder = "Select or type binding state...",
+                         create = FALSE
+                       ))
           )
         ),
 
@@ -121,12 +121,14 @@ salesAnalysisServer <- function(id) {
 
       # Update book title choices
       if (nrow(book_titles) > 0) {
-        updateSelectizeInput(session, "book_title", choices = book_titles$book_title, server = TRUE)
+        title_choices <- c("" = "", setNames(book_titles$book_title, book_titles$book_title))
+        updateSelectInput(session, "book_title", choices = title_choices)
       }
 
       # Update binding state choices
       if (nrow(binding_states) > 0) {
-        updateSelectizeInput(session, "binding_state", choices = binding_states$binding, server = TRUE)
+        binding_choices <- c("" = "", setNames(binding_states$binding, binding_states$binding))
+        updateSelectInput(session, "binding_state", choices = binding_choices)
       }
     })
 
@@ -165,7 +167,7 @@ salesAnalysisServer <- function(id) {
           "book_sales" = {
             incProgress(0.3, detail = "Fetching book sales data...")
             if (is.null(input$book_title) || input$book_title == "") {
-              data.frame(Error = "Please enter a book title")
+              data.frame(Error = "Please select a book title")
             } else {
               get_book_sales_by_title_binding(
                 input$book_title,
@@ -178,7 +180,7 @@ salesAnalysisServer <- function(id) {
           "royalty_book" = {
             incProgress(0.3, detail = "Calculating royalty income...")
             if (is.null(input$book_title) || input$book_title == "") {
-              data.frame(Error = "Please enter a book title")
+              data.frame(Error = "Please select a book title")
             } else {
               get_royalty_income_by_book_binding(
                 input$book_title,
@@ -191,7 +193,7 @@ salesAnalysisServer <- function(id) {
           "avg_book_sales" = {
             incProgress(0.3, detail = "Calculating average book sales...")
             if (is.null(input$book_title) || input$book_title == "") {
-              data.frame(Error = "Please enter a book title")
+              data.frame(Error = "Please select a book title")
             } else {
               get_average_sales_by_book_binding(
                 input$book_title,
@@ -261,11 +263,11 @@ salesAnalysisServer <- function(id) {
         display_results$avg_total_sales_per_book <- round(display_results$avg_total_sales_per_book, 1)
       }
       if ("royalty_income" %in% names(display_results)) {
-        display_results$royalty_income <- paste0("USD ", format(round(display_results$royalty_income, 2), big.mark = ","))
+        display_results$royalty_income <- paste0("$", format(round(display_results$royalty_income, 2), big.mark = ","))
       }
       if ("retail_price" %in% names(display_results)) {
         display_results$retail_price <- ifelse(is.na(display_results$retail_price), "N/A",
-                                              paste0("USD ", format(display_results$retail_price, digits = 2)))
+                                              paste0("$", format(display_results$retail_price, digits = 2)))
       }
 
       DT::datatable(
@@ -304,10 +306,10 @@ salesAnalysisServer <- function(id) {
         "royalty_book" = {
           if ("royalty_income" %in% names(results) && nrow(results) > 0) {
             plot_ly(results, x = ~book_title, y = ~royalty_income, type = "bar",
-                   text = ~paste("Sales:", total_sales, "<br>Price: USD", retail_price),
-                   hovertemplate = "%{text}<br>Royalty: USD %{y:,.2f}<extra></extra>") %>%
+                   text = ~paste("Sales:", total_sales, "<br>Price: $", retail_price),
+                   hovertemplate = "%{text}<br>Royalty: $%{y:,.2f}<extra></extra>") %>%
               layout(title = "Royalty Income by Book", xaxis = list(title = "Book Title"),
-                     yaxis = list(title = "Royalty Income (USD)"))
+                     yaxis = list(title = "Royalty Income ($)"))
           } else {
             plotly_empty()
           }
