@@ -82,7 +82,7 @@ get_summary_stats <- function() {
 # Get books with sales summary
 get_books_summary <- function() {
   query <- "
-    SELECT 
+    SELECT
       be.*,
       COALESCE(bs.total_sales, 0) as total_sales,
       COALESCE(bs.years_with_sales, 0) as years_with_sales,
@@ -98,7 +98,7 @@ get_books_summary <- function() {
 # Get sales data by year and genre
 get_sales_by_year_genre <- function(year_start = 1860, year_end = 1920) {
   query <- "
-    SELECT 
+    SELECT
       bs.year,
       be.genre,
       SUM(bs.sales_count) as total_sales,
@@ -136,7 +136,7 @@ get_gender_analysis <- function() {
 # Get publisher performance
 get_publisher_performance <- function(min_books = 5) {
   query <- "
-    SELECT 
+    SELECT
       be.publisher,
       COUNT(*) as book_count,
       COALESCE(SUM(bs.total_sales), 0) as total_sales,
@@ -156,7 +156,7 @@ get_publisher_performance <- function(min_books = 5) {
 # Get top selling books
 get_top_books <- function(limit = 20, min_year = MIN_YEAR, max_year = MAX_YEAR) {
   query <- "
-    SELECT 
+    SELECT
       be.book_id,
       be.author_surname,
       be.book_title,
@@ -181,12 +181,12 @@ get_top_books <- function(limit = 20, min_year = MIN_YEAR, max_year = MAX_YEAR) 
 # Get time series data for specific books
 get_book_sales_timeseries <- function(book_ids) {
   if (length(book_ids) == 0) return(data.frame())
-  
+
   # Create placeholder string for IN clause
   placeholders <- paste0("$", 1:length(book_ids), collapse = ",")
-  
+
   query <- paste0("
-    SELECT 
+    SELECT
       bs.book_id,
       be.author_surname,
       be.book_title,
@@ -198,14 +198,14 @@ get_book_sales_timeseries <- function(book_ids) {
       AND bs.sales_count IS NOT NULL
     ORDER BY bs.book_id, bs.year
   ")
-  
+
   safe_db_query(query, params = as.list(book_ids))
 }
 
 # Get decade summary
 get_decade_summary <- function() {
   query <- "
-    SELECT 
+    SELECT
       (bs.year / 10) * 10 as decade,
       COUNT(DISTINCT bs.book_id) as unique_books,
       COUNT(*) as total_records,
@@ -225,20 +225,20 @@ get_decade_summary <- function() {
 # Search books
 search_books <- function(search_term = "", genre_filter = NULL, gender_filter = NULL,
                         year_range = c(1860, 1920), publisher_filter = NULL) {
-  
+
   where_conditions <- c("1=1")  # Base condition
   params <- list()
   param_counter <- 1
-  
+
   # Add search term filter
   if (!is.null(search_term) && search_term != "") {
-    where_conditions <- c(where_conditions, 
+    where_conditions <- c(where_conditions,
                          paste0("(LOWER(be.book_title) LIKE LOWER($", param_counter, ") OR ",
                                "LOWER(be.author_surname) LIKE LOWER($", param_counter + 1, "))"))
     params <- c(params, paste0("%", search_term, "%"), paste0("%", search_term, "%"))
     param_counter <- param_counter + 2
   }
-  
+
   # Add genre filter
   if (!is.null(genre_filter) && length(genre_filter) > 0) {
     genre_placeholders <- paste0("$", param_counter:(param_counter + length(genre_filter) - 1), collapse = ",")
@@ -246,7 +246,7 @@ search_books <- function(search_term = "", genre_filter = NULL, gender_filter = 
     params <- c(params, as.list(genre_filter))
     param_counter <- param_counter + length(genre_filter)
   }
-  
+
   # Add gender filter
   if (!is.null(gender_filter) && length(gender_filter) > 0) {
     gender_placeholders <- paste0("$", param_counter:(param_counter + length(gender_filter) - 1), collapse = ",")
@@ -254,24 +254,24 @@ search_books <- function(search_term = "", genre_filter = NULL, gender_filter = 
     params <- c(params, as.list(gender_filter))
     param_counter <- param_counter + length(gender_filter)
   }
-  
+
   # Add year range filter
-  where_conditions <- c(where_conditions, 
+  where_conditions <- c(where_conditions,
                        paste0("be.publication_year BETWEEN $", param_counter, " AND $", param_counter + 1))
   params <- c(params, year_range[1], year_range[2])
   param_counter <- param_counter + 2
-  
+
   # Add publisher filter
   if (!is.null(publisher_filter) && length(publisher_filter) > 0) {
     pub_placeholders <- paste0("$", param_counter:(param_counter + length(publisher_filter) - 1), collapse = ",")
     where_conditions <- c(where_conditions, paste0("be.publisher IN (", pub_placeholders, ")"))
     params <- c(params, as.list(publisher_filter))
   }
-  
+
   where_clause <- paste(where_conditions, collapse = " AND ")
-  
+
   query <- paste0("
-    SELECT 
+    SELECT
       be.book_id,
       be.author_surname,
       be.gender,
@@ -289,7 +289,7 @@ search_books <- function(search_term = "", genre_filter = NULL, gender_filter = 
     WHERE ", where_clause, "
     ORDER BY be.publication_year DESC, be.author_surname, be.book_title
   ")
-  
+
   safe_db_query(query, params = params)
 }
 
@@ -550,6 +550,33 @@ get_total_sales_by_binding_genre_gender <- function(binding_state = NULL, genre 
 
   safe_db_query(query, params = params)
 }
+
+# Function 3a: Get per-book total sales for a given genre/binding in a date range (for significance tests)
+get_total_sales_per_book_by_genre_binding <- function(binding_state = NULL, genre = NULL, start_year, end_year) {
+  where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
+  params <- list(start_year, end_year)
+  param_count <- 2
+
+  if (!is.null(binding_state) && binding_state != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
+    params <- c(params, list(paste0("%", binding_state, "%")))
+  }
+
+  if (!is.null(genre) && genre != "") {
+    param_count <- param_count + 1
+    where_conditions <- c(where_conditions, paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
+    params <- c(params, list(paste0("%", genre, "%")))
+  }
+
+  where_clause <- paste(where_conditions, collapse = " AND ")
+
+  query <- paste0(
+    "\n    SELECT\n      be.book_id,\n      be.book_title,\n      SUM(bs.sales_count) AS total_sales\n    FROM book_entries be\n    JOIN book_sales bs ON be.book_id = bs.book_id\n    WHERE ", where_clause, "\n    GROUP BY be.book_id, be.book_title\n    ORDER BY total_sales DESC\n  ")
+
+  safe_db_query(query, params = params)
+}
+
 
 # Helper function to calculate royalty income for a book based on sales and royalty structure
 calculate_royalty_income <- function(book_id, total_sales, retail_price, royalty_rate, royalty_tiers = NULL) {

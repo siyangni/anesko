@@ -27,7 +27,10 @@ genreAnalysisUI <- function(id) {
                          "Genre Performance Comparison" = "genre_comparison",
                          "Market Share Analysis" = "market_share",
                          "Genre by Gender Analysis" = "genre_gender",
-                         "Binding Format Analysis" = "binding_analysis"
+                         "Binding Format Analysis" = "binding_analysis",
+                         "Book Title Comparison by Binding" = "title_binding_compare",
+                         "Gender-Based Genre/Binding Sales Comparison" = "gender_binding",
+                         "Cross-Period Average Sales Comparison" = "cross_period_avg"
                        ),
                        selected = "genre_comparison")
           ),
@@ -74,6 +77,39 @@ genreAnalysisUI <- function(id) {
               br(),
               actionButton(ns("view_sales_analysis"), "View in Sales Analysis →",
                           class = "btn-link btn-sm")
+            )
+          )
+        ),
+        # Extra controls for comparative analyses (appear when relevant)
+        fluidRow(
+          conditionalPanel(
+            condition = "input.analysis_type == 'title_binding_compare'",
+            ns = ns,
+            column(6,
+              selectizeInput(ns("book_title_1"), "Book Title A:", choices = NULL, multiple = FALSE,
+                             options = list(placeholder = "Select first book title...", create = FALSE))
+            ),
+            column(6,
+              selectizeInput(ns("book_title_2"), "Book Title B:", choices = NULL, multiple = FALSE,
+                             options = list(placeholder = "Select second book title...", create = FALSE))
+            )
+          )
+        ),
+        fluidRow(
+          conditionalPanel(
+            condition = "input.analysis_type == 'cross_period_avg'",
+            ns = ns,
+            column(6,
+              dateRangeInput(ns("date_range_p1"), "Period 1:",
+                             start = "1860-01-01", end = "1900-12-31",
+                             min = "1860-01-01", max = "1920-12-31",
+                             format = "yyyy")
+            ),
+            column(6,
+              dateRangeInput(ns("date_range_p2"), "Period 2:",
+                             start = "1901-01-01", end = "1920-12-31",
+                             min = "1860-01-01", max = "1920-12-31",
+                             format = "yyyy")
             )
           )
         )
@@ -166,6 +202,15 @@ genreAnalysisServer <- function(id) {
         })
 
 
+	    # Initialize book title choices for comparison dropdowns
+	    observe({
+	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
+	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+	    })
+
+
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
 
@@ -174,6 +219,28 @@ genreAnalysisServer <- function(id) {
       dates <- input$date_range
       if (is.null(dates) || length(dates) != 2) {
         return(c(1860, 1920))
+
+
+
+
+	    # Initialize book title choices for comparison UI
+	    observe({
+	      titles_df <- safe_query(get_book_titles,
+	                              default_value = data.frame(book_title = character(0)))
+	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+	    })
+
+
+	    # Initialize book title choices used by title comparison analysis
+	    observe({
+	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
+	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+	    })
+
       }
       c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
     })
@@ -253,6 +320,118 @@ genreAnalysisServer <- function(id) {
               input$gender_filter %||% NULL,
               start_year, end_year
             )
+          },
+
+          "title_binding_compare" = {
+            incProgress(0.3, detail = "Comparing selected titles...")
+            if (is.null(input$book_title_1) || input$book_title_1 == "" ||
+                is.null(input$book_title_2) || input$book_title_2 == "") {
+              showNotification("Please select two book titles.", type = "warning")
+              data.frame(Error = "Select two book titles to compare")
+            } else if (is.null(input$binding_filter) || input$binding_filter == "") {
+              showNotification("Please choose a binding type.", type = "warning")
+              data.frame(Error = "Select a binding type")
+            } else {
+              res_a <- safe_query(function() {
+                get_book_sales_by_title_binding(input$book_title_1, input$binding_filter, start_year, end_year)
+              }, default_value = data.frame())
+              res_b <- safe_query(function() {
+                get_book_sales_by_title_binding(input$book_title_2, input$binding_filter, start_year, end_year)
+              }, default_value = data.frame())
+
+              agg_fun <- function(df) {
+                if (nrow(df) == 0) return(data.frame(book_title = character(0), binding = character(0), total_sales = numeric(0)))
+                res <- aggregate(total_sales ~ book_title + binding, df, sum)
+                res
+              }
+
+              a <- agg_fun(res_a); a$selection <- "A"
+              b <- agg_fun(res_b); b$selection <- "B"
+              combined <- rbind(a, b)
+              combined
+            }
+          },
+
+          "gender_binding" = {
+            incProgress(0.3, detail = "Comparing gender totals...")
+            # Require a specific genre and binding for this comparison
+            if (is.null(input$genre_filter) || input$genre_filter == "" ||
+                is.null(input$binding_filter) || input$binding_filter == "") {
+              showNotification("Please select both a Genre and a Binding type.", type = "warning")
+              data.frame(Error = "Select a specific genre and binding")
+            } else {
+              res <- safe_query(function() {
+                get_total_sales_by_binding_genre_gender(
+                  input$binding_filter, input$genre_filter, NULL, start_year, end_year
+                )
+              }, default_value = data.frame())
+              # Aggregate strictly by gender to ensure only two rows
+              if (nrow(res) > 0) {
+                out <- aggregate(total_sales ~ gender, res, sum)
+                out$genre <- input$genre_filter
+                out$binding <- input$binding_filter
+                out <- out[, c("genre", "binding", "gender", "total_sales")]  # reorder
+                out
+              } else {
+                data.frame()
+              }
+            }
+          },
+
+          "cross_period_avg" = {
+            incProgress(0.3, detail = "Computing cross-period averages...")
+            # Need genre and binding
+            if (is.null(input$genre_filter) || input$genre_filter == "" ||
+                is.null(input$binding_filter) || input$binding_filter == "") {
+              showNotification("Please select both a Genre and a Binding type.", type = "warning")
+              data.frame(Error = "Select a specific genre and binding")
+            } else {
+              p1 <- input$date_range_p1; p2 <- input$date_range_p2
+              if (is.null(p1) || length(p1) != 2 || is.null(p2) || length(p2) != 2) {
+                showNotification("Please set both Period 1 and Period 2 date ranges.", type = "warning")
+                data.frame(Error = "Please set both periods")
+              } else {
+                p1_years <- c(as.numeric(format(p1[1], "%Y")), as.numeric(format(p1[2], "%Y")))
+                p2_years <- c(as.numeric(format(p2[1], "%Y")), as.numeric(format(p2[2], "%Y")))
+
+                # Use per-book totals for each period to enable significance testing
+                books_p1 <- safe_query(function() {
+                  get_total_sales_per_book_by_genre_binding(input$binding_filter, input$genre_filter, p1_years[1], p1_years[2])
+                }, default_value = data.frame())
+                books_p2 <- safe_query(function() {
+                  get_total_sales_per_book_by_genre_binding(input$binding_filter, input$genre_filter, p2_years[1], p2_years[2])
+                }, default_value = data.frame())
+
+                avg1 <- if (nrow(books_p1) > 0) mean(books_p1$total_sales, na.rm = TRUE) else NA_real_
+                avg2 <- if (nrow(books_p2) > 0) mean(books_p2$total_sales, na.rm = TRUE) else NA_real_
+                n1 <- nrow(books_p1); n2 <- nrow(books_p2)
+                pct_change <- if (is.na(avg1) || avg1 == 0 || is.na(avg2)) NA_real_ else ((avg2 - avg1) / avg1) * 100
+
+                p_value <- NA_real_
+                test_method <- NA_character_
+                if (n1 > 1 && n2 > 1 && all(is.finite(c(avg1, avg2)))) {
+                  tt <- try(stats::t.test(books_p1$total_sales, books_p2$total_sales), silent = TRUE)
+                  if (!inherits(tt, "try-error")) {
+                    p_value <- tt$p.value
+                    test_method <- "t-test"
+                  }
+                }
+
+                data.frame(
+                  genre = input$genre_filter,
+                  binding = input$binding_filter,
+                  period = c("Period 1", "Period 2"),
+                  start_year = c(p1_years[1], p2_years[1]),
+                  end_year = c(p1_years[2], p2_years[2]),
+                  avg_sales_per_book = c(avg1, avg2),
+                  n_books = c(n1, n2),
+                  pct_change = c(NA_real_, pct_change),
+                  p_value = c(NA_real_, p_value),
+                  test = c(NA_character_, test_method),
+                  stringsAsFactors = FALSE
+                )
+              }
+            }
           },
 
           data.frame(Error = "Unknown analysis type")
@@ -435,6 +614,49 @@ genreAnalysisServer <- function(id) {
           }
         },
 
+        "title_binding_compare" = {
+          if (nrow(results) > 0 && all(c("book_title", "total_sales", "selection") %in% names(results))) {
+            tagList(
+              h5("Title vs Title (by Binding) Insights:"),
+              p(paste("Binding:", input$binding_filter)),
+              p(paste("Higher-seller:", results$book_title[which.max(results$total_sales)])),
+              p(paste("Difference:", format(diff(range(results$total_sales)), big.mark = ",")))
+            )
+          } else {
+            p("No title comparison data available")
+          }
+        },
+
+        "gender_binding" = {
+          if (nrow(results) > 0 && "gender" %in% names(results)) {
+            total_m <- sum(results$total_sales[results$gender == "Male"], na.rm = TRUE)
+            total_f <- sum(results$total_sales[results$gender == "Female"], na.rm = TRUE)
+            share_f <- if ((total_m + total_f) > 0) round(100 * total_f/(total_m + total_f), 1) else NA
+            tagList(
+              h5("Gender-based Sales Insights:"),
+              p(paste("Male total:", format(total_m, big.mark = ","))),
+              p(paste("Female total:", format(total_f, big.mark = ","))),
+              p(paste("Female share:", paste0(share_f, "%")))
+            )
+          } else {
+            p("No gender comparison data available")
+          }
+        },
+
+        "cross_period_avg" = {
+          if (nrow(results) > 0 && "pct_change" %in% names(results)) {
+            last_row <- tail(results, 1)
+            tagList(
+              h5("Cross-Period Average Sales Insights:"),
+              p(paste("Percent change (P2 vs P1):", ifelse(is.na(last_row$pct_change), "NA", paste0(round(last_row$pct_change, 1), "%")))),
+              p(paste("Significance test:", ifelse(is.na(last_row$p_value), "N/A", paste0("p=", signif(last_row$p_value, 3))),
+                      ifelse(is.na(last_row$test), "", paste0(" (", last_row$test, ")"))))
+            )
+          } else {
+            p("No cross-period data available")
+          }
+        },
+
         p("Select an analysis type to see insights")
       )
 
@@ -464,6 +686,15 @@ genreAnalysisServer <- function(id) {
       }
       if ("avg_total_sales_per_book" %in% names(display_results)) {
         display_results$avg_total_sales_per_book <- round(display_results$avg_total_sales_per_book, 1)
+      }
+      if ("avg_sales_per_book" %in% names(display_results)) {
+        display_results$avg_sales_per_book <- round(display_results$avg_sales_per_book, 1)
+      }
+      if ("pct_change" %in% names(display_results)) {
+        display_results$pct_change <- ifelse(is.na(display_results$pct_change), NA, round(display_results$pct_change, 1))
+      }
+      if ("p_value" %in% names(display_results)) {
+        display_results$p_value <- ifelse(is.na(display_results$p_value), NA, signif(display_results$p_value, 3))
       }
       if ("market_share_pct" %in% names(display_results)) {
         display_results$market_share_pct <- paste0(display_results$market_share_pct, "%")
@@ -543,6 +774,44 @@ genreAnalysisServer <- function(id) {
                      yaxis = list(title = "Total Sales"))
           } else {
             plotly_empty("No binding data available")
+          }
+        },
+
+        "title_binding_compare" = {
+          if (all(c("book_title", "total_sales", "selection") %in% names(results)) && nrow(results) > 0) {
+            plot_ly(results, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
+                   hovertemplate = "Title: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
+              layout(title = paste0("Sales Comparison (", input$binding_filter, ")"),
+                     xaxis = list(title = "Book Title"),
+                     yaxis = list(title = "Total Sales"),
+                     barmode = "group")
+          } else {
+            plotly_empty("No title comparison data available")
+          }
+        },
+
+        "gender_binding" = {
+          if (all(c("gender", "total_sales") %in% names(results)) && nrow(results) > 0) {
+            plot_ly(results, x = ~gender, y = ~total_sales, type = "bar",
+                   colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
+                   hovertemplate = "Gender: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
+              layout(title = paste0("Total Sales by Gender (", input$genre_filter, " / ", input$binding_filter, ")"),
+                     xaxis = list(title = "Gender"),
+                     yaxis = list(title = "Total Sales"))
+          } else {
+            plotly_empty("No gender comparison data available")
+          }
+        },
+
+        "cross_period_avg" = {
+          if (all(c("period", "avg_sales_per_book") %in% names(results)) && nrow(results) > 0) {
+            plot_ly(results, x = ~period, y = ~avg_sales_per_book, type = "bar",
+                   hovertemplate = "Period: %{x}<br>Avg Sales/Book: %{y:,.1f}<extra></extra>") %>%
+              layout(title = paste0("Average Sales per Book (", input$genre_filter, " / ", input$binding_filter, ")"),
+                     xaxis = list(title = "Period"),
+                     yaxis = list(title = "Average Sales per Book"))
+          } else {
+            plotly_empty("No cross-period data available")
           }
         },
 
