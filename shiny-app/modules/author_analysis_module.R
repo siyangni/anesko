@@ -73,13 +73,17 @@ authorAnalysisUI <- function(id) {
             conditionalPanel(
               condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
               ns = ns,
-              selectizeInput(ns("binding_filter"), "Binding Type:",
-                             choices = NULL,
-                             multiple = FALSE,
-                             options = list(
-                               placeholder = "Select or type binding type...",
-                               create = FALSE
-                             ))
+              tagList(
+                selectizeInput(ns("binding_filter"), "Binding Type:",
+                               choices = NULL,
+                               multiple = FALSE,
+                               options = list(
+                                 placeholder = "Select or type binding type...",
+                                 create = FALSE
+                               )),
+                helpText("Hint: try 'cloth', 'paper'"),
+                actionButton(ns("clear_binding"), "Clear", class = "btn-link btn-sm")
+              )
             )
           )
         ),
@@ -183,9 +187,11 @@ authorAnalysisServer <- function(id) {
       binding_states <- safe_query(get_binding_states,
                                    default_value = data.frame(binding = character(0)))
       if (nrow(binding_states) > 0) {
-        # For gender_comparison, include an "All Binding Types" empty option
+        # Normalize casing and sort alphabetically
+        bindings <- binding_states$binding
+        bindings <- sort(unique(stringr::str_to_title(trimws(bindings))))
         updateSelectizeInput(session, "binding_filter",
-                             choices = c("All Binding Types" = "", binding_states$binding),
+                             choices = c("All Binding Types" = "", stats::setNames(bindings, bindings)),
                              selected = "",
                              server = TRUE)
       }
@@ -247,6 +253,8 @@ authorAnalysisServer <- function(id) {
             ORDER BY book_count DESC, be.author_id
           "
           safe_db_query(q, params = list(surname))
+
+
         }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
         if (!is.null(id_df) && nrow(id_df) > 0) {
           labels <- paste0(id_df$author_id, " (", id_df$author_surname, ", ", id_df$book_count,

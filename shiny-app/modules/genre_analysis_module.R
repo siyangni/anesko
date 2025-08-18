@@ -44,8 +44,13 @@ genreAnalysisUI <- function(id) {
 
         fluidRow(
           column(3,
-            textInput(ns("binding_filter"), "Binding Type:",
-                     placeholder = "e.g., cloth, paper...")
+            selectizeInput(ns("binding_filter"), "Binding Type:",
+                           choices = NULL,
+                           multiple = FALSE,
+                           options = list(
+                             placeholder = "Select binding type...",
+                             create = FALSE
+                           ))
           ),
           column(3,
             conditionalPanel(
@@ -141,6 +146,25 @@ genreAnalysisServer <- function(id) {
 
       updateSelectInput(session, "genre_filter", choices = genres)
     })
+
+        # Initialize binding choices
+        observe({
+          binding_states <- safe_query(get_binding_states,
+                                       default_value = data.frame(binding = character(0)))
+          if (nrow(binding_states) > 0) {
+            bindings <- binding_states$binding
+            bindings <- sort(unique(stringr::str_to_title(trimws(bindings))))
+            updateSelectizeInput(session, "binding_filter",
+                                 choices = c("All Binding Types" = "", stats::setNames(bindings, bindings)),
+                                 selected = "",
+                                 server = TRUE)
+          } else {
+            updateSelectizeInput(session, "binding_filter",
+                                 choices = c("All Binding Types" = ""),
+                                 selected = "")
+          }
+        })
+
 
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
