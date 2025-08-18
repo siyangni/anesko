@@ -637,30 +637,49 @@ get_royalty_income_by_book_binding <- function(book_title, binding_state, start_
 }
 
 # Function 5: Get total royalty income from author's books in date range
-get_total_royalty_income_by_author <- function(author_surname, start_year, end_year) {
-  query <- "
-    SELECT
-      be.book_id,
-      be.book_title,
-      be.author_surname,
-      be.author_id,
-      be.retail_price,
-      be.royalty_rate,
-      SUM(bs.sales_count) as total_sales
-    FROM book_entries be
-    JOIN book_sales bs ON be.book_id = bs.book_id
-    WHERE LOWER(be.author_surname) LIKE LOWER($1)
-      AND bs.year BETWEEN $2 AND $3
-      AND bs.sales_count IS NOT NULL
-    GROUP BY be.book_id, be.book_title, be.author_surname, be.author_id, be.retail_price, be.royalty_rate
-    ORDER BY be.book_title
-  "
-
-  books_data <- safe_db_query(query, params = list(
-    paste0("%", author_surname, "%"),
-    start_year,
-    end_year
-  ))
+get_total_royalty_income_by_author <- function(author_surname, start_year, end_year, author_id = NULL) {
+  # Build query dynamically to optionally filter by author_id when provided
+  if (!is.null(author_id) && nzchar(author_id)) {
+    query <- "
+      SELECT
+        be.book_id,
+        be.book_title,
+        be.author_surname,
+        be.author_id,
+        be.retail_price,
+        be.royalty_rate,
+        SUM(bs.sales_count) as total_sales
+      FROM book_entries be
+      JOIN book_sales bs ON be.book_id = bs.book_id
+      WHERE be.author_id = $1
+        AND bs.year BETWEEN $2 AND $3
+        AND bs.sales_count IS NOT NULL
+      GROUP BY be.book_id, be.book_title, be.author_surname, be.author_id, be.retail_price, be.royalty_rate
+      ORDER BY be.book_title
+    "
+    books_data <- safe_db_query(query, params = list(author_id, start_year, end_year))
+  } else {
+    query <- "
+      SELECT
+        be.book_id,
+        be.book_title,
+        be.author_surname,
+        be.author_id,
+        be.retail_price,
+        be.royalty_rate,
+        SUM(bs.sales_count) as total_sales
+      FROM book_entries be
+      JOIN book_sales bs ON be.book_id = bs.book_id
+      WHERE LOWER(be.author_surname) LIKE LOWER($1)
+        AND bs.year BETWEEN $2 AND $3
+        AND bs.sales_count IS NOT NULL
+      GROUP BY be.book_id, be.book_title, be.author_surname, be.author_id, be.retail_price, be.royalty_rate
+      ORDER BY be.book_title
+    "
+    books_data <- safe_db_query(query, params = list(
+      paste0("%", author_surname, "%"), start_year, end_year
+    ))
+  }
 
   if (nrow(books_data) == 0) {
     return(data.frame())

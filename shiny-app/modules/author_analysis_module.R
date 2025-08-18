@@ -35,14 +35,25 @@ authorAnalysisUI <- function(id) {
             conditionalPanel(
               condition = "input.analysis_type == 'author_royalty' || input.analysis_type == 'author_overview'",
               ns = ns,
-              selectizeInput(ns("author_name"), "Author Surname:",
-                             choices = NULL,
-                             multiple = FALSE,
-                             options = list(
-                               placeholder = "Select author surname...",
-                               create = TRUE,
-                               persist = TRUE
-                             ))
+              tagList(
+                selectizeInput(ns("author_name"), "Author Surname:",
+                               choices = NULL,
+                               multiple = FALSE,
+                               options = list(
+                                 placeholder = "Select author surname...",
+                                 create = TRUE,
+                                 persist = TRUE
+                               )),
+                br(),
+                selectizeInput(ns("author_id"), "Author ID:",
+                               choices = NULL,
+                               multiple = FALSE,
+                               options = list(
+                                 placeholder = "Select author ID (optional)...",
+                                 create = FALSE,
+                                 persist = TRUE
+                               ))
+              )
             ),
             conditionalPanel(
               condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
@@ -168,7 +179,16 @@ authorAnalysisServer <- function(id) {
       }, default_value = c("All Genres" = ""))
       updateSelectInput(session, "genre_filter", choices = genres)
 
-      # Binding states
+      # Binding states for gender_comparison
+      binding_states <- safe_query(get_binding_states,
+                                   default_value = data.frame(binding = character(0)))
+      if (nrow(binding_states) > 0) {
+        # For gender_comparison, include an "All Binding Types" empty option
+        updateSelectizeInput(session, "binding_filter",
+                             choices = c("All Binding Types" = "", binding_states$binding),
+                             selected = "",
+                             server = TRUE)
+      }
 
       # Author surname choices for royalty/overview analyses
       author_choices <- safe_query(function() {
@@ -192,6 +212,52 @@ authorAnalysisServer <- function(id) {
         df <- safe_db_query(query)
         if (!is.null(df) && nrow(df) > 0) {
           labels <- paste0(df$author_surname, " (", df$book_count, ifelse(df$book_count == 1, " book", " books"), ")")
+
+
+
+      # Render Author ID input only when a surname is selected
+      output$author_id_ui <- renderUI({
+        req(input$author_name)
+        if (is.null(input$author_name) || identical(input$author_name, "")) {
+          return(NULL)
+        }
+        selectizeInput(ns("author_id"), "Author ID:",
+                       choices = NULL,
+                       multiple = FALSE,
+                       options = list(
+                         placeholder = "Select author ID (optional)...",
+                         create = FALSE,
+                         persist = TRUE
+                       ))
+      })
+
+      # Populate Author ID choices after a surname is selected
+      observeEvent(input$author_name, {
+        surname <- input$author_name
+        if (is.null(surname) || identical(surname, "")) {
+          updateSelectizeInput(session, "author_id", choices = character(0), selected = NULL, server = TRUE)
+          return()
+        }
+        id_df <- safe_query(function() {
+          q <- "
+            SELECT DISTINCT be.author_id, be.author_surname, COUNT(*) AS book_count
+            FROM book_entries be
+            WHERE be.author_surname = $1 AND be.author_id IS NOT NULL
+            GROUP BY be.author_id, be.author_surname
+            ORDER BY book_count DESC, be.author_id
+          "
+          safe_db_query(q, params = list(surname))
+        }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
+        if (!is.null(id_df) && nrow(id_df) > 0) {
+          labels <- paste0(id_df$author_id, " (", id_df$author_surname, ", ", id_df$book_count,
+                           ifelse(id_df$book_count == 1, " book)", " books)"))
+          choices <- stats::setNames(id_df$author_id, labels)
+          updateSelectizeInput(session, "author_id", choices = choices, selected = NULL, server = TRUE)
+        } else {
+          updateSelectizeInput(session, "author_id", choices = character(0), selected = NULL, server = TRUE)
+        }
+      })
+
           return(stats::setNames(df$author_surname, labels))
         }
         return(character(0))
@@ -237,6 +303,35 @@ authorAnalysisServer <- function(id) {
     })
 
     # Run analysis when button is clicked
+
+	    # Populate Author ID choices after a surname is selected
+	    observeEvent(input$author_name, {
+	      surname <- input$author_name
+	      if (is.null(surname) || identical(surname, "")) {
+	        updateSelectizeInput(session, "author_id",
+	                             choices = character(0), selected = NULL, server = TRUE)
+	        return()
+	      }
+	      id_df <- safe_query(function() {
+	        q <- "
+	          SELECT DISTINCT be.author_id, be.author_surname, COUNT(*) AS book_count
+	          FROM book_entries be
+	          WHERE be.author_surname = $1 AND be.author_id IS NOT NULL
+	          GROUP BY be.author_id, be.author_surname
+	          ORDER BY book_count DESC, be.author_id
+	        "
+	        safe_db_query(q, params = list(surname))
+	      }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
+	      if (!is.null(id_df) && nrow(id_df) > 0) {
+	        labels <- paste0(id_df$author_id, " (", id_df$author_surname, ", ", id_df$book_count,
+	                         ifelse(id_df$book_count == 1, " book)", " books)"))
+	        choices <- stats::setNames(id_df$author_id, labels)
+	        updateSelectizeInput(session, "author_id", choices = choices, selected = NULL, server = TRUE)
+	      } else {
+	        updateSelectizeInput(session, "author_id", choices = character(0), selected = NULL, server = TRUE)
+	      }
+	    })
+
     observeEvent(input$run_analysis, {
       years <- year_range()
       start_year <- years[1]
@@ -271,7 +366,8 @@ authorAnalysisServer <- function(id) {
             } else {
               get_total_royalty_income_by_author(
                 input$author_name %||% "",
-                start_year, end_year
+                start_year, end_year,
+                author_id = (input$author_id %||% NULL)
               )
             }
           },
@@ -308,11 +404,16 @@ authorAnalysisServer <- function(id) {
                   bs.last_sale_year
                 FROM book_entries be
                 LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
-                WHERE LOWER(be.author_surname) LIKE LOWER($1)
-                  AND be.publication_year BETWEEN $2 AND $3
+                WHERE (
+                  CASE WHEN $1 IS NOT NULL AND $1 <> '' THEN be.author_id = $1 ELSE TRUE END
+                ) AND (
+                  CASE WHEN $2 IS NOT NULL AND $2 <> '' THEN LOWER(be.author_surname) LIKE LOWER($2) ELSE TRUE END
+                )
+                  AND be.publication_year BETWEEN $3 AND $4
                 ORDER BY be.publication_year, be.book_title
               "
               safe_db_query(query, params = list(
+                input$author_id %||% NULL,
                 paste0("%", input$author_name, "%"),
                 start_year, end_year
               ))
