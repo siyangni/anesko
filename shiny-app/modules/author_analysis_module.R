@@ -623,7 +623,7 @@ authorAnalysisServer <- function(id) {
               h5("Author Career Insights:"),
               p(paste("Career span:", career_span, "years")),
               p(paste("Total books:", nrow(results))),
-              p(paste("Total sales:", format(total_sales, big.mark = ","), "copies")),
+              p(class = "metric-emphasis", paste("Total sales:", format(total_sales, big.mark = ","), "copies")),
               if (nrow(results) > 0) {
                 best_book <- results[which.max(results$total_sales), ]
                 p(paste("Best seller:", best_book$book_title[1],

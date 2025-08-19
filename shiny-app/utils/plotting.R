@@ -31,14 +31,14 @@ create_timeseries_plot <- function(data, x_col, y_col, group_col = NULL,
   
   if (!is.null(group_col) && group_col %in% names(data)) {
     p <- p + 
-      geom_line(aes(color = .data[[group_col]], group = .data[[group_col]]), 
-                size = 1, alpha = 0.8) +
+      geom_line(aes(color = .data[[group_col]], group = .data[[group_col]]),
+                size = 1, alpha = 0.85) +
       geom_point(aes(color = .data[[group_col]]), size = 2) +
-      scale_color_manual(values = GENRE_COLORS, name = str_to_title(group_col))
+      scale_color_manual(values = AMBIENT_COLORS, name = str_to_title(group_col))
   } else {
     p <- p + 
-      geom_line(color = "#3498db", size = 1.2) +
-      geom_point(color = "#2980b9", size = 2.5)
+      geom_line(color = "#2a4365", size = 1.2) +
+      geom_point(color = "#1e3a5f", size = 2.5)
   }
   
   p <- p +
@@ -78,10 +78,10 @@ create_bar_plot <- function(data, x_col, y_col, fill_col = NULL,
                        y = .data[[y_col]]))
   
   if (!is.null(fill_col) && fill_col %in% names(data)) {
-    p <- p + geom_col(aes(fill = .data[[fill_col]]), alpha = 0.8) +
-      scale_fill_manual(values = GENRE_COLORS)
+    p <- p + geom_col(aes(fill = .data[[fill_col]]), alpha = 0.9) +
+      scale_fill_manual(values = AMBIENT_COLORS)
   } else {
-    p <- p + geom_col(fill = "#3498db", alpha = 0.8)
+    p <- p + geom_col(fill = "#2a4365", alpha = 0.9)
   }
   
   p <- p +
@@ -132,9 +132,9 @@ create_scatter_plot <- function(data, x_col, y_col, color_col = NULL, size_col =
   
   if (!is.null(color_col) && color_col %in% names(data)) {
     if (color_col == "gender") {
-      p <- p + scale_color_manual(values = GENDER_COLORS)
+      p <- p + scale_color_manual(values = AMBIENT_COLORS)
     } else if (color_col == "genre") {
-      p <- p + scale_color_manual(values = GENRE_COLORS)
+      p <- p + scale_color_manual(values = AMBIENT_COLORS)
     }
   }
   
@@ -259,13 +259,17 @@ create_pie_chart <- function(data, category_col, value_col, title = "Distributio
                     round(percentage, 1), "%")
     )
 
-  # Use plotly for interactive pie chart
+  # Use plotly for interactive pie chart with ambient colors
+  ambient_palette <- if (exists("PIE_COLORS")) PIE_COLORS else
+    c("#2a4365", "#0f766e", "#6d28d9", "#9a3412", "#166534", "#374151", "#2563eb", "#7c3aed")
+  ambient_cols <- rep_len(ambient_palette, nrow(plot_data))
+
   plot_ly(plot_data,
           labels = ~get(category_col),
           values = ~get(value_col),
           type = 'pie',
           textinfo = 'label+percent',
-          marker = list(colors = rainbow(nrow(plot_data)))) %>%
+          marker = list(colors = ambient_cols)) %>%
     layout(title = title,
            showlegend = FALSE)
 }

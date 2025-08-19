@@ -311,6 +311,12 @@ get_book_titles <- function() {
   safe_db_query("SELECT DISTINCT book_title FROM book_entries WHERE book_title IS NOT NULL ORDER BY book_title")
 }
 
+
+# Get unique author surnames for dropdown
+get_author_surnames <- function() {
+  safe_db_query("SELECT DISTINCT author_surname FROM book_entries WHERE author_surname IS NOT NULL ORDER BY author_surname")
+}
+
 # Get unique binding states for dropdown
 get_binding_states <- function() {
   safe_db_query("SELECT DISTINCT binding FROM book_entries WHERE binding IS NOT NULL ORDER BY binding")

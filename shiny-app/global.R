@@ -55,7 +55,7 @@ initialize_db_pool <- function() {
       test_result <- tryCatch({
         pool::dbGetQuery(pool, "SELECT 1 as test")
       }, error = function(e) NULL)
-      
+
       if (!is.null(test_result) && nrow(test_result) == 1) {
         return(pool)  # Pool is working, return it
       } else {
@@ -63,7 +63,7 @@ initialize_db_pool <- function() {
         tryCatch(pool::poolClose(pool), error = function(e) NULL)
       }
     }
-    
+
     # Create new pool
     new_pool <- create_db_pool()
     assign("pool", new_pool, envir = .GlobalEnv)
@@ -86,34 +86,34 @@ cache <- reactiveValues(
   last_updated = Sys.time()
 )
 
-# Custom theme for the app
+# Custom theme for the app (toned-down, accessible palette)
 app_theme <- fresh::create_theme(
   fresh::adminlte_color(
-    light_blue = "#3498db",
-    blue = "#2980b9",
-    navy = "#2c3e50",
-    teal = "#1abc9c",
-    green = "#27ae60",
-    olive = "#f39c12",
-    lime = "#2ecc71",
-    orange = "#e67e22",
-    red = "#e74c3c",
-    fuchsia = "#9b59b6"
+    light_blue = "#2a4365",  # muted blue
+    blue       = "#1e3a5f",
+    navy       = "#1f2937",  # slate
+    teal       = "#0f766e",  # dark teal (AA on white)
+    green      = "#166534",  # dark green
+    olive      = "#6b7280",  # neutral gray
+    lime       = "#047857",  # emerald
+    orange     = "#9a3412",  # burnt orange
+    red        = "#7f1d1d",  # deep red
+    fuchsia    = "#6d28d9"   # deep purple
   ),
   fresh::adminlte_sidebar(
-    dark_bg = "#2c3e50",
-    dark_hover_bg = "#34495e",
-    dark_color = "#ecf0f1"
+    dark_bg       = "#1f2937", # dark slate
+    dark_hover_bg = "#111827",
+    dark_color    = "#e5e7eb"  # light gray text
   ),
   fresh::adminlte_global(
-    content_bg = "#f4f4f4"
+    content_bg = "#f7fafc"     # light gray content background
   )
 )
 
 # Global constants
 GENRE_COLORS <- c(
   "F" = "#e74c3c",    # Fiction - Red
-  "N" = "#3498db",    # Non-fiction - Blue  
+  "N" = "#3498db",    # Non-fiction - Blue
   "P" = "#9b59b6",    # Poetry - Purple
   "D" = "#f39c12",    # Drama - Orange
   "J" = "#27ae60",    # Juvenile - Green
@@ -127,6 +127,27 @@ GENDER_COLORS <- c(
   "F" = "#e74c3c"     # Female - Red
 )
 
+# Ambient pie chart colors (muted, accessible)
+PIE_COLORS <- c(
+  "#2a4365",  # deep muted blue
+  "#0f766e",  # dark teal
+  "#6d28d9",  # deep purple
+  "#9a3412",  # burnt orange
+  "#166534",  # dark green
+  "#374151",  # slate
+  "#2563eb",  # indigo
+  "#7c3aed"   # violet
+)
+
+# Ambient palette for charts (bar/line/fill/colors)
+AMBIENT_COLORS <- c(
+  "#2a4365", "#0f766e", "#6d28d9", "#9a3412",
+  "#166534", "#374151", "#2563eb", "#7c3aed",
+  "#1e3a5f", "#115e59", "#4c1d95"
+)
+
+
+
 # Define %||% operator for NULL coalescing
 `%||%` <- function(x, y) {
   if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) y else x
@@ -135,22 +156,22 @@ GENDER_COLORS <- c(
 # Helper function to format numbers
 format_number <- function(x, suffix = "") {
   if (is.null(x) || length(x) == 0) return("N/A")
-  
+
   # Handle vectors
   if (length(x) > 1) {
     return(sapply(x, format_number, suffix = suffix))
   }
-  
+
   # Check for NA, NULL, or non-numeric values
   if (is.na(x) || !is.numeric(x)) return("N/A")
-  
+
   # Convert to numeric if it's not already
   x <- as.numeric(x)
   if (is.na(x) || is.infinite(x)) return("N/A")
-  
+
   # Handle negative numbers
   if (x < 0) return("N/A")
-  
+
   if (x >= 1000000) {
     paste0(round(x / 1000000, 1), "M", suffix)
   } else if (x >= 1000) {
@@ -184,8 +205,8 @@ safe_query <- function(query_func, default_value = NULL, error_message = "Data u
     query_func()
   }, error = function(e) {
     showNotification(
-      paste("Error:", error_message), 
-      type = "error", 
+      paste("Error:", error_message),
+      type = "error",
       duration = 5
     )
     return(default_value)
@@ -196,4 +217,4 @@ safe_query <- function(query_func, default_value = NULL, error_message = "Data u
 waiter_options <- list(
   html = spin_fading_circles(),
   color = "rgba(0,0,0,0.5)"
-) 
+)

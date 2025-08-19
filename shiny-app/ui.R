@@ -2,16 +2,16 @@
 
 ui <- dashboardPage(
   skin = "blue",
-  
+
   # Header
   dashboardHeader(
     title = APP_TITLE,
     titleWidth = 400
   ),
-  
+
   # Sidebar
   dashboardSidebar(
-    width = 250,
+    width = SIDEBAR_WIDTH,
     sidebarMenu(
       id = "main_menu",
       menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
@@ -24,23 +24,25 @@ ui <- dashboardPage(
       br(),
       menuItem("About", tabName = "about", icon = icon("info-circle"))
     ),
-    
+
     # Footer info
     br(), br(),
     div(
-      style = "position: absolute; bottom: 20px; left: 20px; right: 20px; 
+      style = "position: absolute; bottom: 20px; left: 20px; right: 20px;
                color: #ccc; font-size: 11px; text-align: center;",
       p("American Authorship Database"),
       p("1860-1920"),
       p(paste("Version", APP_VERSION))
     )
   ),
-  
+
   # Body
   dashboardBody(
     # Include custom CSS
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
+      tags$meta(name = 'viewport', content = 'width=device-width, initial-scale=1.0'),
+
       tags$style(HTML("
         .content-wrapper, .right-side {
           background-color: #f4f4f4;
@@ -56,13 +58,13 @@ ui <- dashboardPage(
         }
       "))
     ),
-    
+
     # Apply custom theme
     fresh::use_theme(app_theme),
-    
+
     # Loading spinner
     waiter::use_waiter(),
-    
+
     # Tab items
     tabItems(
       # Dashboard tab
@@ -70,19 +72,19 @@ ui <- dashboardPage(
         tabName = "dashboard",
         dashboardUI("dashboard_module")
       ),
-      
+
       # Books explorer tab
       tabItem(
         tabName = "books",
         bookExplorerUI("books_module")
       ),
-      
+
       # Sales analysis tab
       tabItem(
         tabName = "sales",
         salesAnalysisUI("sales_module")
       ),
-      
+
       # Author analysis tab
       tabItem(
         tabName = "authors",
@@ -106,7 +108,7 @@ ui <- dashboardPage(
         tabName = "genres",
         genreAnalysisUI("genres_module")
       ),
-      
+
       # About tab
       tabItem(
         tabName = "about",
@@ -117,8 +119,8 @@ ui <- dashboardPage(
                 title = "About This Dashboard", status = "primary", solidHeader = TRUE,
                 width = NULL,
                 div(
-                  p("This dashboard provides interactive exploration of the American Authorship Database (1860-1920), 
-                    a comprehensive collection of publishing and sales data from major American publishers during 
+                  p("This dashboard provides interactive exploration of the American Authorship Database (1860-1920),
+                    a comprehensive collection of publishing and sales data from major American publishers during
                     the transformative period of the late 19th and early 20th centuries."),
                   br(),
                   h4("Data Sources:"),
@@ -132,13 +134,13 @@ ui <- dashboardPage(
                   p(strong("Principal Investigator:"), "Dr. Michael Anesko (Penn State University)")
                 )
               ),
-              
+
               box(
                 title = "Methodology", status = "info", solidHeader = TRUE,
                 width = NULL,
                 div(
                   h4("Data Collection:"),
-                  p("All data has been hand-transcribed from original publisher archives, including sales records, 
+                  p("All data has been hand-transcribed from original publisher archives, including sales records,
                     royalty statements, and contract information."),
                   br(),
                   h4("Coverage:"),
@@ -156,7 +158,7 @@ ui <- dashboardPage(
                 )
               )
             ),
-            
+
             column(4,
               box(
                 title = "Project Information", status = "success", solidHeader = TRUE,
@@ -179,7 +181,7 @@ ui <- dashboardPage(
                   tags$dd(format(Sys.Date(), "%B %d, %Y"))
                 )
               ),
-              
+
               box(
                 title = "Technical Details", status = "warning", solidHeader = TRUE,
                 width = NULL,
@@ -191,7 +193,7 @@ ui <- dashboardPage(
                   tags$li("Responsive Bootstrap UI")
                 ),
                 br(),
-                p("For technical support or questions about this dashboard, 
+                p("For technical support or questions about this dashboard,
                   please contact the development team.")
               )
             )
@@ -200,4 +202,4 @@ ui <- dashboardPage(
       )
     )
   )
-) 
+)

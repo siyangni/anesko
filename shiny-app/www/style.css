@@ -1,16 +1,133 @@
 /* Custom styles for American Authorship Dashboard */
 
+:root {
+  /* Toned-down accessible palette */
+  --color-bg: #f7fafc;
+  --color-surface: #ffffff;
+  --color-muted: #e5e7eb;
+  --color-text: #1f2937;      /* slate-800 */
+  --color-text-muted: #4b5563;/* slate-600 */
+  --color-primary: #1e3a5f;   /* deep muted blue */
+  --color-primary-600: #2a4365;
+  --color-primary-contrast: #ffffff;
+  --color-accent: #0f766e;    /* teal */
+  --focus-ring: 0 0 0 3px rgba(30,58,95,0.35);
+}
+
+html { font-size: 17px; }
+body { color: var(--color-text); background: var(--color-bg); }
+
+/* Improve base typography and spacing */
+h1, h2, h3, .box-title { color: var(--color-text); font-weight: 650; }
+p { font-size: 1rem; line-height: 1.6; color: var(--color-text-muted); }
+label { font-weight: 600; color: var(--color-text); }
+
+/* Accessible focus styles */
+a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
+.bootstrap-select .dropdown-toggle:focus {
+  outline: none !important;
+  box-shadow: var(--focus-ring) !important;
+}
+
+
 /* Main layout improvements */
 .content-wrapper {
-  background-color: #f8f9fa !important;
+  background-color: var(--color-bg) !important;
+}
+.main-header .logo, .main-header .navbar {
+  background: var(--color-primary) !important;
+}
+.main-header .logo {
+  color: var(--color-primary-contrast) !important;
+  font-size: 18px;
+}
+.skin-blue .sidebar-menu>li.active>a,
+.skin-blue .sidebar-menu>li:hover>a {
+  background: rgba(30,58,95,0.15) !important;
+}
+.skin-blue .main-header .navbar .sidebar-toggle:hover{
+  background: rgba(30,58,95,0.2) !important;
 }
 
 /* Box styling */
 .box {
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  margin-bottom: 22px;
+  background: var(--color-surface);
 }
+.box-header {
+  border-bottom: 1px solid var(--color-muted);
+}
+.box-header.with-border .box-title { font-size: 1.05rem; }
+.box-primary>.box-header { background: transparent; }
+.box-primary { border-top-color: var(--color-primary) !important; }
+
+/* Harmonize box header backgrounds to the primary palette for consistency */
+.box.box-solid.box-primary > .box-header { background-color: var(--color-primary) !important; }
+.box.box-solid.box-info    > .box-header { background-color: var(--color-primary) !important; }
+.box.box-solid.box-success > .box-header { background-color: var(--color-primary) !important; }
+.box.box-solid.box-warning > .box-header { background-color: var(--color-primary) !important; }
+.box.box-solid.box-danger  > .box-header { background-color: #3a1414 !important; }
+
+/* Harmonize solid box border colors to primary to avoid light blue/orange frames */
+.box.box-solid.box-info,
+.box.box-solid.box-warning,
+.box.box-solid.box-success,
+.box.box-solid.box-primary {
+  border: 1px solid var(--color-primary) !important;
+}
+
+
+
+/* Summary banner and info tiles use a muted primary background */
+.box .callout, .callout.info, .info-box, .small-box.bg-aqua, .bg-aqua {
+  background-color: #2a4365 !important; /* dark muted blue */
+  color: #ffffff !important;
+}
+.info-box .progress, .small-box .icon { opacity: 0.65; }
+
+.box-info { border-top-color: var(--color-primary) !important; }
+.box-success { border-top-color: var(--color-primary) !important; }
+.box-warning { border-top-color: var(--color-primary) !important; }
+.box-danger  { border-top-color: var(--color-primary) !important; }
+
+/* Ensure solid box headers keep high-contrast white titles on dark backgrounds */
+.box.box-solid.box-primary > .box-header,
+.box.box-solid.box-info > .box-header,
+.box.box-solid.box-success > .box-header,
+.box.box-solid.box-warning > .box-header,
+.box.box-solid.box-danger > .box-header {
+  color: #ffffff !important;
+}
+.box.box-solid.box-primary > .box-header .box-title,
+.box.box-solid.box-info > .box-header .box-title,
+.box.box-solid.box-success > .box-header .box-title,
+.box.box-solid.box-warning > .box-header .box-title,
+.box.box-solid.box-danger > .box-header .box-title {
+  color: #ffffff !important;
+}
+
+/* Ambient alert styles to better match the dashboard */
+.alert-info {
+  background-color: #2a4365 !important;  /* dark muted navy */
+  border-color: #2a4365 !important;
+  color: #ffffff !important;              /* high contrast text */
+}
+.alert-warning {
+  background-color: #463214 !important;  /* deep amber/brown */
+  border-color: #463214 !important;
+  color: #ffffff !important;
+}
+/* Icons/controls inside headers */
+.box.box-solid > .box-header .fa,
+.box.box-solid > .box-header .glyphicon,
+.box.box-solid > .box-header .ion,
+.box.box-solid > .box-header a,
+.box.box-solid > .box-header .btn {
+  color: #ffffff !important;
+}
+
 
 .box-header {
   border-bottom: 1px solid #e9ecef;
@@ -97,6 +214,11 @@
 
 /* Table styling */
 .dataTables_wrapper {
+
+/* Widget headings align with button color (primary) */
+.box .box-header .box-title { color: var(--color-text); }
+.box.box-solid .box-header .box-title { color: #ffffff; }
+
   font-size: 14px;
 }
 
@@ -120,10 +242,11 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+/* Ambient info alert to match dark navy palette */
 .alert-info {
-  background-color: #e8f4f8;
-  border-color: #bee5eb;
-  color: #0c5460;
+  background-color: #2a4365 !important;
+  border-color: #2a4365 !important;
+  color: #ffffff !important;
 }
 
 /* Plot container styling */
@@ -133,42 +256,113 @@
 
 /* Sidebar menu improvements */
 .sidebar-menu > li.active > a {
-  border-left: 3px solid #3498db;
+  border-left: 3px solid var(--color-primary);
 }
 
 .sidebar-menu > li > a:hover {
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(30,58,95,0.08);
 }
+.sidebar .treeview-menu>li>a { font-size: 0.98rem; }
 
 /* Filter panel styling */
-.form-group {
-  margin-bottom: 15px;
+.form-group { margin-bottom: 14px; }
+
+/* Harmonize status colors to darker, ambient tones */
+.alert-warning, .bg-yellow, .label-warning { /* replace bright orange */
+  background-color: #463214 !important;
+  border-color: #463214 !important;
+  color: #ffffff !important;
+}
+.bg-info, .callout.callout-info {
+  background-color: #2a4365 !important;
+  border-color: #2a4365 !important;
+  color: #ffffff !important;
 }
 
-.form-control {
-  border-radius: 4px;
-  border: 1px solid #ddd;
+
+.form-control, .selectize-input, .bootstrap-select .dropdown-toggle {
+  border-radius: 6px !important;
+  border: 1px solid #d1d5db !important;
+  font-size: 1rem;
+  padding: 8px 10px;
+}
+.selectize-control.single .selectize-input, .bootstrap-select .dropdown-toggle {
+  height: 38px;
+}
+.selectize-dropdown, .dropdown-menu { font-size: 0.98rem; }
+
+.form-control:focus, .selectize-input.focus, .bootstrap-select .dropdown-toggle:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: var(--focus-ring) !important;
 }
 
-.form-control:focus {
-  border-color: #3498db;
-  box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+/* Unify button colors to match dark primary palette for consistency */
+.btn-info, .btn-success, .btn-warning {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: #ffffff !important;
 }
 
 /* Button styling */
 .btn {
-  border-radius: 4px;
-  font-weight: 500;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: .2px;
 }
 
+.btn-primary, .bg-light-blue, .bg-aqua {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary-contrast) !important;
+}
+.btn-primary:hover { filter: brightness(0.95); }
+
+/* Ensure filled buttons always have white text for readability */
+.btn-primary, .btn-info, .btn-success, .btn-warning, .btn-danger {
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+.btn-primary.disabled, .btn-primary:disabled,
+.btn-info.disabled, .btn-info:disabled,
+.btn-success.disabled, .btn-success:disabled,
+.btn-warning.disabled, .btn-warning:disabled,
+.btn-danger.disabled, .btn-danger:disabled {
+  color: #ffffff !important;
+  opacity: 0.8;
+}
+
+/* Shiny adds `btn-default` by default; ensure primary/info/etc override its text color */
+.btn-default.btn-primary,
+.btn-default.btn-info,
+.btn-default.btn-success,
+.btn-default.btn-warning,
+.btn-default.btn-danger,
+.action-button.btn-default.btn-primary,
+.action-button.btn-default.btn-info,
+.action-button.btn-default.btn-success,
+.action-button.btn-default.btn-warning,
+.action-button.btn-default.btn-danger {
+  color: #ffffff !important;
+}
+
+/* Also enforce on hover/focus/active states */
+.btn-default.btn-primary:hover, .btn-default.btn-primary:focus, .btn-default.btn-primary:active,
+.btn-default.btn-info:hover, .btn-default.btn-info:focus, .btn-default.btn-info:active,
+.btn-default.btn-success:hover, .btn-default.btn-success:focus, .btn-default.btn-success:active,
+.btn-default.btn-warning:hover, .btn-default.btn-warning:focus, .btn-default.btn-warning:active,
+.btn-default.btn-danger:hover, .btn-default.btn-danger:focus, .btn-default.btn-danger:active {
+  color: #ffffff !important;
+}
+
+
+
 .btn-warning {
-  background-color: #f39c12;
-  border-color: #f39c12;
+  background-color: #9a3412;
+  border-color: #9a3412;
 }
 
 .btn-warning:hover {
-  background-color: #e67e22;
-  border-color: #e67e22;
+  filter: brightness(0.95);
 }
 
 /* Loading spinner */
@@ -181,34 +375,34 @@
   .content-wrapper {
     padding: 10px;
   }
-  
+
   .box {
     margin-bottom: 15px;
   }
-  
+
   .small-box {
     min-height: 130px !important;
     margin-bottom: 20px !important;
   }
-  
+
   .small-box .icon {
     font-size: 50px !important;
     top: 15px;
     right: 15px;
   }
-  
+
   .small-box h3 {
     font-size: 2.2rem !important;
   }
-  
+
   .small-box p {
     font-size: 14px !important;
   }
-  
+
   .col-sm-6 {
     padding: 0 5px !important;
   }
-  
+
   .small-box .inner {
     padding: 15px 15px 20px 15px !important;
   }
@@ -220,20 +414,20 @@
     min-height: 120px !important;
     margin-bottom: 15px !important;
   }
-  
+
   .small-box h3 {
     font-size: 2.0rem !important;
   }
-  
+
   .small-box p {
     font-size: 13px !important;
     max-width: 70% !important;
   }
-  
+
   .small-box .inner {
     padding: 15px 15px 18px 15px !important;
   }
-  
+
   .small-box .icon {
     font-size: 45px !important;
     top: 10px;
@@ -258,6 +452,48 @@
   margin-top: 10px;
 }
 
+/* Final override to ensure ambient info color everywhere (Book Explorer banner, etc.) */
+.alert.alert-info,
+.callout.callout-info,
+.bg-aqua, .bg-light-blue,
+.label-info,
+.small-box.bg-aqua,
+.info-box.bg-aqua {
+  background-color: #1e3a5f !important;
+  border-color: #1e3a5f !important;
+  color: #ffffff !important;
+}
+
+/* Ensure readable text inside dark info banners */
+.alert.alert-info h1,
+.alert.alert-info h2,
+.alert.alert-info h3,
+.alert.alert-info h4,
+.alert.alert-info h5,
+.alert.alert-info p,
+.alert.alert-info span,
+.alert.alert-info a {
+  color: #ffffff !important;
+}
+
+/* Emphasized metric style used for key totals (e.g., Total sales) */
+.metric-emphasis {
+  font-size: 1.2rem !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+}
+
+/* Final override to ensure ambient warning color everywhere */
+.alert.alert-warning,
+.callout.callout-warning {
+  background-color: #463214 !important;
+  border-color: #463214 !important;
+  color: #ffffff !important;
+}
+
+
+
+
 /* Genre color indicators */
 .genre-fiction { color: #e74c3c; }
 .genre-nonfiction { color: #3498db; }
@@ -269,4 +505,4 @@
 
 /* Gender color indicators */
 .gender-male { color: #3498db; }
-.gender-female { color: #e74c3c; } 
+.gender-female { color: #e74c3c; }
