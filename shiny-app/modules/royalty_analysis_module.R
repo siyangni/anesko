@@ -6,18 +6,9 @@ royaltyAnalysisUI <- function(id) {
   ns <- NS(id)
   
   fluidPage(
-    fluidRow(
-      column(12,
-        box(
-          title = "Royalty Structure Analysis", 
-          status = "primary", 
-          solidHeader = TRUE,
-          width = NULL,
-          p("Analyze royalty rates, tier structures, and payment schemes 
-            across different books, authors, and publishers.")
-        )
-      )
-    ),
+    h3("Royalty Structure Analysis"),
+    p("Analyze royalty rates, tier structures, and payment schemes across different books, authors, and publishers."),
+    br(),
     
     fluidRow(
       # Controls

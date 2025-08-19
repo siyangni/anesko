@@ -22,6 +22,26 @@ h1, h2, h3, .box-title { color: var(--color-text); font-weight: 650; }
 p { font-size: 1rem; line-height: 1.6; color: var(--color-text-muted); }
 label { font-weight: 600; color: var(--color-text); }
 
+
+/* Larger, clearer headings across the site */
+h1 { font-size: 2.2rem; line-height: 1.25; margin: 12px 0 6px; }
+h2 { font-size: 1.9rem; line-height: 1.3;  margin: 10px 0 6px; }
+h3 { font-size: 1.6rem; line-height: 1.35; margin: 8px 0 4px; }
+
+/* Make module description paragraphs (immediately following h3) much larger */
+.content-wrapper h3 + p { font-size: 1.2rem; line-height: 1.6; }
+
+/* Bigger box header titles */
+.box .box-header .box-title { font-size: 1.2rem !important; letter-spacing: 0.2px; }
+
+@media (max-width: 768px) {
+  h1 { font-size: 2.0rem; }
+  h2 { font-size: 1.7rem; }
+  h3 { font-size: 1.45rem; }
+  .box .box-header .box-title { font-size: 1.08rem !important; }
+  .content-wrapper h3 + p { font-size: 1.1rem; }
+}
+
 /* Accessible focus styles */
 a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 .bootstrap-select .dropdown-toggle:focus {
@@ -283,13 +303,19 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 .form-control, .selectize-input, .bootstrap-select .dropdown-toggle {
   border-radius: 6px !important;
   border: 1px solid #d1d5db !important;
-  font-size: 1rem;
-  padding: 8px 10px;
+  font-size: 1.2rem; /* larger for readability */
+  padding: 10px 12px;
 }
 .selectize-control.single .selectize-input, .bootstrap-select .dropdown-toggle {
-  height: 38px;
+  min-height: 46px;
 }
-.selectize-dropdown, .dropdown-menu { font-size: 0.98rem; }
+/* Larger text inside dropdown lists and search inputs */
+.selectize-dropdown, .dropdown-menu { font-size: 1.15rem; }
+.selectize-input > input { font-size: 1.2rem !important; }
+.selectize-dropdown .option { padding: 10px 12px; }
+.bootstrap-select .dropdown-menu li a { padding: 10px 14px; }
+.bootstrap-select .filter-option-inner-inner { font-size: 1.2rem; }
+.bs-searchbox input { font-size: 1.15rem; height: 42px; }
 
 .form-control:focus, .selectize-input.focus, .bootstrap-select .dropdown-toggle:focus {
   border-color: var(--color-primary) !important;

@@ -6,18 +6,9 @@ authorNetworksUI <- function(id) {
   ns <- NS(id)
   
   fluidPage(
-    fluidRow(
-      column(12,
-        box(
-          title = "Author Network Analysis", 
-          status = "primary", 
-          solidHeader = TRUE,
-          width = NULL,
-          p("Explore relationships between authors based on shared publishers, 
-            publication periods, and collaboration patterns using the new author_id field.")
-        )
-      )
-    ),
+    h3("Author Network Analysis"),
+    p("Explore relationships between authors based on shared publishers, publication periods, and collaboration patterns using the new author_id field."),
+    br(),
     
     fluidRow(
       # Controls
