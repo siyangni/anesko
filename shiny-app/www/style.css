@@ -29,7 +29,7 @@ h2 { font-size: 1.9rem; line-height: 1.3;  margin: 10px 0 6px; }
 h3 { font-size: 1.6rem; line-height: 1.35; margin: 8px 0 4px; }
 
 /* Make module description paragraphs (immediately following h3) much larger */
-.content-wrapper h3 + p { font-size: 1.2rem; line-height: 1.6; }
+.content-wrapper h3 + p { font-size: 1.5rem; line-height: 1.7; }
 
 /* Bigger box header titles */
 .box .box-header .box-title { font-size: 1.2rem !important; letter-spacing: 0.2px; }
@@ -41,6 +41,18 @@ h3 { font-size: 1.6rem; line-height: 1.35; margin: 8px 0 4px; }
   .box .box-header .box-title { font-size: 1.08rem !important; }
   .content-wrapper h3 + p { font-size: 1.1rem; }
 }
+
+/* Enlarge About tab paragraphs (intro, PI line, data collection/validation, built-with, support) */
+#shiny-tab-about .box p {
+  font-size: 1.3rem;
+  line-height: 1.75;
+}
+
+#shiny-tab-about .box li {
+  font-size: 1.3rem;
+  line-height: 1.75;
+}
+
 
 /* Accessible focus styles */
 a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
