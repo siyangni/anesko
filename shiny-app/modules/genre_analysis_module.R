@@ -75,7 +75,7 @@ genreAnalysisUI <- function(id) {
               actionButton(ns("view_author_analysis"), "View in Author Analysis →",
                           class = "btn-link btn-sm"),
               br(),
-              actionButton(ns("view_sales_analysis"), "View in Sales Analysis →",
+              actionButton(ns("view_sales_analysis"), "View Sales Trends →",
                           class = "btn-link btn-sm")
             )
           )
@@ -252,8 +252,7 @@ genreAnalysisServer <- function(id) {
     })
 
     observeEvent(input$view_sales_analysis, {
-      showNotification("Navigate to Sales Analysis tab to explore book-specific analytics",
-                      type = "message", duration = 3)
+      try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "sales_trends") }, silent = TRUE)
     })
 
     # Run analysis when button is clicked

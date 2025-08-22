@@ -57,7 +57,7 @@ server <- function(input, output, session) {
   # Module servers
   dashboardServer("dashboard_module")
   bookExplorerServer("books_module")
-  salesAnalysisServer("sales_module")
+  salesTrendsServer("sales_trends_module")
   authorAnalysisServer("authors_module")
   genreAnalysisServer("genres_module")
   
@@ -108,8 +108,8 @@ server <- function(input, output, session) {
   # Book explorer module
   bookExplorerServer("books_module")
 
-  # Sales analysis module
-  salesAnalysisServer("sales_module")
+  # Sales trends module
+  salesTrendsServer("sales_trends_module")
 
   # Author analysis module
   authorAnalysisServer("authors_module")

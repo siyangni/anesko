@@ -39,6 +39,9 @@ source("utils/plotting.R")
 # Load modules
 source("modules/dashboard_module.R")
 source("modules/book_explorer_module.R")
+# Replaced placeholder Sales Analysis with Sales Trends module
+source("modules/sales_trends_module.R")
+# Keep legacy sales analysis available (not wired into UI) for reference
 source("modules/sales_analysis_module.R")
 source("modules/author_analysis_module.R")
 source("modules/author_networks_module.R")  # NEW

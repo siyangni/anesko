@@ -19,7 +19,9 @@ dashboardUI <- function(id) {
       box(
         title = "Sales Trends Over Time", status = "primary", solidHeader = TRUE,
         width = 8, height = "400px",
-        plotlyOutput(ns("sales_trend_plot"), height = "350px")
+        plotlyOutput(ns("sales_trend_plot"), height = "350px"),
+        br(),
+        actionButton(ns("go_sales_trends"), "Open Sales Trends →", class = "btn-link btn-sm")
       ),
       
       # Gender distribution
@@ -60,7 +62,11 @@ dashboardUI <- function(id) {
 # Dashboard Server
 dashboardServer <- function(id) {
   moduleServer(id, function(input, output, session) {
-    
+
+    observeEvent(input$go_sales_trends, {
+      try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "sales_trends") }, silent = TRUE)
+    })
+
     # Reactive data
     summary_stats <- reactive({
       tryCatch({

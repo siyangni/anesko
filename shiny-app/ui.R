@@ -16,7 +16,7 @@ ui <- dashboardPage(
       id = "main_menu",
       menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
       menuItem("Explore Books", tabName = "books", icon = icon("book")),
-      menuItem("Sales Analysis", tabName = "sales", icon = icon("chart-line")),
+      menuItem("Sales Trends", tabName = "sales_trends", icon = icon("chart-line")),
       menuItem("Author Analysis", tabName = "authors", icon = icon("users")),
       menuItem("Author Networks", tabName = "networks", icon = icon("project-diagram")),
       menuItem("Royalty Analysis", tabName = "royalties", icon = icon("money-bill")),
@@ -79,10 +79,10 @@ ui <- dashboardPage(
         bookExplorerUI("books_module")
       ),
 
-      # Sales analysis tab
+      # Sales trends tab
       tabItem(
-        tabName = "sales",
-        salesAnalysisUI("sales_module")
+        tabName = "sales_trends",
+        salesTrendsUI("sales_trends_module")
       ),
 
       # Author analysis tab
