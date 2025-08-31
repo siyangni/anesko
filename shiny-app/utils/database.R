@@ -63,6 +63,11 @@ safe_db_query <- function(query, params = NULL) {
   })
 }
 
+# Legacy definitions disabled after this point (refactored to utils/queries_*.R)
+# Keep for reference but do not evaluate
+if (FALSE) {
+
+
 
 # Get summary statistics
 get_summary_stats <- function() {
@@ -1069,4 +1074,6 @@ get_average_sales_by_book_binding <- function(book_title, binding_state, start_y
     start_year,
     end_year
   ))
+}
+
 }

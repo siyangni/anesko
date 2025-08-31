@@ -35,6 +35,11 @@ source("config/app_config.R")
 source("utils/database.R")
 source("utils/data_processing.R")
 source("utils/plotting.R")
+# Query groups
+source("utils/queries_basic.R")
+source("utils/queries_sales.R")
+source("utils/queries_timeseries.R")
+source("utils/queries_royalties.R")
 
 # Load modules
 source("modules/dashboard_module.R")
