@@ -69,6 +69,37 @@ bookExplorerUI <- function(id) {
           )
         ),
 
+        # Comparisons panel
+        fluidRow(
+          column(12,
+            box(
+              title = "Comparisons", status = "info", solidHeader = TRUE, width = NULL,
+              fluidRow(
+                column(4,
+                  selectizeInput(ns("cmp_book_title_1"), "Book Title A:", choices = NULL, multiple = FALSE,
+                    options = list(placeholder = "Select first book title...", create = FALSE))
+                ),
+                column(4,
+                  selectizeInput(ns("cmp_book_title_2"), "Book Title B:", choices = NULL, multiple = FALSE,
+                    options = list(placeholder = "Select second book title...", create = FALSE))
+                ),
+                column(4,
+                  selectizeInput(ns("cmp_binding"), "Binding Type:", choices = NULL, multiple = FALSE,
+                    options = list(placeholder = "Select binding type...", create = FALSE))
+                )
+              ),
+              div(style = "margin-top: 8px;",
+                actionButton(ns("cmp_run"), "Compare Titles (by Binding)", class = "btn-primary")
+              ),
+              br(),
+              fluidRow(
+                column(6, plotlyOutput(ns("cmp_plot"), height = "320px")),
+                column(6, DT::dataTableOutput(ns("cmp_table")))
+              )
+            )
+          )
+        ),
+
         # Books table
         fluidRow(
           column(12,
@@ -110,7 +141,7 @@ bookExplorerServer <- function(id) {
       }
     })
 
-    # Populate search suggestions (book titles and author surnames)
+    # Populate search suggestions (book titles and author surnames) and comparison inputs
     observe({
       titles <- safe_query(get_book_titles, default_value = data.frame())
       authors <- safe_query(get_author_surnames, default_value = data.frame())
@@ -120,6 +151,19 @@ bookExplorerServer <- function(id) {
 
       suggestions <- sort(unique(c(title_vec, author_vec)))
       updateSelectizeInput(session, "search_term", choices = suggestions, server = TRUE)
+
+      # Fill comparison title inputs
+      updateSelectizeInput(session, "cmp_book_title_1", choices = sort(unique(title_vec)), server = TRUE)
+      updateSelectizeInput(session, "cmp_book_title_2", choices = sort(unique(title_vec)), server = TRUE)
+
+      # Fill binding options
+      binding_states <- safe_query(get_binding_states, default_value = data.frame(binding = character(0)))
+      if (nrow(binding_states) > 0) {
+        bindings <- sort(unique(stringr::str_to_title(trimws(binding_states$binding))))
+        updateSelectizeInput(session, "cmp_binding", choices = stats::setNames(bindings, bindings), server = TRUE)
+      } else {
+        updateSelectizeInput(session, "cmp_binding", choices = character(0), server = TRUE)
+      }
     })
 
 
@@ -150,6 +194,56 @@ bookExplorerServer <- function(id) {
         h4(paste("Found", if(is.numeric(total_books)) format_number(total_books) else total_books, "books")),
         p(class = "metric-emphasis", paste("Total sales:", if(is.numeric(total_sales)) format_number(total_sales) else total_sales, "copies"))
       )
+    })
+
+    # Title vs Title comparison logic
+    cmp_results <- eventReactive(input$cmp_run, {
+      t1 <- input$cmp_book_title_1
+      t2 <- input$cmp_book_title_2
+      b  <- input$cmp_binding
+      if (is.null(t1) || t1 == "" || is.null(t2) || t2 == "") {
+        showNotification("Please select two book titles.", type = "warning")
+        return(data.frame())
+      }
+      if (is.null(b) || b == "") {
+        showNotification("Please choose a binding type.", type = "warning")
+        return(data.frame())
+      }
+      years <- input$year_range %||% c(MIN_YEAR, MAX_YEAR)
+      start_year <- years[1]; end_year <- years[2]
+
+      res_a <- safe_query(function() {
+        get_book_sales_by_title_binding(t1, b, start_year, end_year)
+      }, default_value = data.frame())
+      res_b <- safe_query(function() {
+        get_book_sales_by_title_binding(t2, b, start_year, end_year)
+      }, default_value = data.frame())
+
+      agg <- function(df) {
+        if (is.null(df) || nrow(df) == 0) return(data.frame(book_title = character(0), binding = character(0), total_sales = numeric(0)))
+        aggregate(total_sales ~ book_title + binding, df, sum)
+      }
+
+      a <- agg(res_a); a$selection <- "A"
+      b <- agg(res_b); b$selection <- "B"
+      rbind(a, b)
+    }, ignoreInit = TRUE)
+
+    output$cmp_plot <- renderPlotly({
+      results <- cmp_results()
+      if (is.null(results) || nrow(results) == 0) return(plotly_empty("No title comparison data available"))
+      plot_ly(results, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
+        hovertemplate = "Title: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
+        layout(title = paste0("Sales Comparison (", input$cmp_binding, ")"),
+          xaxis = list(title = "Book Title"), yaxis = list(title = "Total Sales"))
+    })
+
+    output$cmp_table <- DT::renderDataTable({
+      results <- cmp_results()
+      if (is.null(results) || nrow(results) == 0) {
+        return(DT::datatable(data.frame(Message = "No comparison data"), options = list(dom = 't')))
+      }
+      DT::datatable(results, options = list(pageLength = 10, scrollX = TRUE), rownames = FALSE)
     })
 
     # Books table

@@ -1,7 +1,7 @@
-# Genre Analysis Module
-# Literary genre trends and market analysis
+# Genre & Content Analysis Module
+# Content categorization and genre-specific analytics
 
-genreAnalysisUI <- function(id) {
+genreContentAnalysisUI <- function(id) {
   ns <- NS(id)
 
   fluidPage(
@@ -24,12 +24,10 @@ genreAnalysisUI <- function(id) {
           column(3,
             selectInput(ns("analysis_type"), "Analysis Type:",
                        choices = list(
-                         "Genre Performance" = "genre_performance",
-                         "Market Share by Genre" = "market_share",
-                         "Genre Mix by Author Gender" = "genre_by_gender",
-                         "Binding Mix (by Genre)" = "binding_mix",
-                         "Gender Split within Genre & Binding" = "gender_split_genre_binding",
-                         "Cross-Period Averages" = "cross_period_averages"
+                         "Genre Performance Analysis" = "genre_performance",
+                         "Genre-Gender Distribution Analysis" = "genre_gender",
+                         "Binding Format Analysis" = "binding_analysis",
+                         "Content Evolution Over Time" = "content_evolution"
                        ),
                        selected = "genre_performance")
           ),
@@ -56,7 +54,7 @@ genreAnalysisUI <- function(id) {
           ),
           column(3,
             conditionalPanel(
-              condition = "input.analysis_type == 'genre_performance' || input.analysis_type == 'genre_by_gender'",
+              condition = "input.analysis_type == 'genre_comparison' || input.analysis_type == 'genre_gender'",
               ns = ns,
               radioButtons(ns("metric_type"), "Metric:",
                           choices = list("Average Sales" = "average", "Total Sales" = "total"),
@@ -81,11 +79,22 @@ genreAnalysisUI <- function(id) {
         ),
         # Extra controls for comparative analyses (appear when relevant)
         fluidRow(
-
+          conditionalPanel(
+            condition = "input.analysis_type == 'title_binding_compare'",
+            ns = ns,
+            column(6,
+              selectizeInput(ns("book_title_1"), "Book Title A:", choices = NULL, multiple = FALSE,
+                             options = list(placeholder = "Select first book title...", create = FALSE))
+            ),
+            column(6,
+              selectizeInput(ns("book_title_2"), "Book Title B:", choices = NULL, multiple = FALSE,
+                             options = list(placeholder = "Select second book title...", create = FALSE))
+            )
+          )
         ),
         fluidRow(
           conditionalPanel(
-            condition = "input.analysis_type == 'cross_period_averages'",
+            condition = "input.analysis_type == 'cross_period_avg'",
             ns = ns,
             column(6,
               dateRangeInput(ns("date_range_p1"), "Period 1:",
@@ -153,7 +162,7 @@ genreAnalysisUI <- function(id) {
   )
 }
 
-genreAnalysisServer <- function(id) {
+genreContentAnalysisServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
     # Initialize genre choices
@@ -190,7 +199,13 @@ genreAnalysisServer <- function(id) {
         })
 
 
-
+	    # Initialize book title choices for comparison dropdowns
+	    observe({
+	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
+	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+	    })
 
 
     # Reactive values for storing results
@@ -205,10 +220,23 @@ genreAnalysisServer <- function(id) {
 
 
 
+	    # Initialize book title choices for comparison UI
+	    observe({
+	      titles_df <- safe_query(get_book_titles,
+	                              default_value = data.frame(book_title = character(0)))
+	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+	    })
 
 
-
-
+	    # Initialize book title choices used by title comparison analysis
+	    observe({
+	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
+	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+	    })
 
       }
       c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
@@ -232,19 +260,7 @@ genreAnalysisServer <- function(id) {
 
       withProgress(message = "Running genre analysis...", value = 0, {
 
-        # Map standardized IDs to legacy IDs used internally
-        legacy_type <- reactive({
-          switch(input$analysis_type,
-            "genre_performance" = "genre_comparison",
-            "genre_by_gender" = "genre_gender",
-            "binding_mix" = "binding_analysis",
-            "gender_split_genre_binding" = "gender_binding",
-            "cross_period_averages" = "cross_period_avg",
-            input$analysis_type
-          )
-        })
-
-        results <- switch(legacy_type(),
+        results <- switch(input$analysis_type,
           "genre_comparison" = {
             incProgress(0.3, detail = "Analyzing genre performance...")
             if (input$metric_type == "average") {
@@ -302,7 +318,35 @@ genreAnalysisServer <- function(id) {
             )
           },
 
+          "title_binding_compare" = {
+            incProgress(0.3, detail = "Comparing selected titles...")
+            if (is.null(input$book_title_1) || input$book_title_1 == "" ||
+                is.null(input$book_title_2) || input$book_title_2 == "") {
+              showNotification("Please select two book titles.", type = "warning")
+              data.frame(Error = "Select two book titles to compare")
+            } else if (is.null(input$binding_filter) || input$binding_filter == "") {
+              showNotification("Please choose a binding type.", type = "warning")
+              data.frame(Error = "Select a binding type")
+            } else {
+              res_a <- safe_query(function() {
+                get_book_sales_by_title_binding(input$book_title_1, input$binding_filter, start_year, end_year)
+              }, default_value = data.frame())
+              res_b <- safe_query(function() {
+                get_book_sales_by_title_binding(input$book_title_2, input$binding_filter, start_year, end_year)
+              }, default_value = data.frame())
 
+              agg_fun <- function(df) {
+                if (nrow(df) == 0) return(data.frame(book_title = character(0), binding = character(0), total_sales = numeric(0)))
+                res <- aggregate(total_sales ~ book_title + binding, df, sum)
+                res
+              }
+
+              a <- agg_fun(res_a); a$selection <- "A"
+              b <- agg_fun(res_b); b$selection <- "B"
+              combined <- rbind(a, b)
+              combined
+            }
+          },
 
           "gender_binding" = {
             incProgress(0.3, detail = "Comparing gender totals...")
@@ -404,7 +448,7 @@ genreAnalysisServer <- function(id) {
 
       years <- year_range()
 
-      boxes <- switch(legacy_type(),
+      boxes <- switch(input$analysis_type,
         "genre_comparison" = {
           if ("genre" %in% names(results) && nrow(results) > 0) {
             top_genre <- results[which.max(results$total_sales), ]
@@ -476,7 +520,7 @@ genreAnalysisServer <- function(id) {
         return(div(class = "alert alert-warning", "Run an analysis to see market insights"))
       }
 
-      insights <- switch(legacy_type(),
+      insights <- switch(input$analysis_type,
         "genre_comparison" = {
           if (nrow(results) > 0 && "genre" %in% names(results)) {
             top_genre <- results[which.max(results$total_sales), ]
@@ -566,7 +610,18 @@ genreAnalysisServer <- function(id) {
           }
         },
 
-
+        "title_binding_compare" = {
+          if (nrow(results) > 0 && all(c("book_title", "total_sales", "selection") %in% names(results))) {
+            tagList(
+              h5("Title vs Title (by Binding) Insights:"),
+              p(paste("Binding:", input$binding_filter)),
+              p(paste("Higher-seller:", results$book_title[which.max(results$total_sales)])),
+              p(paste("Difference:", format(diff(range(results$total_sales)), big.mark = ",")))
+            )
+          } else {
+            p("No title comparison data available")
+          }
+        },
 
         "gender_binding" = {
           if (nrow(results) > 0 && "gender" %in% names(results)) {
@@ -663,7 +718,7 @@ genreAnalysisServer <- function(id) {
         return(plotly_empty("Run an analysis to see visualization"))
       }
 
-      switch(legacy_type(),
+      switch(input$analysis_type,
         "genre_comparison" = {
           if ("genre" %in% names(results) && "total_sales" %in% names(results) && nrow(results) > 0) {
             y_col <- if (input$metric_type == "average") "avg_total_sales_per_book" else "total_sales"
@@ -718,7 +773,18 @@ genreAnalysisServer <- function(id) {
           }
         },
 
-
+        "title_binding_compare" = {
+          if (all(c("book_title", "total_sales", "selection") %in% names(results)) && nrow(results) > 0) {
+            plot_ly(results, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
+                   hovertemplate = "Title: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
+              layout(title = paste0("Sales Comparison (", input$binding_filter, ")"),
+                     xaxis = list(title = "Book Title"),
+                     yaxis = list(title = "Total Sales"),
+                     barmode = "group")
+          } else {
+            plotly_empty("No title comparison data available")
+          }
+        },
 
         "gender_binding" = {
           if (all(c("gender", "total_sales") %in% names(results)) && nrow(results) > 0) {
@@ -758,7 +824,7 @@ genreAnalysisServer <- function(id) {
 
       # For trend analysis, we need time-series data
       # This is a simplified version - in a real implementation, you'd want to get sales by year
-      switch(legacy_type(),
+      switch(input$analysis_type,
         "genre_comparison" = {
           if ("genre" %in% names(results) && "book_count" %in% names(results) && nrow(results) > 0) {
             plot_ly(results, x = ~book_count, y = ~total_sales, text = ~genre, type = "scatter", mode = "markers+text",

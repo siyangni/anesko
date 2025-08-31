@@ -19,8 +19,10 @@ ui <- dashboardPage(
       menuItem("Sales Trends", tabName = "sales_trends", icon = icon("chart-line")),
       menuItem("Author Analysis", tabName = "authors", icon = icon("users")),
       menuItem("Author Networks", tabName = "networks", icon = icon("project-diagram")),
-      menuItem("Royalty Analysis", tabName = "royalties", icon = icon("money-bill")),
-      menuItem("Royalty Income Query", tabName = "royalty_query", icon = icon("calculator")),
+      menuItem("Royalties", icon = icon("money-bill"), startExpanded = TRUE,
+        menuSubItem("Royalty Analysis", tabName = "royalties", icon = icon("chart-bar")),
+        menuSubItem("Royalty Income Query", tabName = "royalty_query", icon = icon("calculator"))
+      ),
       menuItem("Genre Analysis", tabName = "genres", icon = icon("list")),
       br(),
       menuItem("About", tabName = "about", icon = icon("info-circle"))

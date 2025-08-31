@@ -24,16 +24,15 @@ authorAnalysisUI <- function(id) {
           column(3,
             selectInput(ns("analysis_type"), "Analysis Type:",
                        choices = list(
-                         "Gender Performance Comparison" = "gender_comparison",
-                         "Author Royalty Income Analysis" = "author_royalty",
-                         "Gender by Genre Analysis" = "gender_genre",
+                         "Gender Performance" = "gender_performance",
+                         "Genre Mix by Author Gender" = "genre_by_gender",
                          "Author Career Overview" = "author_overview"
                        ),
-                       selected = "gender_comparison")
+                       selected = "gender_performance")
           ),
           column(3,
             conditionalPanel(
-              condition = "input.analysis_type == 'author_royalty' || input.analysis_type == 'author_overview'",
+              condition = "input.analysis_type == 'author_overview'",
               ns = ns,
               tagList(
                 selectizeInput(ns("author_name"), "Author Surname:",
@@ -56,7 +55,7 @@ authorAnalysisUI <- function(id) {
               )
             ),
             conditionalPanel(
-              condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
+              condition = "input.analysis_type == 'gender_performance' || input.analysis_type == 'genre_by_gender'",
               ns = ns,
               selectInput(ns("gender_filter"), "Focus on Gender:",
                          choices = list("Compare Both" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
@@ -65,13 +64,13 @@ authorAnalysisUI <- function(id) {
           ),
           column(3,
             conditionalPanel(
-              condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
+              condition = "input.analysis_type == 'gender_performance' || input.analysis_type == 'genre_by_gender'",
               ns = ns,
               selectInput(ns("genre_filter"), "Genre Focus:",
                          choices = NULL, multiple = FALSE)
             ),
             conditionalPanel(
-              condition = "input.analysis_type == 'gender_comparison' || input.analysis_type == 'gender_genre'",
+              condition = "input.analysis_type == 'gender_performance' || input.analysis_type == 'genre_by_gender'",
               ns = ns,
               tagList(
                 selectizeInput(ns("binding_filter"), "Binding Type:",
@@ -91,7 +90,7 @@ authorAnalysisUI <- function(id) {
         fluidRow(
           column(4,
             conditionalPanel(
-              condition = "input.analysis_type == 'gender_comparison'",
+              condition = "input.analysis_type == 'gender_performance'",
               ns = ns,
               radioButtons(ns("metric_type"), "Metric:",
                           choices = list("Average Sales" = "average", "Total Sales" = "total"),
@@ -110,6 +109,9 @@ authorAnalysisUI <- function(id) {
                           class = "btn-link btn-sm"),
               br(),
               actionButton(ns("view_sales_analysis"), "View Sales Trends →",
+                          class = "btn-link btn-sm"),
+              br(),
+              actionButton(ns("view_royalty_query"), "Open Royalty Income Query →",
                           class = "btn-link btn-sm")
             )
           )
@@ -310,6 +312,11 @@ authorAnalysisServer <- function(id) {
       try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "sales_trends") }, silent = TRUE)
     })
 
+    observeEvent(input$view_royalty_query, {
+      # Navigate to the Royalty Income Query tab
+      try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "royalty_query") }, silent = TRUE)
+    })
+
     # Run analysis when button is clicked
 
 	    # Populate Author ID choices after a surname is selected
@@ -347,7 +354,15 @@ authorAnalysisServer <- function(id) {
 
       withProgress(message = "Running author analysis...", value = 0, {
 
-        results <- switch(input$analysis_type,
+        legacy_type <- reactive({
+          switch(input$analysis_type,
+            "gender_performance" = "gender_comparison",
+            "genre_by_gender" = "gender_genre",
+            input$analysis_type
+          )
+        })
+
+        results <- switch(legacy_type(),
           "gender_comparison" = {
             incProgress(0.3, detail = "Analyzing gender performance...")
             if (input$metric_type == "average") {
@@ -446,7 +461,7 @@ authorAnalysisServer <- function(id) {
 
       years <- year_range()
 
-      boxes <- switch(input$analysis_type,
+      boxes <- switch(legacy_type(),
         "gender_comparison" = {
           if (input$metric_type == "average") {
             male_avg <- mean(results[results$gender == "Male", "avg_total_sales_per_book"], na.rm = TRUE)
@@ -547,7 +562,7 @@ authorAnalysisServer <- function(id) {
         return(div(class = "alert alert-warning", "Run an analysis to see insights"))
       }
 
-      insights <- switch(input$analysis_type,
+      insights <- switch(legacy_type(),
         "gender_comparison" = {
           if (nrow(results) > 0 && "gender" %in% names(results)) {
             male_data <- results[results$gender == "Male", ]
@@ -692,7 +707,7 @@ authorAnalysisServer <- function(id) {
         return(plotly_empty("Run an analysis to see visualization"))
       }
 
-      switch(input$analysis_type,
+      switch(legacy_type(),
         "gender_comparison" = {
           if ("gender" %in% names(results) && nrow(results) > 0) {
             y_col <- if (input$metric_type == "average") "avg_total_sales_per_book" else "total_sales"
@@ -753,7 +768,7 @@ authorAnalysisServer <- function(id) {
         return(plotly_empty("Run an analysis to see comparison"))
       }
 
-      switch(input$analysis_type,
+      switch(legacy_type(),
         "gender_comparison" = {
           if ("genre" %in% names(results) && "gender" %in% names(results) && nrow(results) > 0) {
             y_col <- if (input$metric_type == "average") "avg_total_sales_per_book" else "total_sales"
