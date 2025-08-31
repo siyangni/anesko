@@ -868,6 +868,81 @@ get_royalty_income_by_book_binding <- function(book_title, binding_state, start_
   return(result)
 }
 
+# Function 4b: Flexible version that allows optional binding state
+get_royalty_income_by_book_binding_flexible <- function(book_title, binding_state = NULL, start_year, end_year) {
+  # Build query dynamically based on whether binding_state is provided
+  if (is.null(binding_state)) {
+    # Query for all bindings of this book title
+    query <- "
+      SELECT
+        be.book_id,
+        be.book_title,
+        be.author_surname,
+        be.binding,
+        SUM(bs.sales_count) as total_sales,
+        COUNT(bs.year) as years_with_sales,
+        MIN(bs.year) as first_sale_year,
+        MAX(bs.year) as last_sale_year
+      FROM book_entries be
+      JOIN book_sales bs ON be.book_id = bs.book_id
+      WHERE LOWER(be.book_title) LIKE LOWER($1)
+        AND bs.year BETWEEN $2 AND $3
+        AND bs.sales_count IS NOT NULL
+      GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
+      ORDER BY total_sales DESC
+    "
+    sales_data <- safe_db_query(query, params = list(
+      paste0("%", book_title, "%"),
+      start_year,
+      end_year
+    ))
+  } else {
+    # Use the existing function for specific binding
+    sales_data <- get_book_sales_by_title_binding(book_title, binding_state, start_year, end_year)
+  }
+
+  if (is.null(sales_data) || nrow(sales_data) == 0) {
+    return(data.frame())
+  }
+
+  # Get book details with royalty information
+  result <- data.frame()
+
+  for (i in 1:nrow(sales_data)) {
+    book_id <- sales_data$book_id[i]
+    total_sales <- sales_data$total_sales[i]
+
+    # Get book details
+    book_details <- get_book_details(book_id)
+    book_info <- book_details$book_info
+    royalty_tiers <- book_details$royalty_tiers
+
+    if (nrow(book_info) > 0) {
+      retail_price <- book_info$retail_price[1]
+      royalty_rate <- book_info$royalty_rate[1]
+
+      # Calculate royalty income
+      royalty_income <- calculate_royalty_income(
+        book_id, total_sales, retail_price, royalty_rate, royalty_tiers
+      )
+
+      # Add to result
+      result <- rbind(result, data.frame(
+        book_id = book_id,
+        book_title = sales_data$book_title[i],
+        author_surname = sales_data$author_surname[i],
+        binding = sales_data$binding[i],
+        total_sales = total_sales,
+        retail_price = retail_price,
+        royalty_income = royalty_income,
+        stringsAsFactors = FALSE
+      ))
+    }
+  }
+
+  return(result)
+}
+
 # Function 5: Get total royalty income from author's books in date range
 get_total_royalty_income_by_author <- function(author_surname, start_year, end_year, author_id = NULL) {
   # Build query dynamically to optionally filter by author_id when provided

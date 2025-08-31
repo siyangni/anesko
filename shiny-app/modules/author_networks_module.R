@@ -104,8 +104,8 @@ authorNetworksUI <- function(id) {
 authorNetworksServer <- function(id) {
   moduleServer(id, function(input, output, session) {
     
-    # Reactive data with better initialization and error handling
-    network_data <- reactive({
+    # Reactive data triggered by the 'Update Network' button (runs on load too)
+    network_data <- eventReactive(input$update_network, {
       # Ensure we have valid inputs
       gender_filter <- input$gender_filter
       if (is.null(gender_filter) || length(gender_filter) == 0) {
@@ -183,8 +183,8 @@ authorNetworksServer <- function(id) {
       }
 
       return(network_result)
-    })
-    
+    }, ignoreInit = FALSE)
+
     # Network plot with improved error handling
     output$network_plot <- renderPlotly({
       net_data <- network_data()

@@ -120,6 +120,9 @@ server <- function(input, output, session) {
   # Royalty analysis module (NEW)
   royaltyAnalysisServer("royalties_module")
 
+  # Royalty income query module (NEW)
+  royaltyQueryServer("royalty_query_module")
+
   # Genre analysis module
   genreAnalysisServer("genres_module")
 

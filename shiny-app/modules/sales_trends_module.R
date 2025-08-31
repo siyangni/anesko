@@ -96,30 +96,11 @@ salesTrendsUI <- function(id) {
             )
           )
         )
+
       )
     ),
 
-    # Quick Book/Binding Summary
-    fluidRow(
-      box(title = "Quick Book/Binding Summary", status = "warning", solidHeader = TRUE, width = 12,
-        fluidRow(
-          column(4,
-            selectizeInput(ns("summary_book_title"), "Book Title:", choices = NULL, multiple = FALSE,
-                           options = list(placeholder = "Select or type book title…", create = FALSE))
-          ),
-          column(3,
-            selectizeInput(ns("summary_binding"), "Binding State:", choices = NULL, multiple = FALSE,
-                           options = list(placeholder = "Select binding…", create = FALSE))
-          ),
-          column(3,
-            br(), actionButton(ns("compute_summary"), "Compute Summary", class = "btn-primary")
-          )
-        ),
-        br(),
-        uiOutput(ns("summary_sales")),
-        uiOutput(ns("summary_royalty"))
-      )
-    ),
+
 
     # Visualizations
     fluidRow(
@@ -134,6 +115,8 @@ salesTrendsUI <- function(id) {
             plotlyOutput(ns("totals_plot"), height = "420px"))
       )
     ),
+
+
 
     # Tables
     fluidRow(
@@ -194,87 +177,9 @@ salesTrendsServer <- function(id) {
         updateSelectizeInput(session, "book_filter", choices = choices, server = TRUE)
       }
 
-      # Summary book/binding dropdowns
-      if (!is.null(top_books) && nrow(top_books) > 0) {
-        updateSelectizeInput(session, "summary_book_title", choices = sort(unique(top_books$book_title)), server = TRUE)
-      } else {
-        # Fallback to all book titles if top books not available
-        titles <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
-        if (!is.null(titles) && nrow(titles) > 0) {
-          updateSelectizeInput(session, "summary_book_title", choices = titles$book_title, server = TRUE)
-        }
-      }
-      bindings <- safe_query(get_binding_states, default_value = data.frame(binding = character(0)))
-      if (!is.null(bindings) && nrow(bindings) > 0) {
-
-
-    # Compute summary for book/binding (total & average sales + royalty)
-    observeEvent(input$compute_summary, {
-      years <- input$year_range %||% c(MIN_YEAR, MAX_YEAR)
-      start_year <- years[1]; end_year <- years[2]
-      title <- input$summary_book_title %||% ""
-      binding <- input$summary_binding %||% ""
-
-      if (!nzchar(title) || !nzchar(binding)) {
-        output$summary_sales <- renderUI({ div(class = "alert alert-warning", "Select a book title and binding") })
-        output$summary_royalty <- renderUI({ NULL })
-        return()
-      }
-
-      withProgress(message = "Computing book/binding summary...", value = 0, {
-        incProgress(0.3, detail = "Fetching sales data...")
-        sales <- safe_query(function() get_book_sales_by_title_binding(title, binding, start_year, end_year),
-                            default_value = data.frame())
-        if (is.null(sales) || nrow(sales) == 0) {
-          output$summary_sales <- renderUI({ div(class = "alert alert-warning", "No sales found for selection") })
-          output$summary_royalty <- renderUI({ NULL })
-          return()
-        }
-
-        # Total & average sales
-        total_sales_val <- sum(sales$total_sales, na.rm = TRUE)
-        years_with_sales <- sum(sales$years_with_sales, na.rm = TRUE)
-        avg_sales_val <- if (years_with_sales > 0) total_sales_val / years_with_sales else NA_real_
-
-        output$summary_sales <- renderUI({
-          div(class = "alert alert-info", style = "color:#ffffff !important; font-size:14px; line-height:1.4;",
-              h4("Sales Summary", style = "color:#ffffff !important;"),
-              p(paste0("From ", start_year, " to ", end_year, ", the total sales of the ", binding,
-                       " edition of '", title, "' was ", format_number(total_sales_val), "."), style = "color:#ffffff !important; font-size:14px;"),
-              p(paste0("Average annual sales: ", ifelse(is.na(avg_sales_val), "N/A", format_number(round(avg_sales_val, 1))), "."), style = "color:#ffffff !important; font-size:14px;")
-          )
-        })
-
-        incProgress(0.6, detail = "Calculating royalty income...")
-        royalty <- safe_query(function() get_royalty_income_by_book_binding(title, binding, start_year, end_year),
-                              default_value = data.frame())
-        if (!is.null(royalty) && nrow(royalty) > 0) {
-          total_royalty <- sum(royalty$royalty_income, na.rm = TRUE)
-          output$summary_royalty <- renderUI({
-            div(class = "alert alert-success", style = "color:#ffffff !important; font-size:14px; line-height:1.4;",
-                h4("Royalty Summary", style = "color:#ffffff !important;"),
-                p(paste0("From ", start_year, " to ", end_year, ", the royalty income from the sale of the ", binding,
-                         " edition of '", title, "' was $", format(round(total_royalty, 2), big.mark = ","), "."), style = "color:#ffffff !important; font-size:14px;"),
-                p("Note: Royalty uses the recorded royalty rate and retail price, including tier structures where available.", style = "color:#ffffff !important; font-size:14px;")
-            )
-          })
-        } else {
-          output$summary_royalty <- renderUI({ div(class = "alert alert-warning", "No royalty data available for selection") })
-        }
-
-        incProgress(1, detail = "Done")
-      })
     })
 
-      # Reset quick summary
-      output$summary_sales <- renderUI({ NULL })
-      output$summary_royalty <- renderUI({ NULL })
 
-        updateSelectizeInput(session, "summary_binding",
-          choices = sort(unique(stringr::str_to_title(trimws(bindings$binding)))), server = TRUE)
-      }
-
-    })
 
     # Reset filters
     observeEvent(input$reset, {
@@ -286,11 +191,6 @@ salesTrendsServer <- function(id) {
       shinyWidgets::updatePickerInput(session, "binding_filter", selected = character(0))
       updateSelectizeInput(session, "book_filter", selected = character(0), server = TRUE)
       updateCheckboxGroupInput(session, "secondary_options", selected = c("include_unknown_gender"))
-      # Reset quick summary
-      updateSelectizeInput(session, "summary_book_title", selected = NULL, server = TRUE)
-      updateSelectizeInput(session, "summary_binding", selected = NULL, server = TRUE)
-      output$summary_sales <- renderUI({ NULL })
-      output$summary_royalty <- renderUI({ NULL })
     })
 
     # Build filters reactive
@@ -422,6 +322,8 @@ salesTrendsServer <- function(id) {
       disp$book_count <- format_number(disp$book_count)
       DT::datatable(disp, options = list(pageLength = 15, scrollX = TRUE, dom = 'Bfrtip', buttons = c('copy','csv','excel')), rownames = FALSE)
     })
+
+
 
     # Download
     output$download_detail <- downloadHandler(

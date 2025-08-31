@@ -46,6 +46,7 @@ source("modules/sales_analysis_module.R")
 source("modules/author_analysis_module.R")
 source("modules/author_networks_module.R")  # NEW
 source("modules/royalty_analysis_module.R")  # NEW
+source("modules/royalty_query_module.R")  # NEW - Dedicated royalty income query
 source("modules/genre_analysis_module.R")
 
 # Initialize database connection pool for better performance

@@ -1,8 +1,8 @@
 # Plotting Utility Functions
 # Functions for creating consistent, interactive plots throughout the app
 
-# Custom ggplot theme for the app
-theme_authorship <- function(base_size = 12) {
+# Custom ggplot theme for the app - enhanced for accessibility
+theme_authorship <- function(base_size = 14) { # Increased from 12 for better readability
   theme_minimal(base_size = base_size) +
     theme(
       plot.title = element_text(size = base_size + 2, face = "bold", hjust = 0.5),

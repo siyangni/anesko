@@ -20,6 +20,7 @@ ui <- dashboardPage(
       menuItem("Author Analysis", tabName = "authors", icon = icon("users")),
       menuItem("Author Networks", tabName = "networks", icon = icon("project-diagram")),
       menuItem("Royalty Analysis", tabName = "royalties", icon = icon("money-bill")),
+      menuItem("Royalty Income Query", tabName = "royalty_query", icon = icon("calculator")),
       menuItem("Genre Analysis", tabName = "genres", icon = icon("list")),
       br(),
       menuItem("About", tabName = "about", icon = icon("info-circle"))
@@ -29,7 +30,7 @@ ui <- dashboardPage(
     br(), br(),
     div(
       style = "position: absolute; bottom: 20px; left: 20px; right: 20px;
-               color: #ccc; font-size: 11px; text-align: center;",
+               color: #ccc; font-size: 14px; text-align: center;",
       p("American Authorship Database"),
       p("1860-1920"),
       p(paste("Version", APP_VERSION))
@@ -101,6 +102,12 @@ ui <- dashboardPage(
       tabItem(
         tabName = "royalties",
         royaltyAnalysisUI("royalties_module")
+      ),
+
+      # Royalty income query tab (NEW)
+      tabItem(
+        tabName = "royalty_query",
+        royaltyQueryUI("royalty_query_module")
       ),
 
       # Genre analysis tab
