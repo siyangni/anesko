@@ -38,6 +38,7 @@ source("utils/plotting.R")
 # Query groups
 source("utils/queries_basic.R")
 source("utils/queries_sales.R")
+source("utils/error_handling.R")
 source("utils/queries_timeseries.R")
 source("utils/queries_royalties.R")
 
@@ -208,7 +209,7 @@ create_value_box <- function(value, subtitle, icon, color = "blue", width = 12) 
   )
 }
 
-# Error handling function
+# Simple error handling function (enhanced versions are in utils/error_handling.R)
 safe_query <- function(query_func, default_value = NULL, error_message = "Data unavailable") {
   tryCatch({
     query_func()

@@ -24,14 +24,10 @@ genreAnalysisUI <- function(id) {
           column(3,
             selectInput(ns("analysis_type"), "Analysis Type:",
                        choices = list(
-                         "Genre Performance" = "genre_performance",
-                         "Market Share by Genre" = "market_share",
-                         "Genre Mix by Author Gender" = "genre_by_gender",
-                         "Binding Mix (by Genre)" = "binding_mix",
-                         "Gender Split within Genre & Binding" = "gender_split_genre_binding",
-                         "Cross-Period Averages" = "cross_period_averages"
+                         "Sales Distribution Explorer" = "distribution_explorer",
+                         "Period Comparison & Trends" = "period_comparison"
                        ),
-                       selected = "genre_performance")
+                       selected = "distribution_explorer")
           ),
           column(3,
             selectInput(ns("genre_filter"), "Focus on Genre:",
@@ -56,7 +52,7 @@ genreAnalysisUI <- function(id) {
           ),
           column(3,
             conditionalPanel(
-              condition = "input.analysis_type == 'genre_performance' || input.analysis_type == 'genre_by_gender'",
+              condition = "input.analysis_type == 'distribution_explorer'",
               ns = ns,
               radioButtons(ns("metric_type"), "Metric:",
                           choices = list("Average Sales" = "average", "Total Sales" = "total"),
@@ -79,13 +75,52 @@ genreAnalysisUI <- function(id) {
             )
           )
         ),
-        # Extra controls for comparative analyses (appear when relevant)
+        # Sales Distribution Explorer controls
         fluidRow(
-
+          conditionalPanel(
+            condition = "input.analysis_type == 'distribution_explorer'",
+            ns = ns,
+            column(3,
+              selectInput(ns("primary_breakdown"), "Primary Breakdown:",
+                choices = list("Genre" = "genre", "Binding" = "binding"),
+                selected = "genre"
+              ),
+              shiny::helpText("Choose the main category to analyze.")
+            ),
+            column(3,
+              selectInput(ns("secondary_split"), "Secondary Split:",
+                choices = list("None" = "", "Gender" = "gender"),
+                selected = ""
+              ),
+              shiny::helpText("Optionally split bars by gender.")
+            ),
+            column(3,
+              radioButtons(ns("normalize"), "Normalization:",
+                choices = list("Absolute" = "absolute", "Percent of total" = "percent"),
+                selected = "absolute", inline = TRUE
+              ),
+              shiny::checkboxInput(ns("show_cumulative"), "Show cumulative share (table)", value = FALSE)
+            ),
+            column(3,
+              numericInput(ns("top_n"), "Top N categories:", value = 10, min = 1),
+              selectInput(ns("sort_by"), "Sort by:",
+                choices = list("Value" = "value", "Share" = "share", "Alphabetical" = "alpha"),
+                selected = "value"
+              ),
+              conditionalPanel(
+                condition = "input.secondary_split == 'gender'",
+                ns = ns,
+                selectInput(ns("bar_mode"), "Bar mode:",
+                  choices = list("Grouped" = "group", "Stacked" = "stack"),
+                  selected = "group"
+                )
+              )
+            )
+          )
         ),
         fluidRow(
           conditionalPanel(
-            condition = "input.analysis_type == 'cross_period_averages'",
+            condition = "input.analysis_type == 'period_comparison'",
             ns = ns,
             column(6,
               dateRangeInput(ns("date_range_p1"), "Period 1:",
@@ -190,11 +225,278 @@ genreAnalysisServer <- function(id) {
         })
 
 
+    # Map standardized IDs to internal handlers (global reactive)
+    legacy_type <- reactive({
+      switch(input$analysis_type,
+        "distribution_explorer" = "distribution",
+        "period_comparison"    = "cross_period_avg",
+        input$analysis_type
+      )
+    })
+
+
 
 
 
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
+
+    # Store base dataset and params for distribution explorer (tied to Run Analysis)
+    dist_base_raw <- reactiveVal(data.frame())
+    dist_params <- reactiveVal(list())
+
+    # Enhanced helper to compute distribution results from base + params
+    compute_distribution <- function(base_df, params) {
+      if (is.null(base_df) || nrow(base_df) == 0) {
+        showNotification(
+          "No data available for the selected parameters. Try adjusting your filters, date range, or analysis type.",
+          type = "warning",
+          duration = 8
+        )
+        return(data.frame())
+      }
+
+      primary <- params$primary_breakdown %||% "genre"  # 'genre' or 'binding'
+      split <- params$secondary_split %||% ""
+      normalize <- params$normalize %||% "absolute"
+      top_n <- params$top_n %||% 10
+      sort_by <- params$sort_by %||% "value"
+      metric <- params$metric_type %||% "total"  # 'total' or 'average'
+
+      # Determine value column with better error messages
+      if (metric == "average") {
+        value_col <- "avg_total_sales_per_book"
+        # Ensure column exists (from average query)
+        if (!(value_col %in% names(base_df))) {
+          showNotification(
+            "Data format error: Average sales data not available. Try switching to 'Total Sales' metric.",
+            type = "error",
+            duration = 8
+          )
+          return(data.frame())
+        }
+      } else {
+        value_col <- "total_sales"
+        if (!(value_col %in% names(base_df))) {
+          showNotification(
+            "Data format error: Total sales data not available. Please contact support.",
+            type = "error",
+            duration = 8
+          )
+          return(data.frame())
+        }
+      }
+
+      # Columns to keep
+      keep_cols <- c("genre", "binding", "gender", "book_count", value_col)
+      df <- base_df[, intersect(keep_cols, names(base_df)), drop = FALSE]
+
+      # Aggregate by chosen breakdown
+      if (split == "") {
+        # Group by primary only
+        if (primary == "genre") {
+          # Check if required columns exist
+          if (!("genre" %in% names(df))) {
+            showNotification("Data format error: 'genre' column missing from results",
+                           type = "error", duration = 8)
+            return(data.frame())
+          }
+
+          agg <- aggregate(df[[value_col]] ~ genre, df, sum)
+          names(agg)[2] <- value_col  # Fix column name directly
+
+          if ("book_count" %in% names(df)) {
+            bc <- aggregate(book_count ~ genre, df, sum)
+            out <- merge(agg, bc, by = "genre", all = TRUE)
+          } else {
+            out <- agg
+            out$book_count <- 1  # Fallback
+          }
+
+          # Safely select existing columns
+          available_cols <- intersect(c("genre", value_col, "book_count"), names(out))
+          out <- out[, available_cols, drop = FALSE]
+
+        } else {
+          # Check if required columns exist
+          if (!("binding" %in% names(df))) {
+            showNotification("Data format error: 'binding' column missing from results",
+                           type = "error", duration = 8)
+            return(data.frame())
+          }
+
+          agg <- aggregate(df[[value_col]] ~ binding, df, sum)
+          names(agg)[2] <- value_col  # Fix column name directly
+
+          if ("book_count" %in% names(df)) {
+            bc <- aggregate(book_count ~ binding, df, sum)
+            out <- merge(agg, bc, by = "binding", all = TRUE)
+          } else {
+            out <- agg
+            out$book_count <- 1  # Fallback
+          }
+
+          # Safely select existing columns
+          available_cols <- intersect(c("binding", value_col, "book_count"), names(out))
+          out <- out[, available_cols, drop = FALSE]
+        }
+        # Weighted average for metric == average
+        if (metric == "average") {
+          if (primary == "genre") {
+            wa <- aggregate(cbind(val = df[[value_col]], w = df$book_count) ~ genre, df, sum)
+            out[[value_col]] <- wa$val / pmax(wa$w, 1)
+          } else {
+            wa <- aggregate(cbind(val = df[[value_col]], w = df$book_count) ~ binding, df, sum)
+            out[[value_col]] <- wa$val / pmax(wa$w, 1)
+          }
+        }
+      } else if (split == "gender") {
+        # Group by primary and gender
+        if (primary == "genre") {
+          agg <- aggregate(df[[value_col]] ~ genre + gender, df, sum)
+          names(agg)[3] <- value_col  # Fix column name directly
+
+          if ("book_count" %in% names(df)) {
+            bc <- aggregate(book_count ~ genre + gender, df, sum)
+            out <- merge(agg, bc, by = c("genre", "gender"), all = TRUE)
+          } else {
+            out <- agg
+            out$book_count <- 1
+          }
+
+          # Safely select existing columns
+          available_cols <- intersect(c("genre", "gender", value_col, "book_count"), names(out))
+          out <- out[, available_cols, drop = FALSE]
+
+        } else {
+          agg <- aggregate(df[[value_col]] ~ binding + gender, df, sum)
+          names(agg)[3] <- value_col  # Fix column name directly
+
+          if ("book_count" %in% names(df)) {
+            bc <- aggregate(book_count ~ binding + gender, df, sum)
+            out <- merge(agg, bc, by = c("binding", "gender"), all = TRUE)
+          } else {
+            out <- agg
+            out$book_count <- 1
+          }
+
+          # Safely select existing columns
+          available_cols <- intersect(c("binding", "gender", value_col, "book_count"), names(out))
+          out <- out[, available_cols, drop = FALSE]
+        }
+        # Weighted average for metric == average
+        if (metric == "average") {
+          if (primary == "genre") {
+            wa <- aggregate(cbind(val = df[[value_col]], w = df$book_count) ~ genre + gender, df, sum)
+            out[[value_col]] <- wa$val / pmax(wa$w, 1)
+          } else {
+            wa <- aggregate(cbind(val = df[[value_col]], w = df$book_count) ~ binding + gender, df, sum)
+            out[[value_col]] <- wa$val / pmax(wa$w, 1)
+          }
+        }
+      } else {
+        return(data.frame(Error = "Unsupported split"))
+      }
+
+      # Normalization and sorting
+      if (normalize == "percent") {
+        total_val <- sum(out[[value_col]], na.rm = TRUE)
+        out$market_share_pct <- if (total_val > 0) 100 * out[[value_col]] / total_val else 0
+        # Cumulative share only meaningful without split; compute after sort
+      }
+
+      # Sorting
+      if (normalize == "percent" && sort_by == "share" && ("market_share_pct" %in% names(out))) {
+        ord <- order(out$market_share_pct, decreasing = TRUE, na.last = TRUE)
+      } else if (sort_by == "alpha") {
+        key <- if (primary == "genre") out$genre else out$binding
+        ord <- order(key, decreasing = FALSE, na.last = TRUE)
+      } else {
+        ord <- order(out[[value_col]], decreasing = TRUE, na.last = TRUE)
+      }
+      out <- out[ord, , drop = FALSE]
+
+      # Top N by primary
+      if (top_n > 0) {
+        if (split == "") {
+          out <- head(out, top_n)
+        } else {
+          # Keep top N primaries and all their split rows
+          prim_col <- if (primary == "genre") "genre" else "binding"
+          tops <- unique(out[[prim_col]])[1:min(top_n, length(unique(out[[prim_col]])))]
+          out <- out[out[[prim_col]] %in% tops, , drop = FALSE]
+        }
+      }
+
+      # Cumulative share (no split only)
+      if (normalize == "percent" && split == "" && ("market_share_pct" %in% names(out))) {
+        if (isTRUE(params$show_cumulative %||% FALSE)) {
+          out$cumulative_share <- cumsum(out$market_share_pct)
+        }
+      }
+
+      out
+    }
+
+    # Unified distribution results reactive (computed from last Run Analysis params)
+    dist_results <- reactive({
+      base <- dist_base_raw()
+      params <- dist_params()
+      if (is.null(params) || length(params) == 0) return(data.frame())
+      compute_distribution(base, params)
+    })
+
+        # Keep dist_params in sync with UI controls (no requery). Metric change requires rerun.
+        observeEvent(input$primary_breakdown, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$primary_breakdown <- input$primary_breakdown
+          dist_params(p)
+        })
+        observeEvent(input$secondary_split, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$secondary_split <- input$secondary_split
+          dist_params(p)
+        })
+        observeEvent(input$normalize, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$normalize <- input$normalize
+          dist_params(p)
+        })
+        observeEvent(input$top_n, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$top_n <- input$top_n
+          dist_params(p)
+        })
+        observeEvent(input$sort_by, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$sort_by <- input$sort_by
+          dist_params(p)
+        })
+        observeEvent(input$bar_mode, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$bar_mode <- input$bar_mode
+          dist_params(p)
+        })
+        observeEvent(input$show_cumulative, ignoreInit = TRUE, {
+          p <- dist_params()
+          p$show_cumulative <- isTRUE(input$show_cumulative)
+          dist_params(p)
+        })
+        observeEvent(input$metric_type, ignoreInit = TRUE, {
+          if (input$analysis_type == "distribution_explorer") {
+            showNotification(
+              "Changing Metric requires re-running the analysis to refresh the base data.",
+              type = "message", duration = 3
+            )
+          }
+        })
+
+        # Helper to get current results (distribution explorer is dynamic)
+        current_results <- reactive({
+          if (legacy_type() == "distribution") dist_results() else analysis_results()
+        })
+
+
 
     # Convert date range to years
     year_range <- reactive({
@@ -230,104 +532,148 @@ genreAnalysisServer <- function(id) {
       start_year <- years[1]
       end_year <- years[2]
 
-      withProgress(message = "Running genre analysis...", value = 0, {
+      # Validate parameters before running analysis
+      validation <- validate_analysis_params(
+        input$genre_filter,
+        input$binding_filter,
+        input$gender_filter,
+        start_year,
+        end_year,
+        legacy_type()
+      )
 
-        # Map standardized IDs to legacy IDs used internally
-        legacy_type <- reactive({
-          switch(input$analysis_type,
-            "genre_performance" = "genre_comparison",
-            "genre_by_gender" = "genre_gender",
-            "binding_mix" = "binding_analysis",
-            "gender_split_genre_binding" = "gender_binding",
-            "cross_period_averages" = "cross_period_avg",
-            input$analysis_type
+      if (!validation$valid) {
+        showNotification(
+          paste("Parameter validation failed:",
+                paste(validation$issues, collapse = "; ")),
+          type = "error",
+          duration = 10
+        )
+        if (length(validation$suggestions) > 0) {
+          showNotification(
+            paste("Suggestions:",
+                  paste(validation$suggestions, collapse = "; ")),
+            type = "message",
+            duration = 12
           )
-        })
+        }
+        return()
+      }
+
+      # Check data availability before running expensive queries
+      availability <- check_data_availability(
+        input$genre_filter,
+        input$binding_filter,
+        input$gender_filter,
+        start_year,
+        end_year
+      )
+
+      if (!availability$available) {
+        showNotification(
+          paste("No data found for your selected parameters.",
+                "Try expanding your date range or removing some filters."),
+          type = "warning",
+          duration = 10
+        )
+
+        # Use utility function to generate suggestions
+        suggestions <- generate_data_suggestions(
+          input$genre_filter,
+          input$binding_filter,
+          input$gender_filter,
+          start_year,
+          end_year
+        )
+
+        if (length(suggestions) > 0) {
+          showNotification(
+            paste("Suggestions:", paste(suggestions, collapse = "; ")),
+            type = "message",
+            duration = 15
+          )
+        }
+
+        return()
+      }
+
+      withProgress(message = "Running genre analysis...", value = 0, {
+        incProgress(0.1, detail = paste("Found", availability$count, "records to analyze..."))
+
+        # Map standardized IDs to internal handlers
+        # (moved to outer scope)
 
         results <- switch(legacy_type(),
-          "genre_comparison" = {
-            incProgress(0.3, detail = "Analyzing genre performance...")
-            if (input$metric_type == "average") {
-              get_average_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
-              )
-            } else {
-              get_total_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
-              )
-            }
-          },
+          "distribution" = {
+            incProgress(0.3, detail = "Preparing distribution data...")
 
-          "market_share" = {
-            incProgress(0.3, detail = "Calculating market share...")
-            result <- get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
+            # Create context for better error messages
+            context <- create_context_string(
+              input$genre_filter,
+              input$binding_filter,
+              input$gender_filter,
+              start_year,
+              end_year
             )
 
-            # Calculate market share percentages
-            if (nrow(result) > 0 && "total_sales" %in% names(result)) {
-              total_market <- sum(result$total_sales, na.rm = TRUE)
-              result$market_share_pct <- round((result$total_sales / total_market) * 100, 2)
-              result$cumulative_share <- cumsum(result$market_share_pct)
-            }
-            result
-          },
-
-          "genre_gender" = {
-            incProgress(0.3, detail = "Analyzing genre by gender...")
-            get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
-            )
-          },
-
-          "binding_analysis" = {
-            incProgress(0.3, detail = "Analyzing binding formats...")
-            get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
-            )
-          },
-
-
-
-          "gender_binding" = {
-            incProgress(0.3, detail = "Comparing gender totals...")
-            # Require a specific genre and binding for this comparison
-            if (is.null(input$genre_filter) || input$genre_filter == "" ||
-                is.null(input$binding_filter) || input$binding_filter == "") {
-              showNotification("Please select both a Genre and a Binding type.", type = "warning")
-              data.frame(Error = "Select a specific genre and binding")
-            } else {
-              res <- safe_query(function() {
-                get_total_sales_by_binding_genre_gender(
-                  input$binding_filter, input$genre_filter, NULL, start_year, end_year
+            base <- safe_query_enhanced(function() {
+              if (input$metric_type == "average") {
+                get_average_sales_by_binding_genre_gender(
+                  input$binding_filter %||% NULL,
+                  input$genre_filter %||% NULL,
+                  input$gender_filter %||% NULL,
+                  start_year, end_year
                 )
-              }, default_value = data.frame())
-              # Aggregate strictly by gender to ensure only two rows
-              if (nrow(res) > 0) {
-                out <- aggregate(total_sales ~ gender, res, sum)
-                out$genre <- input$genre_filter
-                out$binding <- input$binding_filter
-                out <- out[, c("genre", "binding", "gender", "total_sales")]  # reorder
-                out
               } else {
-                data.frame()
+                get_total_sales_by_binding_genre_gender(
+                  input$binding_filter %||% NULL,
+                  input$genre_filter %||% NULL,
+                  input$gender_filter %||% NULL,
+                  start_year, end_year
+                )
               }
+            },
+            default_value = data.frame(),
+            error_message = "Failed to retrieve sales data",
+            context = context)
+
+            # Check if we got meaningful data
+            if (is.null(base) || nrow(base) == 0) {
+              showNotification(
+                paste("No sales data found for:", context,
+                      "- Try different filters or expand your date range"),
+                type = "warning",
+                duration = 12
+              )
+              return(data.frame())
             }
+
+            incProgress(0.5, detail = "Processing distribution analysis...")
+
+            # Save base and params for reactive explorer
+            dist_base_raw(base)
+            dist_params(list(
+              primary_breakdown = input$primary_breakdown %||% "genre",
+              secondary_split = input$secondary_split %||% "",
+              normalize = input$normalize %||% "absolute",
+              show_cumulative = isTRUE(input$show_cumulative %||% FALSE),
+              top_n = input$top_n %||% 10,
+              sort_by = input$sort_by %||% "value",
+              metric_type = input$metric_type %||% "total"
+            ))
+
+            # Compute once for this run
+            result <- compute_distribution(base, dist_params())
+
+            if (is.null(result) || nrow(result) == 0) {
+              showNotification(
+                "Distribution analysis produced no results. This may be due to data processing constraints.",
+                type = "warning",
+                duration = 10
+              )
+            }
+
+            result
           },
 
           "cross_period_avg" = {
@@ -395,69 +741,79 @@ genreAnalysisServer <- function(id) {
       })
     })
 
-    # Summary boxes
+    # Enhanced summary boxes with better empty state handling
     output$summary_boxes <- renderUI({
       results <- analysis_results()
+
+      # Provide helpful message when no results
       if (nrow(results) == 0 || "Error" %in% names(results)) {
-        return(NULL)
+        return(
+          fluidRow(
+            column(12, create_no_data_summary())
+          )
+        )
       }
 
       years <- year_range()
 
       boxes <- switch(legacy_type(),
-        "genre_comparison" = {
-          if ("genre" %in% names(results) && nrow(results) > 0) {
-            top_genre <- results[which.max(results$total_sales), ]
-            total_sales <- sum(results$total_sales, na.rm = TRUE)
-            avg_sales <- mean(results$total_sales, na.rm = TRUE)
+        "distribution" = {
+          res <- dist_results()
+          if (nrow(res) > 0) {
+            # Determine primary for labeling
+            primary <- dist_params()$primary_breakdown %||% "genre"
+            label_col <- if (primary == "genre") "genre" else "binding"
+            value_col <- if ((dist_params()$metric_type %||% "total") == "average") "avg_total_sales_per_book" else "total_sales"
+
+            top_row <- res[1, , drop = FALSE]
+            top_label <- if (label_col %in% names(res)) top_row[[label_col]][1] else ""
+            total_cats <- nrow(res)
+
+            value_box_1 <- create_value_box(
+              value = top_label,
+              subtitle = paste("Top", if (primary == "genre") "Genre" else "Binding"),
+              icon = "crown",
+              color = "blue"
+            )
+
+            value_sum <- if (value_col %in% names(res)) sum(res[[value_col]], na.rm = TRUE) else NA
+            value_box_2 <- create_value_box(
+              value = if (!is.na(value_sum)) format(round(value_sum, 1), big.mark = ",") else "N/A",
+              subtitle = if ((dist_params()$metric_type %||% "total") == "average") "Sum of Averages" else "Total Market Sales",
+              icon = "chart-line",
+              color = "green"
+            )
+
+            value_box_3 <- create_value_box(
+              value = total_cats,
+              subtitle = paste(if (primary == "genre") "Genres" else "Bindings", "Analyzed"),
+              icon = "list",
+              color = "navy"
+            )
 
             fluidRow(
-              column(4, create_value_box(
-                value = top_genre$genre[1],
-                subtitle = "Top Performing Genre",
-                icon = "crown",
-                color = "yellow"
-              )),
-              column(4, create_value_box(
-                value = total_sales,
-                subtitle = "Total Market Sales",
-                icon = "chart-line",
-                color = "green"
-              )),
-              column(4, create_value_box(
-                value = nrow(results),
-                subtitle = "Genres Analyzed",
-                icon = "list",
-                color = "blue"
-              ))
+              column(4, value_box_1),
+              column(4, value_box_2),
+              column(4, value_box_3)
             )
           }
         },
 
-        "market_share" = {
-          if ("market_share_pct" %in% names(results) && nrow(results) > 0) {
-            top_genre <- results[1, ]  # Already sorted by total sales
-            total_genres <- nrow(results)
-            top_3_share <- sum(results$market_share_pct[1:min(3, nrow(results))], na.rm = TRUE)
-
+        "cross_period_avg" = {
+          if ("pct_change" %in% names(results) && nrow(results) > 0) {
+            last_row <- tail(results, 1)
             fluidRow(
-              column(4, create_value_box(
-                value = paste0(round(top_genre$market_share_pct[1], 1), "%"),
-                subtitle = paste("Market Leader:", top_genre$genre[1]),
-                icon = "trophy",
-                color = "gold"
+              column(6, create_value_box(
+                value = ifelse(is.na(last_row$pct_change), "NA", paste0(round(last_row$pct_change, 1), "%")),
+                subtitle = "Percent Change (P2 vs P1)",
+                icon = "percent",
+                color = "orange"
               )),
-              column(4, create_value_box(
-                value = paste0(round(top_3_share, 1), "%"),
-                subtitle = "Top 3 Genres Share",
-                icon = "chart-pie",
-                color = "purple"
-              )),
-              column(4, create_value_box(
-                value = total_genres,
-                subtitle = "Total Genres",
-                icon = "layer-group",
-                color = "blue"
+              column(6, create_value_box(
+                value = ifelse(is.na(last_row$p_value), "N/A", paste0("p=", signif(last_row$p_value, 3))),
+                subtitle = paste0("Significance", ifelse(is.na(last_row$test), "", paste0(" (", last_row$test, ")"))),
+                icon = "flask",
+                color = "green"
               ))
             )
           }
@@ -477,110 +833,30 @@ genreAnalysisServer <- function(id) {
       }
 
       insights <- switch(legacy_type(),
-        "genre_comparison" = {
-          if (nrow(results) > 0 && "genre" %in% names(results)) {
-            top_genre <- results[which.max(results$total_sales), ]
-            bottom_genre <- results[which.min(results$total_sales), ]
+        "distribution" = {
+          res <- dist_results()
+          if (nrow(res) > 0) {
+            primary <- dist_params()$primary_breakdown %||% "genre"
+            metric <- dist_params()$metric_type %||% "total"
+            normalize <- dist_params()$normalize %||% "absolute"
+            label <- if (primary == "genre") "Genre" else "Binding"
+
+            top_label <- if (primary == "genre") res$genre[1] else res$binding[1]
+            conc_text <- NULL
+            if ("market_share_pct" %in% names(res)) {
+              top3 <- head(res$market_share_pct, 3)
+              conc <- round(sum(top3, na.rm = TRUE), 1)
+              conc_text <- paste("Top 3", label, "share:", paste0(conc, "%"))
+            }
 
             tagList(
-              h5("Genre Performance Insights:"),
-              p(paste("Best performing genre:", top_genre$genre[1])),
-              p(paste("Sales:", format(top_genre$total_sales[1], big.mark = ","), "copies")),
-              p(paste("Books published:", top_genre$book_count[1])),
-              hr(),
-              p(paste("Lowest performing:", bottom_genre$genre[1])),
-              p(paste("Performance gap:",
-                     format(top_genre$total_sales[1] - bottom_genre$total_sales[1], big.mark = ","),
-                     "copies"))
+              h5("Distribution Insights:"),
+              p(paste("Top", label, ":", top_label)),
+              if (!is.null(conc_text)) p(conc_text) else NULL,
+              if (metric == "average") p("Metric: Average Sales per Book") else p(if (normalize == "percent") "Metric: Market Share" else "Metric: Total Sales")
             )
           } else {
-            p("No genre data available")
-          }
-        },
-
-        "market_share" = {
-          if (nrow(results) > 0 && "market_share_pct" %in% names(results)) {
-            top_3 <- head(results, 3)
-            concentration <- sum(top_3$market_share_pct, na.rm = TRUE)
-
-            tagList(
-              h5("Market Share Insights:"),
-              p(paste("Market concentration: Top 3 genres control",
-                     round(concentration, 1), "% of sales")),
-              hr(),
-              h6("Top 3 Genres:"),
-              tags$ol(
-                lapply(1:min(3, nrow(top_3)), function(i) {
-                  tags$li(paste(top_3$genre[i], "-", round(top_3$market_share_pct[i], 1), "%"))
-                })
-              )
-            )
-          } else {
-            p("No market share data available")
-          }
-        },
-
-        "genre_gender" = {
-          if (nrow(results) > 0 && "gender" %in% names(results) && "genre" %in% names(results)) {
-            male_total <- sum(results[results$gender == "Male", "total_sales"], na.rm = TRUE)
-            female_total <- sum(results[results$gender == "Female", "total_sales"], na.rm = TRUE)
-
-            tagList(
-              h5("Genre & Gender Insights:"),
-              p(paste("Male authors total sales:", format(male_total, big.mark = ","))),
-              p(paste("Female authors total sales:", format(female_total, big.mark = ","))),
-              p(paste("Female market share:",
-                     round(female_total/(male_total + female_total) * 100, 1), "%")),
-              hr(),
-              if (nrow(results) > 0) {
-                best_combo <- results[which.max(results$total_sales), ]
-                p(paste("Best performing combination:",
-                       best_combo$gender[1], "authors in", best_combo$genre[1]))
-              }
-            )
-          } else {
-            p("No genre/gender data available")
-          }
-        },
-
-        "binding_analysis" = {
-          if (nrow(results) > 0 && "binding" %in% names(results)) {
-            binding_summary <- aggregate(total_sales ~ binding, results, sum)
-            top_binding <- binding_summary[which.max(binding_summary$total_sales), ]
-
-            tagList(
-              h5("Binding Format Insights:"),
-              p(paste("Most popular binding:", top_binding$binding[1])),
-              p(paste("Sales:", format(top_binding$total_sales[1], big.mark = ","), "copies")),
-              hr(),
-              h6("Binding Performance:"),
-              tags$ul(
-                lapply(1:nrow(binding_summary), function(i) {
-                  tags$li(paste(binding_summary$binding[i], "-",
-                               format(binding_summary$total_sales[i], big.mark = ","), "copies"))
-                })
-              )
-            )
-          } else {
-            p("No binding data available")
-          }
-        },
-
-
-
-        "gender_binding" = {
-          if (nrow(results) > 0 && "gender" %in% names(results)) {
-            total_m <- sum(results$total_sales[results$gender == "Male"], na.rm = TRUE)
-            total_f <- sum(results$total_sales[results$gender == "Female"], na.rm = TRUE)
-            share_f <- if ((total_m + total_f) > 0) round(100 * total_f/(total_m + total_f), 1) else NA
-            tagList(
-              h5("Gender-based Sales Insights:"),
-              p(paste("Male total:", format(total_m, big.mark = ","))),
-              p(paste("Female total:", format(total_f, big.mark = ","))),
-              p(paste("Female share:", paste0(share_f, "%")))
-            )
-          } else {
-            p("No gender comparison data available")
+            p("No distribution data available")
           }
         },
 
@@ -606,7 +882,7 @@ genreAnalysisServer <- function(id) {
 
     # Results table
     output$results_table <- DT::renderDataTable({
-      results <- analysis_results()
+      results <- if (legacy_type() == "distribution") dist_results() else analysis_results()
       if (nrow(results) == 0) {
         return(DT::datatable(data.frame(Message = "No analysis run yet"), options = list(dom = 't')))
       }
@@ -656,80 +932,51 @@ genreAnalysisServer <- function(id) {
       )
     })
 
-    # Main plot
+    # Enhanced main plot with better empty state messages
     output$main_plot <- renderPlotly({
       results <- analysis_results()
       if (nrow(results) == 0 || "Error" %in% names(results)) {
-        return(plotly_empty("Run an analysis to see visualization"))
+        # Use utility function to create enhanced empty plot message
+        years <- year_range()
+        empty_message <- create_empty_plot_message(
+          "No data available for visualization",
+          input$genre_filter,
+          input$binding_filter,
+          input$gender_filter,
+          years[1],
+          years[2]
+        )
+
+        return(plotly_empty(empty_message))
       }
 
       switch(legacy_type(),
-        "genre_comparison" = {
-          if ("genre" %in% names(results) && "total_sales" %in% names(results) && nrow(results) > 0) {
-            y_col <- if (input$metric_type == "average") "avg_total_sales_per_book" else "total_sales"
-            y_title <- if (input$metric_type == "average") "Average Sales per Book" else "Total Sales"
+        "distribution" = {
+          res <- current_results()
+          if (nrow(res) == 0) return(plotly_empty("No data available"))
+          primary <- dist_params()$primary_breakdown %||% "genre"
+          split <- dist_params()$secondary_split %||% ""
+          normalize <- dist_params()$normalize %||% "absolute"
+          metric <- dist_params()$metric_type %||% "total"
+          value_col <- if (metric == "average") "avg_total_sales_per_book" else "total_sales"
+          y_title <- if (metric == "average") "Average Sales per Book" else if (normalize == "percent") "Market Share (%)" else "Total Sales"
 
-            plot_ly(results, x = ~genre, y = as.formula(paste0("~", y_col)),
-                   type = "bar", text = ~paste("Books:", book_count),
-                   hovertemplate = paste0("%{text}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
-              layout(title = paste("Genre Performance -", y_title),
-                     xaxis = list(title = "Genre"),
+          if (split == "gender") {
+            x_map <- if (primary == "genre") ~genre else ~binding
+            y_map <- if (normalize == "percent") ~market_share_pct else as.formula(paste0("~", value_col))
+            plot_ly(res, x = x_map, y = y_map, color = ~gender, type = "bar",
+                   colors = c("Male" = "#4C78A8", "Female" = "#F58518")) %>%
+              layout(title = if (primary == "genre") "Genre Performance by Gender" else "Binding Performance by Gender",
+                     xaxis = list(title = if (primary == "genre") "Genre" else "Binding"),
+                     yaxis = list(title = y_title),
+                     barmode = if ((dist_params()$bar_mode %||% "group") == "stack") "stack" else "group")
+          } else {
+            x_map <- if (primary == "genre") ~genre else ~binding
+            y_map <- if (normalize == "percent") ~market_share_pct else as.formula(paste0("~", value_col))
+            plot_ly(res, x = x_map, y = y_map, type = "bar") %>%
+              layout(title = if (primary == "genre") "Sales by Genre" else "Sales by Binding",
+                     xaxis = list(title = if (primary == "genre") "Genre" else "Binding"),
                      yaxis = list(title = y_title))
-          } else {
-            plotly_empty("No genre data available")
-          }
-        },
-
-        "market_share" = {
-          if ("market_share_pct" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, labels = ~genre, values = ~market_share_pct, type = "pie",
-                   textinfo = "label+percent",
-                   hovertemplate = "%{label}<br>%{percent}<br>Sales: %{value}%<extra></extra>") %>%
-              layout(title = "Market Share by Genre")
-          } else {
-            plotly_empty("No market share data available")
-          }
-        },
-
-        "genre_gender" = {
-          if ("genre" %in% names(results) && "gender" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~genre, y = ~total_sales, color = ~gender, type = "bar",
-                   colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
-                   hovertemplate = "Genre: %{x}<br>Gender: %{color}<br>Sales: %{y:,}<extra></extra>") %>%
-              layout(title = "Genre Performance by Gender",
-                     xaxis = list(title = "Genre"),
-                     yaxis = list(title = "Total Sales"),
-                     barmode = "group")
-          } else {
-            plotly_empty("No genre/gender data available")
-          }
-        },
-
-        "binding_analysis" = {
-          if ("binding" %in% names(results) && "total_sales" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~binding, y = ~total_sales, type = "bar",
-                   text = ~paste("Books:", book_count),
-                   hovertemplate = "%{text}<br>Sales: %{y:,}<extra></extra>") %>%
-              layout(title = "Sales by Binding Format",
-                     xaxis = list(title = "Binding Format"),
-                     yaxis = list(title = "Total Sales"))
-          } else {
-            plotly_empty("No binding data available")
-          }
-        },
-
-
-
-        "gender_binding" = {
-          if (all(c("gender", "total_sales") %in% names(results)) && nrow(results) > 0) {
-            plot_ly(results, x = ~gender, y = ~total_sales, type = "bar",
-                   colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
-                   hovertemplate = "Gender: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
-              layout(title = paste0("Total Sales by Gender (", input$genre_filter, " / ", input$binding_filter, ")"),
-                     xaxis = list(title = "Gender"),
-                     yaxis = list(title = "Total Sales"))
-          } else {
-            plotly_empty("No gender comparison data available")
           }
         },
 
@@ -749,44 +996,47 @@ genreAnalysisServer <- function(id) {
       )
     })
 
-    # Trend plot
+    # Enhanced trend plot with better empty state handling
     output$trend_plot <- renderPlotly({
-      results <- analysis_results()
+      results <- if (legacy_type() == "distribution") dist_results() else analysis_results()
       if (nrow(results) == 0 || "Error" %in% names(results)) {
-        return(plotly_empty("Run an analysis to see trends"))
+        # Provide context-specific message for trend plot
+        trend_message <- "No trend data available"
+
+        if (legacy_type() == "distribution") {
+          trend_message <- paste(trend_message,
+                               "\nEnable 'Show cumulative share' and use",
+                               "'Percent of total' normalization",
+                               "\nto see cumulative market share trends")
+        } else if (legacy_type() == "cross_period_avg") {
+          trend_message <- paste(trend_message,
+                               "\nPeriod comparison requires data from both periods",
+                               "\nTry expanding date range or adjusting filters")
+        }
+
+        return(plotly_empty(trend_message))
       }
 
-      # For trend analysis, we need time-series data
-      # This is a simplified version - in a real implementation, you'd want to get sales by year
       switch(legacy_type(),
-        "genre_comparison" = {
-          if ("genre" %in% names(results) && "book_count" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~book_count, y = ~total_sales, text = ~genre, type = "scatter", mode = "markers+text",
-                   textposition = "top center",
-                   hovertemplate = "%{text}<br>Books: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
-              layout(title = "Books Published vs Total Sales",
-                     xaxis = list(title = "Number of Books Published"),
-                     yaxis = list(title = "Total Sales"))
-          } else {
-            plotly_empty("No trend data available")
-          }
-        },
-
-        "market_share" = {
-          if ("cumulative_share" %in% names(results) && nrow(results) > 0) {
-            results$rank <- 1:nrow(results)
+        "distribution" = {
+          # For distribution explorer, draw cumulative market share curve when normalized percent and cumulative enabled
+          params <- dist_params()
+          if ((params$normalize %||% "absolute") == "percent" && isTRUE(params$show_cumulative %||% FALSE) &&
+              ("cumulative_share" %in% names(results))) {
+            results$rank <- seq_len(nrow(results))
+            x_lab <- if ((params$primary_breakdown %||% "genre") == "genre") "Genre Rank" else "Binding Rank"
             plot_ly(results, x = ~rank, y = ~cumulative_share, type = "scatter", mode = "lines+markers",
-                   text = ~genre,
+                   text = ~ifelse(!is.null(results$genre), results$genre, results$binding),
                    hovertemplate = "%{text}<br>Rank: %{x}<br>Cumulative: %{y:.1f}%<extra></extra>") %>%
               layout(title = "Cumulative Market Share",
-                     xaxis = list(title = "Genre Rank"),
+                     xaxis = list(title = x_lab),
                      yaxis = list(title = "Cumulative Market Share (%)"))
           } else {
-            plotly_empty("No cumulative data available")
+            plotly_empty("Trend analysis available when viewing Percent + Cumulative")
           }
         },
 
-        plotly_empty("Trend analysis not available for this analysis type")
+        "cross_period_avg" = plotly_empty("Trend analysis not available for this analysis type")
       )
     })
 
@@ -796,7 +1046,7 @@ genreAnalysisServer <- function(id) {
         paste0("genre_analysis_", input$analysis_type, "_", Sys.Date(), ".csv")
       },
       content = function(file) {
-        results <- analysis_results()
+        results <- if (legacy_type() == "distribution") dist_results() else analysis_results()
         if (nrow(results) > 0 && !("Error" %in% names(results))) {
           write.csv(results, file, row.names = FALSE)
         }
