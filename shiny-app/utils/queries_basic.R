@@ -121,6 +121,21 @@ get_book_titles <- function() {
   safe_db_query("SELECT DISTINCT book_title FROM book_entries WHERE book_title IS NOT NULL ORDER BY book_title")
 }
 
+
+# Get unique book titles with their first publication year
+get_book_titles_with_year <- function() {
+  query <- "
+    SELECT
+      book_title,
+      MIN(publication_year) AS first_publication_year
+    FROM book_entries
+    WHERE book_title IS NOT NULL
+    GROUP BY book_title
+    ORDER BY book_title
+  "
+  safe_db_query(query)
+}
+
 # Get unique author surnames for dropdown
 get_author_surnames <- function() {
   safe_db_query("SELECT DISTINCT author_surname FROM book_entries WHERE author_surname IS NOT NULL ORDER BY author_surname")

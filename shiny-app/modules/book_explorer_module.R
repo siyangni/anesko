@@ -75,6 +75,12 @@ bookExplorerUI <- function(id) {
             box(
               title = "Comparisons", status = "info", solidHeader = TRUE, width = NULL,
               fluidRow(
+                column(12,
+                  div(class = "alert alert-secondary", style = "margin-bottom: 10px;",
+                    HTML("<strong>Tip:</strong> The <em>Publication Year Range</em> slider in Filters applies to both the Books list and the Comparisons below."))
+                )
+              ),
+              fluidRow(
                 column(4,
                   selectizeInput(ns("cmp_book_title_1"), "Book Title A:", choices = NULL, multiple = FALSE,
                     options = list(placeholder = "Select first book title...", create = FALSE))
@@ -143,18 +149,36 @@ bookExplorerServer <- function(id) {
 
     # Populate search suggestions (book titles and author surnames) and comparison inputs
     observe({
-      titles <- safe_query(get_book_titles, default_value = data.frame())
+      titles <- safe_query(get_book_titles_with_year, default_value = data.frame())
       authors <- safe_query(get_author_surnames, default_value = data.frame())
 
-      title_vec <- if (nrow(titles) > 0) titles$book_title else character(0)
+      # Show first publication year next to titles
+      title_vec <- if (nrow(titles) > 0) {
+        if ("first_publication_year" %in% names(titles)) {
+          stats::setNames(titles$book_title, paste0(titles$book_title, " (", titles$first_publication_year, ")"))
+        } else {
+          titles$book_title
+        }
+      } else character(0)
       author_vec <- if (nrow(authors) > 0) authors$author_surname else character(0)
 
-      suggestions <- sort(unique(c(title_vec, author_vec)))
-      updateSelectizeInput(session, "search_term", choices = suggestions, server = TRUE)
+      # Combine titles (with year labels) and authors into suggestions
+      # For search_term, show labels (Title (Year)) but value should be the raw string searched against titles/authors.
+      if (is.list(title_vec)) {
+        # When title_vec is named, extract labels
+        title_labels <- unname(names(title_vec))
+        title_values <- unname(unlist(title_vec, use.names = FALSE))
+      } else {
+        title_labels <- title_vec
+        title_values <- title_vec
+      }
+      suggestions_labels <- sort(unique(c(title_labels, author_vec)))
+      updateSelectizeInput(session, "search_term", choices = suggestions_labels, server = TRUE)
 
-      # Fill comparison title inputs
-      updateSelectizeInput(session, "cmp_book_title_1", choices = sort(unique(title_vec)), server = TRUE)
-      updateSelectizeInput(session, "cmp_book_title_2", choices = sort(unique(title_vec)), server = TRUE)
+      # Fill comparison title inputs with labels, but values remain the plain title strings
+      cmp_choices <- if (is.list(title_vec)) stats::setNames(title_values, title_labels) else sort(unique(title_vec))
+      updateSelectizeInput(session, "cmp_book_title_1", choices = cmp_choices, server = TRUE)
+      updateSelectizeInput(session, "cmp_book_title_2", choices = cmp_choices, server = TRUE)
 
       # Fill binding options
       binding_states <- safe_query(get_binding_states, default_value = data.frame(binding = character(0)))
@@ -219,6 +243,18 @@ bookExplorerServer <- function(id) {
         get_book_sales_by_title_binding(t2, b, start_year, end_year)
       }, default_value = data.frame())
 
+      # Handle empty results gracefully with descriptive messages
+      if (nrow(res_a) == 0 && nrow(res_b) == 0) {
+        showNotification("No results for either title within the selected publication year range and binding.", type = "warning")
+        return(data.frame())
+      }
+      if (nrow(res_a) == 0) {
+        showNotification(paste0("No results for '", t1, "' (", b, ") in ", start_year, "-", end_year, "."), type = "message")
+      }
+      if (nrow(res_b) == 0) {
+        showNotification(paste0("No results for '", t2, "' (", b, ") in ", start_year, "-", end_year, "."), type = "message")
+      }
+
       agg <- function(df) {
         if (is.null(df) || nrow(df) == 0) return(data.frame(book_title = character(0), binding = character(0), total_sales = numeric(0)))
         aggregate(total_sales ~ book_title + binding, df, sum)
@@ -226,7 +262,8 @@ bookExplorerServer <- function(id) {
 
       a <- agg(res_a); a$selection <- "A"
       b <- agg(res_b); b$selection <- "B"
-      rbind(a, b)
+      out <- rbind(a, b)
+      if (nrow(out) == 0) return(data.frame()) else out
     }, ignoreInit = TRUE)
 
     output$cmp_plot <- renderPlotly({
