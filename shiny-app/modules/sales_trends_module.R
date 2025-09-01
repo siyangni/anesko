@@ -85,8 +85,6 @@ salesTrendsUI <- function(id) {
               ns("secondary_options"), "Options:",
               choices = c(
                 "Include Unknown Gender" = "include_unknown_gender",
-                "Normalize to Index (Year 1 = 100)" = "normalize",
-                "Average annual totals (divide by years with data)" = "normalize_years",
                 "7-year Moving Average" = "smooth"
               ),
               selected = c("include_unknown_gender")
@@ -111,8 +109,10 @@ salesTrendsUI <- function(id) {
             plotlyOutput(ns("timeseries_plot"), height = "420px"))
       ),
       column(4,
-        box(title = "Totals by Selection", status = "info", solidHeader = TRUE,
+        box(title = "Total Sales Summary", status = "info", solidHeader = TRUE,
             width = NULL,
+            p("Total sales across all years for each group in your current selection.",
+              style = "font-size: 12px; color: #666; margin-bottom: 10px;"),
             plotlyOutput(ns("totals_plot"), height = "420px"))
       )
     ),
@@ -206,8 +206,6 @@ salesTrendsServer <- function(id) {
         books = input$book_filter %||% character(0),
         genders = input$gender_filter %||% c("Male","Female","Unknown"),
         include_unknown_gender = ("include_unknown_gender" %in% (input$secondary_options %||% character(0))),
-        normalize = ("normalize" %in% (input$secondary_options %||% character(0))),
-        normalize_years = ("normalize_years" %in% (input$secondary_options %||% character(0))),
         smooth = ("smooth" %in% (input$secondary_options %||% character(0)))
       )
     })
@@ -241,10 +239,10 @@ salesTrendsServer <- function(id) {
           years_with_data = dplyr::n_distinct(.data$year[.data$total_sales > 0]),
           book_count = sum(.data$book_count, na.rm = TRUE),
           .groups = "drop"
+        ) %>%
+        dplyr::mutate(
+          avg_annual_sales = ifelse(years_with_data > 0, total_sales / years_with_data, 0)
         )
-      if (filters()$normalize_years) {
-        tmp <- tmp %>% dplyr::mutate(total_sales = ifelse(years_with_data > 0, total_sales / years_with_data, total_sales))
-      }
       tmp %>% dplyr::arrange(dplyr::desc(.data$total_sales))
     })
 
@@ -254,13 +252,6 @@ salesTrendsServer <- function(id) {
       if (is.null(df) || nrow(df) == 0) return(plotly_empty("No data for selected filters"))
 
       plot_df <- df
-      # Normalize if requested
-      if (filters()$normalize) {
-        plot_df <- plot_df %>% dplyr::group_by(.data$group_label) %>%
-          dplyr::mutate(total_sales = ifelse(dplyr::first(total_sales) > 0,
-                                             100 * total_sales / dplyr::first(total_sales), total_sales)) %>%
-          dplyr::ungroup()
-      }
 
       # Optional smoothing (7-year moving average)
       if (filters()$smooth) {
@@ -280,7 +271,7 @@ salesTrendsServer <- function(id) {
                      ),
                      hovertemplate = "%{text}<extra></extra>") %>%
         layout(title = "Sales Over Time",
-               xaxis = list(title = "Year"), yaxis = list(title = if (filters()$normalize) "Index (Year 1=100)" else "Total Sales"),
+               xaxis = list(title = "Year"), yaxis = list(title = "Total Sales"),
                legend = list(orientation = "h"))
       plt
     })
@@ -289,12 +280,24 @@ salesTrendsServer <- function(id) {
     output$totals_plot <- renderPlotly({
       td <- totals_data()
       if (is.null(td) || nrow(td) == 0) return(plotly_empty("No totals available"))
-      y_title <- if (filters()$normalize_years) "Avg Annual Sales" else "Total Sales"
+
       plot_ly(td, x = ~reorder(group_label, total_sales), y = ~total_sales,
               type = "bar", marker = list(color = "#2a4365"),
-              text = ~paste0("Books: ", book_count, ifelse(!is.null(years_with_data), paste0(" | Years: ", years_with_data), "")),
-              hovertemplate = paste0("Group: %{x}<br>", y_title, ": %{y:,}<br>%{text}<extra></extra>")) %>%
-        layout(title = "Totals by Selected Dimension", xaxis = list(title = "Group"), yaxis = list(title = y_title)) %>%
+              text = ~paste0(
+                "Total Sales: ", scales::comma(total_sales),
+                "<br>Avg Annual Sales: ", scales::comma(round(avg_annual_sales, 0)),
+                "<br>Books: ", book_count,
+                "<br>Years with Data: ", years_with_data
+              ),
+              hovertemplate = "Group: %{x}<br>%{text}<extra></extra>") %>%
+        layout(
+          title = list(
+            text = "Total Sales by Selected Groups<br><sub>Bars show total sales across all years for each group in your selection</sub>",
+            font = list(size = 14)
+          ),
+          xaxis = list(title = "Selected Groups"),
+          yaxis = list(title = "Total Sales")
+        ) %>%
         config(displayModeBar = TRUE)
     })
 
@@ -304,11 +307,20 @@ salesTrendsServer <- function(id) {
       if (is.null(td) || nrow(td) == 0) {
         return(DT::datatable(data.frame(Message = "No data available"), options = list(dom = 't')))
       }
-      disp <- td
-      disp$Metric <- if (filters()$normalize_years) "Avg Annual Sales" else "Total Sales"
-      disp$total_sales <- format_number(disp$total_sales)
-      disp$book_count <- format_number(disp$book_count)
-      if ("years_with_data" %in% names(disp)) disp$years_with_data <- format_number(disp$years_with_data)
+      disp <- td %>%
+        dplyr::select(
+          Group = group_label,
+          `Total Sales` = total_sales,
+          `Avg Annual Sales` = avg_annual_sales,
+          `Book Count` = book_count,
+          `Years with Data` = years_with_data
+        ) %>%
+        dplyr::mutate(
+          `Total Sales` = format_number(`Total Sales`),
+          `Avg Annual Sales` = format_number(round(`Avg Annual Sales`, 0)),
+          `Book Count` = format_number(`Book Count`),
+          `Years with Data` = format_number(`Years with Data`)
+        )
       DT::datatable(disp, options = list(pageLength = 10, dom = 't', scrollX = TRUE), rownames = FALSE)
     })
 

@@ -7,6 +7,7 @@ authorAnalysisUI <- function(id) {
   fluidPage(
     h3("Author & Gender Analysis"),
     p("Comprehensive analysis of author performance, gender disparities, and career metrics."),
+    tags$style(HTML("\n      .insights-large, .insights-large p { font-size: 1.15rem; line-height: 1.5; }\n      .insights-large h5 { font-size: 1.3rem; font-weight: 600; margin-top: 8px; }\n      .metric-emphasis { font-size: 1.2rem; font-weight: 600; }\n    ")),
 
     # Control Panel
     fluidRow(
@@ -101,19 +102,6 @@ authorAnalysisUI <- function(id) {
             br(),
             actionButton(ns("run_analysis"), "Run Analysis",
                         class = "btn-primary", style = "margin-top: 5px;")
-          ),
-          column(4,
-            br(),
-            div(style = "margin-top: 5px;",
-              actionButton(ns("view_genre_analysis"), "View in Genre Analysis →",
-                          class = "btn-link btn-sm"),
-              br(),
-              actionButton(ns("view_sales_analysis"), "View Sales Trends →",
-                          class = "btn-link btn-sm"),
-              br(),
-              actionButton(ns("view_royalty_query"), "Open Royalty Income Query →",
-                          class = "btn-link btn-sm")
-            )
           )
         )
       )
@@ -143,7 +131,7 @@ authorAnalysisUI <- function(id) {
         box(
           title = "Key Insights", status = "info", solidHeader = TRUE,
           width = NULL,
-          uiOutput(ns("insights_panel"))
+          div(class = "insights-large", uiOutput(ns("insights_panel")))
         )
       )
     ),
@@ -203,15 +191,11 @@ authorAnalysisServer <- function(id) {
         query <- "
           SELECT
             be.author_surname,
-            COUNT(*) AS book_count,
+            COUNT(DISTINCT be.book_id) AS book_count,
             COALESCE(SUM(bs.total_sales), 0) AS total_sales
           FROM book_entries be
           LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
           WHERE be.author_surname IS NOT NULL
-            AND (
-              be.royalty_rate IS NOT NULL OR
-              EXISTS (SELECT 1 FROM royalty_tiers rt WHERE rt.book_id = be.book_id)
-            )
           GROUP BY be.author_surname
           HAVING COUNT(*) >= 1
           ORDER BY book_count DESC, total_sales DESC, be.author_surname
@@ -219,9 +203,13 @@ authorAnalysisServer <- function(id) {
         "
         df <- safe_db_query(query)
         if (!is.null(df) && nrow(df) > 0) {
-          labels <- paste0(df$author_surname, " (", df$book_count, ifelse(df$book_count == 1, " book", " books"), ")")
-
-
+          labels <- paste0(df$author_surname, " (", df$book_count,
+                           ifelse(df$book_count == 1, " book", " books"), ")")
+          choices <- stats::setNames(df$author_surname, labels)
+          return(choices)
+        }
+        return(character(0))
+      }, default_value = character(0))
 
       # Render Author ID input only when a surname is selected
       output$author_id_ui <- renderUI({
@@ -248,7 +236,7 @@ authorAnalysisServer <- function(id) {
         }
         id_df <- safe_query(function() {
           q <- "
-            SELECT DISTINCT be.author_id, be.author_surname, COUNT(*) AS book_count
+            SELECT DISTINCT be.author_id, be.author_surname, COUNT(DISTINCT be.book_id) AS book_count
             FROM book_entries be
             WHERE be.author_surname = $1 AND be.author_id IS NOT NULL
             GROUP BY be.author_id, be.author_surname
@@ -268,11 +256,7 @@ authorAnalysisServer <- function(id) {
         }
       })
 
-          return(stats::setNames(df$author_surname, labels))
-        }
-        return(character(0))
-      }, default_value = character(0))
-
+      # Initialize dropdown with choices
       updateSelectizeInput(
         session, "author_name",
         choices = author_choices,
@@ -289,6 +273,15 @@ authorAnalysisServer <- function(id) {
       }
     })
 
+    # Map standardized IDs to internal handlers (global reactive)
+    legacy_type <- reactive({
+      switch(input$analysis_type,
+        "gender_performance" = "gender_comparison",
+        "genre_by_gender" = "gender_genre",
+        input$analysis_type
+      )
+    })
+
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
 
@@ -299,22 +292,6 @@ authorAnalysisServer <- function(id) {
         return(c(1860, 1920))
       }
       c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
-    })
-
-    # Navigation handlers
-    observeEvent(input$view_genre_analysis, {
-      showNotification("Navigate to Genre Analysis tab to explore genre-focused analytics",
-                      type = "message", duration = 3)
-    })
-
-    observeEvent(input$view_sales_analysis, {
-      # Navigate to the Sales Trends tab
-      try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "sales_trends") }, silent = TRUE)
-    })
-
-    observeEvent(input$view_royalty_query, {
-      # Navigate to the Royalty Income Query tab
-      try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "royalty_query") }, silent = TRUE)
     })
 
     # Run analysis when button is clicked
@@ -354,14 +331,6 @@ authorAnalysisServer <- function(id) {
 
       withProgress(message = "Running author analysis...", value = 0, {
 
-        legacy_type <- reactive({
-          switch(input$analysis_type,
-            "gender_performance" = "gender_comparison",
-            "genre_by_gender" = "gender_genre",
-            input$analysis_type
-          )
-        })
-
         results <- switch(legacy_type(),
           "gender_comparison" = {
             incProgress(0.3, detail = "Analyzing gender performance...")
@@ -397,12 +366,22 @@ authorAnalysisServer <- function(id) {
 
           "gender_genre" = {
             incProgress(0.3, detail = "Analyzing gender by genre...")
-            get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
-            )
+            metric <- input$metric_type %||% "total"
+            if (identical(metric, "average")) {
+              get_average_sales_by_binding_genre_gender(
+                input$binding_filter %||% NULL,
+                input$genre_filter %||% NULL,
+                input$gender_filter %||% NULL,
+                start_year, end_year
+              )
+            } else {
+              get_total_sales_by_binding_genre_gender(
+                input$binding_filter %||% NULL,
+                input$genre_filter %||% NULL,
+                input$gender_filter %||% NULL,
+                start_year, end_year
+              )
+            }
           },
 
           "author_overview" = {
@@ -411,6 +390,9 @@ authorAnalysisServer <- function(id) {
               data.frame(Error = "Please enter an author surname")
             } else {
               # Get comprehensive author data
+              author_id_param <- if (is.null(input$author_id) || input$author_id == "") "" else input$author_id
+              author_name_param <- paste0("%", input$author_name, "%")
+
               query <- "
                 SELECT
                   be.book_id,
@@ -428,16 +410,16 @@ authorAnalysisServer <- function(id) {
                 FROM book_entries be
                 LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
                 WHERE (
-                  CASE WHEN $1 IS NOT NULL AND $1 <> '' THEN be.author_id = $1 ELSE TRUE END
+                  CASE WHEN $1 <> '' THEN be.author_id = $1 ELSE TRUE END
                 ) AND (
-                  CASE WHEN $2 IS NOT NULL AND $2 <> '' THEN LOWER(be.author_surname) LIKE LOWER($2) ELSE TRUE END
+                  CASE WHEN $2 <> '' THEN LOWER(be.author_surname) LIKE LOWER($2) ELSE TRUE END
                 )
                   AND be.publication_year BETWEEN $3 AND $4
                 ORDER BY be.publication_year, be.book_title
               "
               safe_db_query(query, params = list(
-                input$author_id %||% NULL,
-                paste0("%", input$author_name, "%"),
+                author_id_param,
+                author_name_param,
                 start_year, end_year
               ))
             }
@@ -549,6 +531,33 @@ authorAnalysisServer <- function(id) {
           )
         },
 
+        "gender_genre" = {
+          male_total <- sum(results[results$gender == "Male", "total_sales"], na.rm = TRUE)
+          female_total <- sum(results[results$gender == "Female", "total_sales"], na.rm = TRUE)
+          total_genres <- length(unique(results$genre))
+
+          fluidRow(
+            column(4, create_value_box(
+              value = male_total,
+              subtitle = "Total Sales - Male Authors",
+              icon = "male",
+              color = "blue"
+            )),
+            column(4, create_value_box(
+              value = female_total,
+              subtitle = "Total Sales - Female Authors",
+              icon = "female",
+              color = "red"
+            )),
+            column(4, create_value_box(
+              value = total_genres,
+              subtitle = "Genres Analyzed",
+              icon = "list",
+              color = "green"
+            ))
+          )
+        },
+
         NULL
       )
 
@@ -626,6 +635,26 @@ authorAnalysisServer <- function(id) {
             )
           } else {
             p("No royalty data available")
+          }
+        },
+
+        "gender_genre" = {
+          if (nrow(results) > 0 && "gender" %in% names(results) && "genre" %in% names(results)) {
+            male_data <- results[results$gender == "Male", ]
+            female_data <- results[results$gender == "Female", ]
+
+            tagList(
+              h5("Genre by Gender Insights:"),
+              p(paste("Analyzed", nrow(results), "genre-gender combinations")),
+              if (nrow(male_data) > 0 && nrow(female_data) > 0) {
+                male_total <- sum(male_data$total_sales, na.rm = TRUE)
+                female_total <- sum(female_data$total_sales, na.rm = TRUE)
+                p(paste("Male authors total sales:", format(male_total, big.mark = ","), "copies"))
+                p(paste("Female authors total sales:", format(female_total, big.mark = ","), "copies"))
+              }
+            )
+          } else {
+            p("No genre/gender data available")
           }
         },
 
@@ -710,19 +739,39 @@ authorAnalysisServer <- function(id) {
       switch(legacy_type(),
         "gender_comparison" = {
           if ("gender" %in% names(results) && nrow(results) > 0) {
-            y_col <- if (input$metric_type == "average") "avg_total_sales_per_book" else "total_sales"
-            y_title <- if (input$metric_type == "average") "Average Sales per Book" else "Total Sales"
+            metric <- input$metric_type; if (is.null(metric) || length(metric) == 0) metric <- "total"
+            y_col <- if (identical(metric, "average")) "avg_total_sales_per_book" else "total_sales"
+            y_title <- if (identical(metric, "average")) "Average Sales per Book" else "Total Sales"
 
             plot_ly(results, x = ~gender, y = as.formula(paste0("~", y_col)),
                    type = "bar", color = ~gender,
                    colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
-                   text = ~paste("Books:", book_count),
-                   hovertemplate = paste0("%{text}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
+                   hovertemplate = paste0("Gender: %{x}<br>Books: %{customdata}<br>", y_title, ": %{y:,.0f}<extra></extra>"),
+                   customdata = ~book_count) %>%
               layout(title = paste("Sales by Gender -", y_title),
                      xaxis = list(title = "Author Gender"),
                      yaxis = list(title = y_title))
           } else {
             plotly_empty("No gender data available")
+          }
+        },
+
+        "gender_genre" = {
+          if ("genre" %in% names(results) && "gender" %in% names(results) && nrow(results) > 0) {
+            metric <- input$metric_type; if (is.null(metric) || length(metric) == 0) metric <- "total"
+            y_col <- if (identical(metric, "average")) "avg_total_sales_per_book" else "total_sales"
+            y_title <- if (identical(metric, "average")) "Average Sales per Book" else "Total Sales"
+
+            plot_ly(results, x = ~genre, y = as.formula(paste0("~", y_col)),
+                   color = ~gender, type = "bar",
+                   colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
+                   hovertemplate = paste0("Genre: %{x}<br>Gender: %{color}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
+              layout(title = paste("Sales by Genre and Gender -", y_title),
+                     xaxis = list(title = "Genre"),
+                     yaxis = list(title = y_title),
+                     barmode = "group")
+          } else {
+            plotly_empty("No genre/gender data available")
           }
         },
 
@@ -771,8 +820,9 @@ authorAnalysisServer <- function(id) {
       switch(legacy_type(),
         "gender_comparison" = {
           if ("genre" %in% names(results) && "gender" %in% names(results) && nrow(results) > 0) {
-            y_col <- if (input$metric_type == "average") "avg_total_sales_per_book" else "total_sales"
-            y_title <- if (input$metric_type == "average") "Average Sales per Book" else "Total Sales"
+            metric <- input$metric_type; if (is.null(metric) || length(metric) == 0) metric <- "total"
+            y_col <- if (identical(metric, "average")) "avg_total_sales_per_book" else "total_sales"
+            y_title <- if (identical(metric, "average")) "Average Sales per Book" else "Total Sales"
 
             plot_ly(results, x = ~genre, y = as.formula(paste0("~", y_col)),
                    color = ~gender, type = "bar",
@@ -784,6 +834,25 @@ authorAnalysisServer <- function(id) {
                      barmode = "group")
           } else {
             plotly_empty("No genre/gender data available")
+          }
+        },
+
+        "gender_genre" = {
+          if (all(c("binding", "gender") %in% names(results)) && nrow(results) > 0) {
+            metric <- input$metric_type; if (is.null(metric) || length(metric) == 0) metric <- "total"
+            y_col <- if (identical(metric, "average")) "avg_total_sales_per_book" else "total_sales"
+            y_title <- if (identical(metric, "average")) "Average Sales per Book" else "Total Sales"
+
+            plot_ly(results, x = ~binding, y = as.formula(paste0("~", y_col)),
+                   color = ~gender, type = "bar",
+                   colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
+                   hovertemplate = paste0("Binding: %{x}<br>Gender: %{color}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
+              layout(title = paste("Sales by Binding and Gender -", y_title),
+                     xaxis = list(title = "Binding"),
+                     yaxis = list(title = y_title),
+                     barmode = "group")
+          } else {
+            plotly_empty("No binding/gender data available")
           }
         },
 
@@ -808,8 +877,8 @@ authorAnalysisServer <- function(id) {
         "author_overview" = {
           if ("genre" %in% names(results) && "total_sales" %in% names(results) && nrow(results) > 0) {
             plot_ly(results, x = ~genre, y = ~total_sales, type = "bar",
-                   text = ~book_title,
-                   hovertemplate = "%{text}<br>Genre: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
+                   hovertemplate = "Genre: %{x}<br>Sales: %{y:,}<br>Book: %{customdata}<extra></extra>",
+                   customdata = ~book_title) %>%
               layout(title = paste("Sales by Genre -", input$author_name),
                      xaxis = list(title = "Genre"),
                      yaxis = list(title = "Total Sales"))
