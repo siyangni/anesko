@@ -394,6 +394,21 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   font-size: var(--dropdown-trigger-font-size);
   line-height: 1.35;
 }
+
+/* Allow multi-select Selectize controls to wrap and show all selected items */
+.selectize-control.multi .selectize-input {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  height: auto;
+  min-height: 52px; /* match single-select height */
+}
+/* Add a little spacing so wrapped chips don't crowd */
+.selectize-control.multi .selectize-input > div.item {
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+
 .form-control:focus, .selectize-input.focus, .bootstrap-select .dropdown-toggle:focus {
   border-color: var(--color-primary) !important;
   box-shadow: var(--focus-ring) !important;

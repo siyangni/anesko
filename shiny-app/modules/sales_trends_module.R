@@ -74,11 +74,12 @@ salesTrendsUI <- function(id) {
             )
           ),
           column(3,
-            selectizeInput(
+            shinyWidgets::pickerInput(
               ns("book_filter"), "Books (top performers):",
               choices = NULL, multiple = TRUE,
-              options = list(placeholder = "Search top books…",
-                             maxOptions = 200, create = FALSE, closeAfterSelect = TRUE)
+              options = list(`actions-box` = TRUE, `live-search` = TRUE,
+                             `live-search-placeholder` = "Search top books…",
+                             `selected-text-format` = "count > 2")
             ),
             checkboxGroupInput(
               ns("secondary_options"), "Options:",
@@ -174,7 +175,7 @@ salesTrendsServer <- function(id) {
       if (!is.null(top_books) && nrow(top_books) > 0) {
         labels <- paste0(top_books$book_title, " (", top_books$author_surname, ", ", top_books$publication_year, ")")
         choices <- stats::setNames(top_books$book_id, labels)
-        updateSelectizeInput(session, "book_filter", choices = choices, server = TRUE)
+        shinyWidgets::updatePickerInput(session, "book_filter", choices = choices)
       }
 
     })
@@ -189,7 +190,7 @@ salesTrendsServer <- function(id) {
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
       shinyWidgets::updatePickerInput(session, "genre_filter", selected = character(0))
       shinyWidgets::updatePickerInput(session, "binding_filter", selected = character(0))
-      updateSelectizeInput(session, "book_filter", selected = character(0), server = TRUE)
+      shinyWidgets::updatePickerInput(session, "book_filter", selected = character(0))
       updateCheckboxGroupInput(session, "secondary_options", selected = c("include_unknown_gender"))
     })
 
