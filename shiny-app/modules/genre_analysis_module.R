@@ -914,92 +914,92 @@ genreAnalysisServer <- function(id) {
         display_results$p_value <- ifelse(is.na(display_results$p_value), NA, signif(display_results$p_value, 3))
       }
       if ("market_share_pct" %in% names(display_results)) {
-        display_results$market_share_pct <- paste0(display_results$market_share_pct, "%")
-      }
-      if ("cumulative_share" %in% names(display_results)) {
-        display_results$cumulative_share <- paste0(round(display_results$cumulative_share, 1), "%")
-      }
+          display_results$market_share_pct <- paste0(display_results$market_share_pct, "%")
+        }
+        if ("cumulative_share" %in% names(display_results)) {
+          display_results$cumulative_share <- paste0(round(display_results$cumulative_share, 1), "%")
+        }
 
-      DT::datatable(
-        display_results,
-        options = list(
-          pageLength = 15,
-          scrollX = TRUE,
-          dom = 'Bfrtip',
-          buttons = c('copy', 'csv', 'excel')
-        ),
-        rownames = FALSE
-      )
-    })
-
-    # Enhanced main plot with better empty state messages
-    output$main_plot <- renderPlotly({
-      results <- analysis_results()
-      if (nrow(results) == 0 || "Error" %in% names(results)) {
-        # Use utility function to create enhanced empty plot message
-        years <- year_range()
-        empty_message <- create_empty_plot_message(
-          "No data available for visualization",
-          input$genre_filter,
-          input$binding_filter,
-          input$gender_filter,
-          years[1],
-          years[2]
+        DT::datatable(
+          display_results,
+          options = list(
+            pageLength = 15,
+            scrollX = TRUE,
+            dom = 'Bfrtip',
+            buttons = c('copy', 'csv', 'excel')
+          ),
+          rownames = FALSE
         )
+      })
 
-        return(plotly_empty(empty_message))
-      }
+      # Enhanced main plot with better empty state messages
+      output$main_plot <- renderPlotly({
+        results <- analysis_results()
+        if (nrow(results) == 0 || "Error" %in% names(results)) {
+          # Use utility function to create enhanced empty plot message
+          years <- year_range()
+          empty_message <- create_empty_plot_message(
+            "No data available for visualization",
+            input$genre_filter,
+            input$binding_filter,
+            input$gender_filter,
+            years[1],
+            years[2]
+          )
 
-      switch(legacy_type(),
-        "distribution" = {
-          res <- current_results()
-          if (nrow(res) == 0) return(plotly_empty("No data available"))
-          primary <- dist_params()$primary_breakdown %||% "genre"
-          split <- dist_params()$secondary_split %||% ""
-          normalize <- dist_params()$normalize %||% "absolute"
-          metric <- dist_params()$metric_type %||% "total"
-          value_col <- if (metric == "average") "avg_total_sales_per_book" else "total_sales"
-          y_title <- if (metric == "average") "Average Sales per Book" else if (normalize == "percent") "Market Share (%)" else "Total Sales"
+          return(plotly_empty(empty_message))
+        }
 
-          if (split == "gender") {
-            x_map <- if (primary == "genre") ~genre else ~binding
-            y_map <- if (normalize == "percent") ~market_share_pct else as.formula(paste0("~", value_col))
-            plot_ly(res, x = x_map, y = y_map, color = ~gender, type = "bar",
-                   colors = c("Male" = "#4C78A8", "Female" = "#F58518")) %>%
-              layout(title = if (primary == "genre") "Genre Performance by Gender" else "Binding Performance by Gender",
-                     xaxis = list(title = if (primary == "genre") "Genre" else "Binding"),
-                     yaxis = list(title = y_title),
-                     barmode = if ((dist_params()$bar_mode %||% "group") == "stack") "stack" else "group")
-          } else {
-            x_map <- if (primary == "genre") ~genre else ~binding
-            y_map <- if (normalize == "percent") ~market_share_pct else as.formula(paste0("~", value_col))
-            plot_ly(res, x = x_map, y = y_map, type = "bar") %>%
-              layout(title = if (primary == "genre") "Sales by Genre" else "Sales by Binding",
-                     xaxis = list(title = if (primary == "genre") "Genre" else "Binding"),
-                     yaxis = list(title = y_title))
-          }
-        },
+        switch(legacy_type(),
+          "distribution" = {
+            res <- current_results()
+            if (nrow(res) == 0) return(plotly_empty("No data available"))
+            primary <- dist_params()$primary_breakdown %||% "genre"
+            split <- dist_params()$secondary_split %||% ""
+            normalize <- dist_params()$normalize %||% "absolute"
+            metric <- dist_params()$metric_type %||% "total"
+            value_col <- if (metric == "average") "avg_total_sales_per_book" else "total_sales"
+            y_title <- if (metric == "average") "Average Sales per Book" else if (normalize == "percent") "Market Share (%)" else "Total Sales"
 
-        "cross_period_avg" = {
-          if (all(c("period", "avg_sales_per_book") %in% names(results)) && nrow(results) > 0) {
-            plot_ly(results, x = ~period, y = ~avg_sales_per_book, type = "bar",
-                   hovertemplate = "Period: %{x}<br>Avg Sales/Book: %{y:,.1f}<extra></extra>") %>%
-              layout(title = paste0("Average Sales per Book (", input$genre_filter, " / ", input$binding_filter, ")"),
-                     xaxis = list(title = "Period"),
-                     yaxis = list(title = "Average Sales per Book"))
-          } else {
-            plotly_empty("No cross-period data available")
-          }
-        },
+            if (split == "gender") {
+              x_map <- if (primary == "genre") ~genre else ~binding
+              y_map <- if (normalize == "percent") ~market_share_pct else as.formula(paste0("~", value_col))
+              plot_ly(res, x = x_map, y = y_map, color = ~gender, type = "bar",
+                    colors = c("Male" = "#4C78A8", "Female" = "#F58518")) %>%
+                layout(title = if (primary == "genre") "Genre Performance by Gender" else "Binding Performance by Gender",
+                      xaxis = list(title = if (primary == "genre") "Genre" else "Binding"),
+                      yaxis = list(title = y_title),
+                      barmode = if ((dist_params()$bar_mode %||% "group") == "stack") "stack" else "group")
+            } else {
+              x_map <- if (primary == "genre") ~genre else ~binding
+              y_map <- if (normalize == "percent") ~market_share_pct else as.formula(paste0("~", value_col))
+              plot_ly(res, x = x_map, y = y_map, type = "bar") %>%
+                layout(title = if (primary == "genre") "Sales by Genre" else "Sales by Binding",
+                      xaxis = list(title = if (primary == "genre") "Genre" else "Binding"),
+                      yaxis = list(title = y_title))
+            }
+          },
 
-        plotly_empty("Select an analysis type")
-      )
-    })
+          "cross_period_avg" = {
+            if (all(c("period", "avg_sales_per_book") %in% names(results)) && nrow(results) > 0) {
+              plot_ly(results, x = ~period, y = ~avg_sales_per_book, type = "bar",
+                    hovertemplate = "Period: %{x}<br>Avg Sales/Book: %{y:,.1f}<extra></extra>") %>%
+                layout(title = paste0("Average Sales per Book (", input$genre_filter, " / ", input$binding_filter, ")"),
+                      xaxis = list(title = "Period"),
+                      yaxis = list(title = "Average Sales per Book"))
+            } else {
+              plotly_empty("No cross-period data available")
+            }
+          },
 
-    # Enhanced trend plot with better empty state handling
-    output$trend_plot <- renderPlotly({
-      results <- if (legacy_type() == "distribution") dist_results() else analysis_results()
-      if (nrow(results) == 0 || "Error" %in% names(results)) {
+          plotly_empty("Select an analysis type")
+        )
+      })
+
+      # Enhanced trend plot with better empty state handling
+      output$trend_plot <- renderPlotly({
+        results <- if (legacy_type() == "distribution") dist_results() else analysis_results()
+        if (nrow(results) == 0 || "Error" %in% names(results)) {
         # Provide context-specific message for trend plot
         trend_message <- "No trend data available"
 
