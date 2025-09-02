@@ -163,6 +163,31 @@ get_total_royalty_income_by_author <- function(author_surname, start_year, end_y
     return(data.frame())
   }
 
+  # Get all royalty tiers for all books in one query
+  book_ids <- books_data$book_id
+  if (length(book_ids) > 0) {
+    # Create placeholders for IN clause
+    placeholders <- paste0("$", 1:length(book_ids), collapse = ",")
+    royalty_query <- paste0("
+      SELECT
+        book_id,
+        tier,
+        rate,
+        lower_limit,
+        upper_limit,
+        sliding_scale
+      FROM royalty_tiers
+      WHERE book_id IN (", placeholders, ")
+      ORDER BY book_id, tier
+    ")
+    royalty_tiers_data <- safe_db_query(royalty_query, params = as.list(book_ids))
+  } else {
+    royalty_tiers_data <- data.frame()
+  }
+
+  # Organize royalty tiers by book_id for faster lookup
+  royalty_tiers_by_book <- split(royalty_tiers_data, royalty_tiers_data$book_id)
+
   results <- vector("list", nrow(books_data))
   total_royalty_income <- 0
 
@@ -172,9 +197,12 @@ get_total_royalty_income_by_author <- function(author_surname, start_year, end_y
     retail_price <- books_data$retail_price[i]
     royalty_rate <- books_data$royalty_rate[i]
 
-    # get tiers for this book
-    details <- get_book_details(book_id)
-    royalty_tiers <- details$royalty_tiers
+    # Get tiers for this book from the pre-fetched data
+    royalty_tiers <- if (book_id %in% names(royalty_tiers_by_book)) {
+      royalty_tiers_by_book[[as.character(book_id)]]
+    } else {
+      data.frame()
+    }
 
     royalty_income <- calculate_royalty_income(
       book_id, total_sales, retail_price, royalty_rate, royalty_tiers
