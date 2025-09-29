@@ -128,42 +128,21 @@ ui <- dashboardPage(
                 title = "About This Dashboard", status = "primary", solidHeader = TRUE,
                 width = NULL,
                 div(
-                  p("This dashboard provides interactive exploration of the American Authorship Database (1860-1920),
-                    a comprehensive collection of publishing and sales data from major American publishers during
-                    the transformative period of the late 19th and early 20th centuries."),
+                  p("This dashboard enables interactive exploration of a \"Database of American Authorship, 1860-1920,\" drawing upon publishing and sales data from major American publishing houses during the transformative period of the late 19th and early 20th centuries."),
                   br(),
-                  h4("Data Sources:"),
-                  tags$ul(
-                    tags$li("Houghton, Mifflin Co. and predecessors (Harvard University)"),
-                    tags$li("Harper & Brothers (Chadwyck-Healey Microfilm)"),
-                    tags$li("Scribner Archive (Princeton University)"),
-                    tags$li("J. B. Lippincott Deposit (University of Pennsylvania)")
-                  ),
+                  p("Wherever possible, the database includes actual sales figures (or informed estimates) and royalty information for a broad sample of authors and works, allowing for a much more accurate reconstruction of the literary marketplace and facilitating comparative analyses across specific periods and according to variables such as authorship gender, literary genre, binding states, and retail price."),
                   br(),
-                  p(strong("Principal Investigator:"), "Dr. Michael Anesko (Penn State University)")
+                  p("This dynamic, accessible data dashboard aggregates and visualizes economic data for American authorship, from book sales to authorial earnings. This resource will provide a robust foundation for scholars to investigate trends and disparities in the literary marketplace across variables like gender, genre, and historical periods. With this data, researchers will be able to perform longitudinal analyses that reveal shifts over time, offering a valuable perspective on the socio-economic landscape of American literature during this era."),
+                  br(),
+                  p("Existing scholarship on this period has often relied on anecdotal evidence from publishers' memoirs and \"official\" house histories, almost all lacking comprehensive quantitative data. This project, however, moves beyond these sources, building a database grounded in empirical evidence derived from prominent publishers' archives.")
                 )
               ),
 
               box(
-                title = "Methodology", status = "info", solidHeader = TRUE,
+                title = "Acknowledgments", status = "info", solidHeader = TRUE,
                 width = NULL,
                 div(
-                  h4("Data Collection:"),
-                  p("All data has been hand-transcribed from original publisher archives, including sales records,
-                    royalty statements, and contract information."),
-                  br(),
-                  h4("Coverage:"),
-                  tags$ul(
-                    tags$li("690+ book entries with comprehensive metadata"),
-                    tags$li("63 years of sales data (1858-1920)"),
-                    tags$li("Enhanced with unique author identification system"),
-                    tags$li("Expanded dataset including new 2024 entries"),
-                    tags$li("Advanced royalty tier analysis capabilities"),
-                    tags$li("Focus on major publishers and commercially successful works")
-                  ),
-                  br(),
-                  h4("Validation:"),
-                  p("Data has been cross-referenced across multiple sources where possible to ensure accuracy.")
+                  p("Shortly after the inception of this project, two research assistants helped code data from the primary sources: Stephen Szaraz (at Harvard) and Matthew Inman (at Penn State). Steve Maczuga at Penn State constructed a preliminary version of the database. His work has been enhanced by continued design possibilities incorporated by other Penn State affiliates: Jennifer Isasi, Nick Mclean, and Siyang Ni.")
                 )
               )
             ),
