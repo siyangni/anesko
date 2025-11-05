@@ -34,6 +34,11 @@ config/secrets.yml
 database_config.R
 connection_strings.R
 
+# Shiny/R app config files with credentials (keep templates only)
+shiny-app/config/cloud_config.R
+R/config/cloud_config.R
+scripts/config/database_config.R
+
 # PostgreSQL setup files with credentials
 scripts/migration/00_postgresql_admin_setup.sql
 
@@ -101,9 +106,16 @@ $RECYCLE.BIN/
 
 # VSCode
 .vscode/
+*.code-workspace
 
 # Vim
 *.vim
+
+# ===== DEPENDENCY MANAGEMENT =====
+# renv (keep renv.lock, but ignore library)
+renv/library/
+renv/local/
+renv/staging/
 
 # ===== DOCUMENTATION =====
 # Rendered documentation
@@ -180,4 +192,11 @@ test_connection.*
 # Temporary analysis files
 temp_analysis.*
 scratch.*
-test.*
+
+# Ad-hoc test files (formal tests go in tests/)
+test_*.R
+debug_*.R
+demo_*.R
+
+# Windows Zone.Identifier files
+*:Zone.Identifier
