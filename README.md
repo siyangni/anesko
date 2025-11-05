@@ -1,159 +1,166 @@
 # American Authorship Database (1860-1920)
 
-## Project Overview
+![R CI](https://github.com/siyangni/anesko/workflows/R%20CI/badge.svg)
 
-This repository contains the code and analysis for the "Database of American Authorship, 1860-1920" research project, led by Dr. Michael Anesko. The project aims to create a comprehensive statistical database of American authorship during the transformative period of the late 19th and early 20th centuries.
+Interactive dashboard for exploring American literary marketplace data from the transformative period of 1860-1920. This project provides empirical evidence for studying publishing trends, authorial earnings, and market dynamics across gender, genre, and publisher dimensions.
 
-## Research Objectives
+## Quick Start
 
-- **Quantitative Analysis**: Move beyond anecdotal evidence to empirical data analysis of the American literary marketplace
-- **Gender Analysis**: Examine differences in publishing opportunities and success between male and female authors
-- **Genre Studies**: Analyze performance trends across different literary genres
-- **Market Evolution**: Track the transformation of the American literary marketplace (1860-1920)
-- **Publisher Analysis**: Study the role of major publishing houses in shaping the market
+### Docker (Recommended)
 
-## Database Contents
+```bash
+# Clone and configure
+git clone https://github.com/siyangni/anesko.git
+cd anesko
+cp config/credentials.example.env .env
+# Edit .env with your credentials
 
-- **630+ book entries** with comprehensive metadata
-- **63 years of sales data** (1858-1920)
-- **Publisher information** from major archives including:
-  - Houghton, Mifflin Co. and predecessors (Harvard University)
-  - Harper & Brothers (Chadwyck-Healey Microfilm)
-  - Scribner Archive (Princeton University)
-  - J. B. Lippincott Deposit (University of Pennsylvania)
+# Start services
+docker-compose up -d
 
-## Technology Stack
+# Access at http://localhost:3838
+```
 
-- **Database**: PostgreSQL (relational database for complex queries)
-- **Analysis**: R with tidyverse for statistical analysis
-- **Visualization**: ggplot2, plotly for publication-ready figures
-- **Dashboard**: Shiny for interactive data exploration
-- **Environment**: WSL2 on Windows 11
+### Local Development
+
+```bash
+# Install dependencies
+R -e 'install.packages("renv"); renv::restore()'
+
+# Configure environment
+export R_CONFIG_ACTIVE=development
+export DB_HOST=localhost DB_NAME=american_authorship
+export DB_USER=app_user DB_PASSWORD=your_password
+
+# Run migrations (first time only)
+Rscript scripts/migration/00_run_full_migration.R
+
+# Start app
+R -e 'shiny::runApp("app")'
+```
+
+See [docs/RUNBOOK.md](docs/RUNBOOK.md) for detailed instructions.
+
+## Features
+
+- **Interactive Dashboard**: Explore 630+ books with 63 years of sales data
+- **Author Analysis**: Network visualizations and earnings comparisons
+- **Genre & Gender Studies**: Quantitative analysis of market trends
+- **Royalty Analysis**: Track authorial earnings and publisher relationships
+- **Sales Trends**: Time-series analysis with interactive visualizations
 
 ## Repository Structure
 
 ```
-anesko/
-├── data/                          # Raw and processed data files
-├── scripts/                       # R scripts for analysis
-│   ├── migration/                 # Database setup and migration
-│   ├── analysis/                  # Statistical analysis scripts
-│   └── validation/                # Data validation and quality checks
-├── shiny-app/                     # Interactive Shiny dashboard
-├── outputs/                       # Generated outputs
-│   ├── plots/                     # Visualizations and figures
-│   ├── tables/                    # Statistical tables
-│   └── reports/                   # Generated reports
-├── docs/                          # Documentation and presentations
-└── README.md                      # This file
+├── app/                    # Shiny application
+│   ├── app.R              # Main entry point
+│   ├── modules/           # Shiny modules
+│   └── www/               # Static assets
+├── R/                     # Shared utilities
+│   ├── database.R         # Connection management
+│   ├── queries_*.R        # Database queries
+│   └── db_pool.R          # Connection pool factory
+├── config/                # Configuration
+│   ├── config.yml         # Environment-aware settings
+│   └── credentials.example.env
+├── scripts/               # Operational scripts
+│   ├── migration/         # Database setup
+│   └── analysis/          # Data analysis
+├── docs/                  # Documentation
+│   ├── RUNBOOK.md        # Operations guide
+│   └── data_dictionary.md
+└── tests/                 # Test suite
 ```
 
-## Getting Started
+## Technology Stack
 
-### Prerequisites
+- **R 4.3+** with Shiny for interactive dashboards
+- **PostgreSQL 12+** for data storage
+- **Docker** for containerization
+- **GitHub Actions** for CI/CD
 
-- WSL2 with Ubuntu
-- PostgreSQL 12+
-- R 4.0+ with required packages
-- Git for version control
+## Database Contents
 
-### Installation
+- **630+ book entries** with comprehensive metadata
+- **27,771 sales records** spanning 1858-1920
+- **Publisher archives** from Harvard, Princeton, Penn, and Chadwyck-Healey
+- **Royalty data** including contract terms and payment records
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/yourusername/anesko.git
-   cd anesko
-   ```
+## Development
 
-2. **Set up PostgreSQL database**:
-   ```bash
-   sudo service postgresql start
-   ```
+### Code Style
 
-3. **Install R packages**:
-   ```r
-   source("scripts/migration/00_package_setup.R")
-   ```
+- Line length: 100 characters max
+- Style: [tidyverse](https://style.tidyverse.org/)
+- Linting: `lintr::lint_dir("app"); lintr::lint_dir("R")`
 
-4. **Run database migration**:
-   ```r
-   source("scripts/migration/02_data_migration.R")
-   ```
+### Testing
 
-5. **Launch Shiny dashboard**:
-   ```r
-   shiny::runApp("shiny-app/")
-   ```
+```r
+testthat::test_dir("tests/testthat")
+covr::package_coverage()
+```
 
-## Key Research Questions
+### Contributing
 
-1. **Gender Disparities**: How did publishing opportunities and commercial success differ between male and female authors?
+See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development workflow
+- Pull request process
+- Code style guidelines
 
-2. **Genre Evolution**: Which literary genres dominated different periods, and how did their market performance change over time?
+## Research Context
 
-3. **Publishing Concentration**: How did the consolidation of publishing houses affect author opportunities and market dynamics?
-
-4. **Economic Patterns**: What were the typical earning patterns for authors, and how did royalty structures evolve?
-
-5. **Market Transformation**: How did the literary marketplace transform from 1860 to 1920?
-
-## Data Sources
-
-All data has been carefully curated from archival sources:
-
-- **Primary Sources**: Publisher archives, sales records, royalty statements
-- **Methodology**: Hand-transcribed from original documents
-- **Validation**: Cross-referenced across multiple sources where possible
-- **Coverage**: Focus on major publishers and commercially successful works
-
-## Academic Context
-
-This project contributes to the field of **book history** and **digital humanities** by providing:
-
+This dashboard contributes to **book history** and **digital humanities** by providing:
 - Empirical foundation for literary marketplace studies
 - Quantitative methods for analyzing historical publishing data
 - Open-source tools for similar research projects
-- Reproducible research methodology
 
-## Publications and Presentations
+### Key Research Questions
 
-*[This section will be updated as research progresses]*
+1. **Gender Disparities**: How did opportunities differ between male and female authors?
+2. **Genre Evolution**: Which genres dominated, and how did performance change over time?
+3. **Economic Patterns**: What were typical earning patterns and royalty structures?
+4. **Market Transformation**: How did the marketplace evolve from 1860-1920?
+
+## Documentation
+
+- **[RUNBOOK.md](docs/RUNBOOK.md)** - Operations, deployment, troubleshooting
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Development guidelines
+- **[data_dictionary.md](docs/data_dictionary.md)** - Schema documentation
 
 ## Contributors
 
-- **Principal Investigator**: Dr. Michael Anesko (Penn State University)
-- **Data Curator**: Dr. Michael Anesko
-- **DLA Adviser**: Dr. Jennifer Isasi (Penn State University)
-- **Data Analysts**: 
-  - Siyang Ni (2025-)
-  - Nick McLean (2023-2024)
-- **Student Workers**: Matthew Inman
+**Principal Investigator**: Dr. Michael Anesko (Penn State University)
+**Data Team**: Siyang Ni, Nick McLean, Jennifer Isasi, Steve Maczuga, Mason Slingerland
+**Research Assistants**: Stephen Szaraz (Harvard), Matthew Inman (Penn State)
 
 ## Funding
 
-- CHI Digital Humanities Grant (Summer 2023)
-- C-SoDA Grant Application (Winter 2024)
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](License.md) file for details.
+- College of the Liberal Arts, Penn State University
+- Center for the Study of Data Analytics (C-SoDA)
+- CHI Digital Humanities Grant (2023)
 
 ## Citation
 
-If you use this database in your research, please cite:
+```bibtex
+@misc{anesko2025authorship,
+  title={Database of American Authorship, 1860-1920},
+  author={Anesko, Michael and Ni, Siyang and others},
+  year={2025},
+  publisher={GitHub},
+  url={https://github.com/siyangni/anesko}
+}
+```
 
-```
-Anesko, Michael et al. (2025). Database of American Authorship, 1860-1920. 
-GitHub repository: https://github.com/yourusername/anesko
-```
+## License
+
+MIT License - see [License.md](License.md)
 
 ## Contact
 
-For questions about this research project, please contact:
-
-- **Dr. Michael Anesko**: mwa2@psu.edu
-- **Project Repository**: https://github.com/siyangni/anesko
+**Dr. Michael Anesko**: mwa2@psu.edu
+**Repository**: https://github.com/siyangni/anesko
 
 ---
 
-*Last updated: May 23, 2025*
+*Version 1.0.0 | Last updated: November 5, 2025*
