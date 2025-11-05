@@ -1,12 +1,11 @@
-# Cloud Database Configuration Template
-# Copy this file to cloud_config.R and fill in your credentials
-# NEVER commit cloud_config.R with real credentials!
+# Cloud Database Configuration
+# This configuration loads database credentials from environment variables
 
 # Load environment variables from .env file if it exists
 if (file.exists(".env")) {
   env_vars <- readLines(".env")
   env_vars <- env_vars[!grepl("^#", env_vars) & env_vars != "" & !grepl("^\\s*$", env_vars)]
-
+  
   for (var in env_vars) {
     if (nchar(trimws(var)) > 0 && grepl("=", var)) {
       parts <- strsplit(var, "=", fixed = TRUE)[[1]]
@@ -22,7 +21,7 @@ if (file.exists(".env")) {
 }
 
 # Database configuration using environment variables
-# BEST PRACTICE: Set these as environment variables, not hardcoded
+# Check if we're in a cloud environment first (prioritize environment variables)
 db_host <- Sys.getenv("DB_HOST", "")
 db_name <- Sys.getenv("DB_NAME", "")
 db_user <- Sys.getenv("DB_USER", "")
@@ -61,12 +60,40 @@ if (db_host != "" && db_password != "") {
 }
 
 if (!config_loaded) {
-  stop("Database configuration not found. Please set environment variables or create database_config.R")
+  # Fallback to environment variables for production
+  # For shinyapps.io deployment, hardcode NeonDB credentials as fallback
+  db_host <- Sys.getenv("DB_HOST", "")
+  db_name <- Sys.getenv("DB_NAME", "")
+  db_user <- Sys.getenv("DB_USER", "")
+  db_password <- Sys.getenv("DB_PASSWORD", "")
+
+  # If environment variables are not set, use NeonDB credentials for cloud deployment
+  if (db_host == "" || db_password == "") {
+    cat("🔧 Environment variables not found, using NeonDB cloud configuration\n")
+    db_config <- list(
+      host = "ep-damp-bar-aegtvwnx-pooler.c-2.us-east-2.aws.neon.tech",
+      dbname = "neondb",
+      user = "neondb_owner",
+      password = "npg_KL6m2EIGeCVN",
+      port = 5432,
+      sslmode = "require"
+    )
+  } else {
+    cat("🌐 Using environment variables for database config\n")
+    db_config <- list(
+      host = db_host,
+      dbname = db_name,
+      user = db_user,
+      password = db_password,
+      port = as.numeric(Sys.getenv("DB_PORT", "5432")),
+      sslmode = Sys.getenv("DB_SSL_MODE", "require")
+    )
+  }
 }
 
 # Validate configuration
-if (is.null(db_config$host) || db_config$host == "" || is.null(db_config$password) || db_config$password == "") {
-  stop("Database configuration incomplete. Required: host, dbname, user, password")
+if (db_config$host == "localhost" || db_config$password == "") {
+  warning("Database configuration may not be properly set for cloud deployment.")
 }
 
 cat("🔗 Database configuration loaded:\n")

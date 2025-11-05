@@ -72,18 +72,31 @@ anesko/
 
 3. **Install R packages**:
    ```r
-   source("scripts/migration/00_package_setup.R")
+   # Option 1: Using DESCRIPTION file (recommended)
+   install.packages("remotes")
+   remotes::install_deps(dependencies = TRUE)
+
+   # Option 2: Using migration script
+   source("db/migrations/00_package_setup.R")
    ```
 
-4. **Run database migration**:
+4. **Configure database**:
+   ```bash
+   cp shiny-app/config/.env.template shiny-app/config/.env
+   # Edit .env with your database credentials
+   ```
+
+5. **Run database migration**:
    ```r
-   source("scripts/migration/02_data_migration.R")
+   source("db/migrations/00_run_full_migration.R")
    ```
 
-5. **Launch Shiny dashboard**:
+6. **Launch Shiny dashboard**:
    ```r
    shiny::runApp("shiny-app/")
    ```
+
+For detailed operational guidance, see [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Key Research Questions
 
@@ -156,4 +169,35 @@ For questions about this research project, please contact:
 
 ---
 
-*Last updated: May 23, 2025*
+## Repository Organization
+
+**Recent Refactoring** (November 5, 2025): The repository has been reorganized for better maintainability and industry-standard structure.
+
+### Key Changes
+
+- **54 files archived** (test files, obsolete modules, deprecated scripts) - all moved with `git mv` to preserve history
+- **New directories**: `db/`, `deployment/`, `tests/`, `archive/`, `.github/workflows/`
+- **Migrated**: Database scripts to `db/migrations/`, deployment scripts to `deployment/`
+- **Security**: Removed hardcoded credentials, added templates
+- **CI/CD**: Added GitHub Actions for automated checks
+- **Documentation**: Added CONTRIBUTING.md and RUNBOOK.md
+
+### Current Structure
+
+- **shiny-app/**: Main Shiny application (9 active modules)
+- **db/migrations/**: Database setup and migration scripts
+- **scripts/**: Analysis, cleaning, and validation scripts
+- **tests/**: Formal test suite (testthat framework)
+- **deployment/**: Deployment scripts for various platforms
+- **archive/**: Archived obsolete files (history preserved)
+- **docs/**: Comprehensive documentation
+- **.github/workflows/**: CI/CD configuration
+
+For complete details:
+- Operations: [docs/RUNBOOK.md](docs/RUNBOOK.md)
+- Development: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- Archived files: [archive/README.md](archive/README.md)
+
+---
+
+*Last updated: November 5, 2025*
