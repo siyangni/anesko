@@ -188,6 +188,17 @@ ui <- dashboardPage(
           )
         )
       )
+    ),
+
+    # Copyright footer
+    tags$footer(
+      style = "background-color: #f4f4f4; padding: 20px; text-align: center;
+               border-top: 1px solid #ddd; margin-top: 40px; font-size: 12px;
+               color: #666;",
+      HTML("© 2025 The Pennsylvania State University. All rights reserved.
+            Except where otherwise noted, this work is subject to a
+            <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' target='_blank'>Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International</a>.
+            Accessibility Statement: <a href='https://www.psu.edu/accessibilitystatement' target='_blank'>https://www.psu.edu/accessibilitystatement</a>.")
     )
   )
 )
