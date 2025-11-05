@@ -199,9 +199,8 @@ ui <- dashboardPage(
             Except where otherwise noted, this work is subject to a
             <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' target='_blank'
             style='color: #007bff;'>Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International</a>.
-            Accessibility Statement:
             <a href='https://www.psu.edu/accessibilitystatement' target='_blank'
-            style='color: #007bff;'>https://www.psu.edu/accessibilitystatement</a>.")
+            style='color: #007bff;'>Accessibility Statement</a>.")
     )
   )
 )
