@@ -16,6 +16,15 @@
 .Renviron
 .Rprofile
 
+# renv package management (keep renv.lock, ignore library)
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/sandbox/
+renv/staging/
+
 # R packages
 *.tar.gz
 *.tgz
@@ -58,6 +67,11 @@ data/interim/
 *.dump
 *.backup
 
+# SQLite databases (if used locally)
+*.db
+*.sqlite
+*.sqlite3
+
 # ===== OUTPUTS =====
 # Generated plots and figures
 outputs/plots/*.png
@@ -76,8 +90,9 @@ outputs/temp/
 
 # ===== SHINY SPECIFIC =====
 # Shiny app logs
-shiny-app/*.log
-shiny-app/rsconnect/
+app/*.log
+app/rsconnect/
+rsconnect/
 
 # ===== SYSTEM FILES =====
 # macOS

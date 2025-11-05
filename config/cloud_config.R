@@ -60,35 +60,27 @@ if (db_host != "" && db_password != "") {
 }
 
 if (!config_loaded) {
-  # Fallback to environment variables for production
-  # For shinyapps.io deployment, hardcode NeonDB credentials as fallback
+  # Require environment variables for production deployment
   db_host <- Sys.getenv("DB_HOST", "")
   db_name <- Sys.getenv("DB_NAME", "")
   db_user <- Sys.getenv("DB_USER", "")
   db_password <- Sys.getenv("DB_PASSWORD", "")
 
-  # If environment variables are not set, use NeonDB credentials for cloud deployment
+  # Fail clearly if environment variables are not set
   if (db_host == "" || db_password == "") {
-    cat("🔧 Environment variables not found, using NeonDB cloud configuration\n")
-    db_config <- list(
-      host = "ep-damp-bar-aegtvwnx-pooler.c-2.us-east-2.aws.neon.tech",
-      dbname = "neondb",
-      user = "neondb_owner",
-      password = "npg_KL6m2EIGeCVN",
-      port = 5432,
-      sslmode = "require"
-    )
-  } else {
-    cat("🌐 Using environment variables for database config\n")
-    db_config <- list(
-      host = db_host,
-      dbname = db_name,
-      user = db_user,
-      password = db_password,
-      port = as.numeric(Sys.getenv("DB_PORT", "5432")),
-      sslmode = Sys.getenv("DB_SSL_MODE", "require")
-    )
+    stop("Database configuration not found. Please set DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD environment variables.")
   }
+
+  cat("🌐 Using environment variables for database config\n")
+  db_config <- list(
+    host = db_host,
+    dbname = db_name,
+    user = db_user,
+    password = db_password,
+    port = as.numeric(Sys.getenv("DB_PORT", "5432")),
+    sslmode = Sys.getenv("DB_SSL_MODE", "require")
+  )
+  config_loaded <- TRUE
 }
 
 # Validate configuration

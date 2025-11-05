@@ -29,31 +29,31 @@ library(tidyr)
 library(stringr)
 
 # Load configuration
-source("config/app_config.R")
+source(file.path("..", "config", "app_config.R"))
 
 # Load utility functions
-source("utils/database.R")
-source("utils/data_processing.R")
-source("utils/plotting.R")
+source(file.path("..", "R", "database.R"))
+source(file.path("..", "R", "data_processing.R"))
+source(file.path("..", "R", "plotting.R"))
 # Query groups
-source("utils/queries_basic.R")
-source("utils/queries_sales.R")
-source("utils/error_handling.R")
-source("utils/queries_timeseries.R")
-source("utils/queries_royalties.R")
+source(file.path("..", "R", "queries_basic.R"))
+source(file.path("..", "R", "queries_sales.R"))
+source(file.path("..", "R", "error_handling.R"))
+source(file.path("..", "R", "queries_timeseries.R"))
+source(file.path("..", "R", "queries_royalties.R"))
 
 # Load modules
-source("modules/dashboard_module.R")
-source("modules/book_explorer_module.R")
+source(file.path("modules", "dashboard_module.R"))
+source(file.path("modules", "book_explorer_module.R"))
 # Replaced placeholder Sales Analysis with Sales Trends module
-source("modules/sales_trends_module.R")
+source(file.path("modules", "sales_trends_module.R"))
 # Keep legacy sales analysis available (not wired into UI) for reference
-source("modules/sales_analysis_module.R")
-source("modules/author_analysis_module.R")
-source("modules/author_networks_module.R")  # NEW
-source("modules/royalty_analysis_module.R")  # NEW
-source("modules/royalty_query_module.R")  # NEW - Dedicated royalty income query
-source("modules/genre_analysis_module.R")
+source(file.path("modules", "sales_analysis_module.R"))
+source(file.path("modules", "author_analysis_module.R"))
+source(file.path("modules", "author_networks_module.R"))  # NEW
+source(file.path("modules", "royalty_analysis_module.R"))  # NEW
+source(file.path("modules", "royalty_query_module.R"))  # NEW - Dedicated royalty income query
+source(file.path("modules", "genre_analysis_module.R"))
 
 # Initialize database connection pool for better performance
 # Use a more robust approach to handle pool creation and management

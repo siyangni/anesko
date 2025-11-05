@@ -7,7 +7,7 @@ APP_VERSION <- "1.0.0"
 APP_DESCRIPTION <- "Interactive dashboard for exploring American literary marketplace data"
 
 # Load cloud database configuration
-source("config/cloud_config.R")
+source(file.path("cloud_config.R"))
 
 # Connection pool settings
 POOL_SIZE_MIN <- 1

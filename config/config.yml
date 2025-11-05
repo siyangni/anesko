@@ -1,0 +1,50 @@
+default:
+  app_name: "American Authorship Database"
+  app_version: "1.0.0"
+  db:
+    host: !expr Sys.getenv("DB_HOST", "localhost")
+    port: !expr as.integer(Sys.getenv("DB_PORT", "5432"))
+    dbname: !expr Sys.getenv("DB_NAME", "american_authorship")
+    user: !expr Sys.getenv("DB_USER", "app_user")
+    password: !expr Sys.getenv("DB_PASSWORD", "")
+    sslmode: !expr Sys.getenv("DB_SSL_MODE", "prefer")
+  pool:
+    min_size: 1
+    max_size: 5
+    idle_timeout: 60
+  cache:
+    refresh_minutes: 30
+  ui:
+    sidebar_width: 300
+    default_page_size: 25
+
+development:
+  db:
+    host: !expr Sys.getenv("DB_HOST", "localhost")
+    port: !expr as.integer(Sys.getenv("DB_PORT", "5432"))
+    dbname: !expr Sys.getenv("DB_NAME", "american_authorship")
+    user: !expr Sys.getenv("DB_USER", "postgres")
+    password: !expr Sys.getenv("DB_PASSWORD", "")
+    sslmode: !expr Sys.getenv("DB_SSL_MODE", "prefer")
+
+test:
+  db:
+    host: !expr Sys.getenv("DB_HOST", "localhost")
+    port: !expr as.integer(Sys.getenv("DB_PORT", "5432"))
+    dbname: !expr Sys.getenv("DB_NAME", "american_authorship_test")
+    user: !expr Sys.getenv("DB_USER", "postgres")
+    password: !expr Sys.getenv("DB_PASSWORD", "")
+    sslmode: "disable"
+
+production:
+  db:
+    host: !expr Sys.getenv("DB_HOST")
+    port: !expr as.integer(Sys.getenv("DB_PORT", "5432"))
+    dbname: !expr Sys.getenv("DB_NAME")
+    user: !expr Sys.getenv("DB_USER")
+    password: !expr Sys.getenv("DB_PASSWORD")
+    sslmode: !expr Sys.getenv("DB_SSL_MODE", "require")
+  pool:
+    min_size: 2
+    max_size: 10
+    idle_timeout: 300
