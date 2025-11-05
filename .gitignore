@@ -14,7 +14,7 @@
 
 # R Environment Variables
 .Renviron
-.Rprofile
+# .Rprofile - Keep for renv activation
 
 # renv package management (keep renv.lock, ignore library)
 renv/library/
