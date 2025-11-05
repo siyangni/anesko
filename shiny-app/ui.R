@@ -142,7 +142,7 @@ ui <- dashboardPage(
                 title = "Acknowledgments", status = "info", solidHeader = TRUE,
                 width = NULL,
                 div(
-                  p("Shortly after the inception of this project, two research assistants helped code data from the primary sources: Stephen Szaraz (at Harvard) and Matthew Inman (at Penn State). Steve Maczuga at Penn State constructed a preliminary version of the database. His work has been enhanced by continued design possibilities incorporated by other Penn State affiliates: Jennifer Isasi, Nick Mclean, and Siyang Ni.")
+                  p("Shortly after the inception of this project, two research assistants helped code data from the primary sources: Stephen Szaraz (at Harvard) and Matthew Inman (at Penn State).  Steve Maczuga at Penn State constructed a preliminary version of the database.  As platforms evolved, Mason Slingerland converted the original data files into a form now compatible with Microsoft Excel.  Since then, their work has been enhanced by new design possibilities incorporated by other Penn State affiliates: Jennifer Isasi, Nick Mclean, and Siyang Ni.  Funding to support this research has come from the College of the Liberal Arts and the Center for the Study of Data Analytics at Penn State.")
                 )
               )
             ),

@@ -26,7 +26,7 @@ if (!dir.exists(cleaned_dir)) {
 
 # Read original Excel sheets
 book_entries_orig <- read_excel(excel_file, sheet = "Book_Entry_Table")
-book_sales_orig <- read_excel(excel_file, sheet = "Book_Sales_Table")
+book_sales_orig <- read_excel(excel_file, sheet = "Book Sales_Table")
 
 # Read new Excel sheets
 book_entries_new <- read_excel(excel_file_new, sheet = "Book_Entry")
