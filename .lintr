@@ -1,0 +1,16 @@
+linters: linters_with_defaults(
+    line_length_linter(100),
+    object_name_linter = NULL,  # Allow various naming conventions
+    infix_spaces_linter(),
+    assignment_linter("left"),
+    trailing_whitespace_linter(),
+    trailing_blank_lines_linter(),
+    spaces_left_parentheses_linter(),
+    commas_linter()
+  )
+exclusions: list(
+    "renv",
+    "archive",
+    "data",
+    "outputs"
+  )

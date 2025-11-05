@@ -1,0 +1,58 @@
+name: R CI
+
+on:
+  push:
+    branches: [ main, master, claude/** ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.0'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libpq-dev
+
+      - name: Setup renv and restore packages
+        run: |
+          R -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")'
+          R -e 'renv::restore()'
+
+      - name: Install lintr
+        run: |
+          R -e 'if (!requireNamespace("lintr", quietly = TRUE)) install.packages("lintr")'
+
+      - name: Run lintr
+        run: |
+          R -e 'lintr::lint_dir("app", relative_path = TRUE)'
+          R -e 'lintr::lint_dir("R", relative_path = TRUE)'
+          R -e 'lintr::lint_dir("config", relative_path = TRUE)'
+
+      - name: Check for testthat tests
+        id: check_tests
+        run: |
+          if [ -d "tests/testthat" ] && [ "$(ls -A tests/testthat)" ]; then
+            echo "tests_exist=true" >> $GITHUB_OUTPUT
+          else
+            echo "tests_exist=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run tests
+        if: steps.check_tests.outputs.tests_exist == 'true'
+        run: |
+          R -e 'if (requireNamespace("testthat", quietly = TRUE)) testthat::test_dir("tests/testthat", stop_on_failure = TRUE)'
+
+      - name: Check R syntax
+        run: |
+          R -e 'stopifnot(length(tools::checkRdaFiles("R")) == 0)'

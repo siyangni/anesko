@@ -1,5 +1,8 @@
 # Docker Compose for American Authorship Database
 # This sets up both the Shiny app and PostgreSQL database
+#
+# IMPORTANT: Create a .env file with your credentials before running
+# See config/credentials.example.env for required variables
 
 version: '3.8'
 
@@ -9,33 +12,41 @@ services:
     image: postgres:15
     container_name: american_authorship_db
     environment:
-      POSTGRES_DB: american_authorship
-      POSTGRES_USER: authorship_admin
-      POSTGRES_PASSWORD: anesko2024_secure
+      POSTGRES_DB: ${DB_NAME:-american_authorship}
+      POSTGRES_USER: ${DB_USER:-app_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./data/backup.sql:/docker-entrypoint-initdb.d/backup.sql:ro
+      - ./sql/migrations:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     networks:
       - authorship_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-app_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Shiny App
   shiny:
     build: .
     container_name: american_authorship_app
     environment:
+      R_CONFIG_ACTIVE: ${R_CONFIG_ACTIVE:-production}
       DB_HOST: postgres
-      DB_NAME: american_authorship
-      DB_USER: authorship_admin
-      DB_PASSWORD: anesko2024_secure
+      DB_NAME: ${DB_NAME:-american_authorship}
+      DB_USER: ${DB_USER:-app_user}
+      DB_PASSWORD: ${DB_PASSWORD:?Database password required}
       DB_PORT: 5432
+      DB_SSL_MODE: ${DB_SSL_MODE:-prefer}
     ports:
-      - "3838:3838"
+      - "${SHINY_PORT:-3838}:3838"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     volumes:
-      - ./shiny-app/logs:/var/log/shiny-server
+      - ./app/logs:/app/logs
     networks:
       - authorship_network
     restart: unless-stopped
