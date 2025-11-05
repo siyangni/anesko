@@ -1,0 +1,51 @@
+Package: anesko
+Type: ShinyApp
+Title: American Authorship Database (1860-1920)
+Version: 1.0.0
+Authors@R: c(
+    person("Michael", "Anesko", email = "mwa2@psu.edu", role = c("aut", "cre"),
+           comment = "Principal Investigator"),
+    person("Siyang", "Ni", role = "ctb", comment = "Data Analyst (2025-)"),
+    person("Nick", "McLean", role = "ctb", comment = "Data Analyst (2023-2024)"),
+    person("Jennifer", "Isasi", email = "jisasi@psu.edu", role = "ths",
+           comment = "DLA Adviser"),
+    person("Matthew", "Inman", role = "ctb", comment = "Student Worker")
+    )
+Description: Interactive Shiny dashboard for exploring the American Authorship
+    Database (1860-1920), a comprehensive collection of publishing and sales
+    data from major American publishers during the late 19th and early 20th
+    centuries. The database includes 630+ book entries with sales data spanning
+    63 years, sourced from major publisher archives including Houghton Mifflin,
+    Harper & Brothers, Scribner, and J. B. Lippincott.
+License: MIT + file License.md
+URL: https://github.com/siyangni/anesko
+BugReports: https://github.com/siyangni/anesko/issues
+Depends:
+    R (>= 4.0.0)
+Imports:
+    shiny (>= 1.7.0),
+    shinydashboard (>= 0.7.2),
+    shinydashboardPlus (>= 2.0.0),
+    shinyWidgets (>= 0.7.0),
+    DBI (>= 1.1.0),
+    RPostgreSQL (>= 0.7.0),
+    pool (>= 1.0.0),
+    dplyr (>= 1.0.0),
+    tidyr (>= 1.2.0),
+    ggplot2 (>= 3.4.0),
+    plotly (>= 4.10.0),
+    DT (>= 0.20),
+    lubridate (>= 1.9.0),
+    stringr (>= 1.5.0),
+    scales (>= 1.2.0),
+    waiter (>= 0.2.5),
+    fresh (>= 0.2.0),
+    htmltools (>= 0.5.0)
+Suggests:
+    RPostgres (>= 1.4.0),
+    testthat (>= 3.0.0),
+    lintr (>= 3.0.0),
+    styler (>= 1.9.0)
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.2.3
