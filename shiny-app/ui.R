@@ -6,7 +6,17 @@ ui <- dashboardPage(
   # Header
   dashboardHeader(
     title = APP_TITLE,
-    titleWidth = 400
+    titleWidth = 400,
+    tags$li(class = "dropdown header-logo-container",
+      tags$a(href = "https://la.psu.edu/", target = "_blank",
+        tags$img(src = "psu_cla_logo.png", class = "header-logo",
+                 alt = "Penn State College of Liberal Arts")
+      ),
+      tags$a(href = "https://dla.psu.edu/", target = "_blank",
+        tags$img(src = "psu_dla_logo.png", class = "header-logo",
+                 alt = "Digital Liberal Arts Research Initiative")
+      )
+    )
   ),
 
   # Sidebar
@@ -122,6 +132,24 @@ ui <- dashboardPage(
       tabItem(
         tabName = "about",
         fluidPage(
+          # Institutional branding section
+          fluidRow(
+            column(12,
+              div(class = "about-logos-section",
+                h4("Supported By"),
+                div(class = "about-logos-container",
+                  tags$a(href = "https://la.psu.edu/", target = "_blank",
+                    tags$img(src = "psu_cla_logo.png", class = "about-logo",
+                             alt = "Penn State College of Liberal Arts")
+                  ),
+                  tags$a(href = "https://dla.psu.edu/", target = "_blank",
+                    tags$img(src = "psu_dla_logo.png", class = "about-logo",
+                             alt = "Digital Liberal Arts Research Initiative")
+                  )
+                )
+              )
+            )
+          ),
           fluidRow(
             column(8,
               box(
