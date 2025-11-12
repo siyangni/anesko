@@ -7,14 +7,19 @@ ui <- dashboardPage(
   dashboardHeader(
     title = APP_TITLE,
     titleWidth = 400,
-    tags$li(class = "dropdown header-logo-container",
-      tags$a(href = "https://la.psu.edu/", target = "_blank",
-        tags$img(src = "psu_cla_logo.png", class = "header-logo",
-                 alt = "Penn State College of Liberal Arts")
-      ),
-      tags$a(href = "https://dla.psu.edu/", target = "_blank",
-        tags$img(src = "psu_dla_logo.png", class = "header-logo",
-                 alt = "Digital Liberal Arts Research Initiative")
+    # Add logos to header navbar
+    tags$li(class = "dropdown", style = "padding: 5px 15px; margin: 0;",
+      tags$div(style = "display: flex; align-items: center; gap: 15px; height: 50px;",
+        tags$a(href = "https://la.psu.edu/", target = "_blank",
+          tags$img(src = "psu_cla_logo.png",
+                   style = "height: 32px; width: auto; object-fit: contain;",
+                   alt = "Penn State College of Liberal Arts")
+        ),
+        tags$a(href = "https://dla.psu.edu/", target = "_blank",
+          tags$img(src = "psu_dla_logo.png",
+                   style = "height: 32px; width: auto; object-fit: contain;",
+                   alt = "Digital Liberal Arts Research Initiative")
+        )
       )
     )
   ),
