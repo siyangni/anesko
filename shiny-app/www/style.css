@@ -624,3 +624,188 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
 /* Gender color indicators */
 .gender-male { color: #3498db; }
 .gender-female { color: #e74c3c; }
+
+/* Logo styling for header and branding */
+.header-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 5px 15px;
+  height: 50px;
+  gap: 20px;
+}
+
+.header-logo {
+  height: 35px;
+  width: auto;
+  object-fit: contain;
+  transition: opacity 0.3s ease;
+}
+
+.header-logo:hover {
+  opacity: 0.85;
+}
+
+/* Dashboard branding banner */
+.dashboard-branding-banner {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2a4365 100%);
+  border-radius: 8px;
+  padding: 25px 30px;
+  margin-bottom: 25px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.dashboard-branding-banner .banner-text {
+  flex: 1;
+  min-width: 300px;
+}
+
+.dashboard-branding-banner h2 {
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.dashboard-branding-banner p {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.dashboard-branding-banner .banner-logos {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  flex-wrap: wrap;
+}
+
+.dashboard-branding-banner .banner-logo {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dashboard-branding-banner .banner-logo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* About page logo section */
+.about-logos-section {
+  text-align: center;
+  padding: 30px 20px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2a4365 100%);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.about-logos-section h4 {
+  color: #ffffff;
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.about-logos-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 35px;
+  flex-wrap: wrap;
+}
+
+.about-logo {
+  height: 65px;
+  width: auto;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.97);
+  padding: 12px 18px;
+  border-radius: 8px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.about-logo:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+/* Responsive adjustments for logos */
+@media (max-width: 768px) {
+  .header-logo-container {
+    justify-content: center;
+    padding: 5px 10px;
+    gap: 15px;
+  }
+
+  .header-logo {
+    height: 28px;
+  }
+
+  .dashboard-branding-banner {
+    padding: 20px;
+    text-align: center;
+  }
+
+  .dashboard-branding-banner .banner-text {
+    text-align: center;
+  }
+
+  .dashboard-branding-banner h2 {
+    font-size: 1.6rem;
+  }
+
+  .dashboard-branding-banner p {
+    font-size: 1.05rem;
+  }
+
+  .dashboard-branding-banner .banner-logos {
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .dashboard-branding-banner .banner-logo {
+    height: 40px;
+  }
+
+  .about-logos-container {
+    gap: 25px;
+  }
+
+  .about-logo {
+    height: 55px;
+  }
+}
+
+@media (max-width: 576px) {
+  .header-logo {
+    height: 24px;
+  }
+
+  .dashboard-branding-banner {
+    padding: 15px;
+  }
+
+  .dashboard-branding-banner h2 {
+    font-size: 1.4rem;
+  }
+
+  .dashboard-branding-banner .banner-logo {
+    height: 35px;
+  }
+
+  .about-logo {
+    height: 45px;
+  }
+}
