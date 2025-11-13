@@ -120,40 +120,40 @@ app_theme <- fresh::create_theme(
   )
 )
 
-# Global constants
+# Global constants - Refined color palettes for professional sophistication
 GENRE_COLORS <- c(
-  "F" = "#e74c3c",    # Fiction - Red
-  "N" = "#3498db",    # Non-fiction - Blue
-  "P" = "#9b59b6",    # Poetry - Purple
-  "D" = "#f39c12",    # Drama - Orange
-  "J" = "#27ae60",    # Juvenile - Green
-  "S" = "#1abc9c",    # Short stories - Teal
-  "B" = "#95a5a6",    # Biography - Gray
-  "Other" = "#7f8c8d" # Other - Dark gray
+  "F" = "#8b4a3a",    # Fiction - Muted terracotta (refined from bright red)
+  "N" = "#2c5f7f",    # Non-fiction - Deep azure (refined from bright blue)
+  "P" = "#5b3a70",    # Poetry - Muted aubergine (refined from bright purple)
+  "D" = "#92582e",    # Drama - Muted amber (refined from bright orange)
+  "J" = "#3f5f4a",    # Juvenile - Sage green (refined from bright green)
+  "S" = "#0d5e57",    # Short stories - Deep teal (refined from bright teal)
+  "B" = "#6b7280",    # Biography - Warm gray (refined)
+  "Other" = "#475569" # Other - Slate (refined)
 )
 
 GENDER_COLORS <- c(
-  "M" = "#3498db",    # Male - Blue
-  "F" = "#e74c3c"     # Female - Red
+  "M" = "#2c5f7f",    # Male - Deep azure (refined from bright blue)
+  "F" = "#8b4a3a"     # Female - Muted terracotta (refined from bright red)
 )
 
-# Ambient pie chart colors (muted, accessible)
+# Refined pie chart colors - sophisticated, harmonized palette
 PIE_COLORS <- c(
-  "#2a4365",  # deep muted blue
-  "#0f766e",  # dark teal
-  "#6d28d9",  # deep purple
-  "#9a3412",  # burnt orange
-  "#166534",  # dark green
-  "#374151",  # slate
-  "#2563eb",  # indigo
-  "#7c3aed"   # violet
+  "#2a4365",  # deep muted blue (primary)
+  "#0d5e57",  # deep teal (refined)
+  "#5b3a70",  # muted aubergine (refined)
+  "#92582e",  # muted amber (refined)
+  "#3f5f4a",  # sage green (new)
+  "#475569",  # warm slate (refined)
+  "#2c5f7f",  # deep azure (new)
+  "#8b4a3a"   # terracotta (new)
 )
 
-# Ambient palette for charts (bar/line/fill/colors)
+# Refined ambient palette for charts - harmonized with genre/gender colors
 AMBIENT_COLORS <- c(
-  "#2a4365", "#0f766e", "#6d28d9", "#9a3412",
-  "#166534", "#374151", "#2563eb", "#7c3aed",
-  "#1e3a5f", "#115e59", "#4c1d95"
+  "#2a4365", "#0d5e57", "#5b3a70", "#92582e",
+  "#3f5f4a", "#475569", "#2c5f7f", "#8b4a3a",
+  "#1e3a5f", "#14293f", "#6b7280"
 )
 
 
