@@ -58,8 +58,54 @@ Database files from deprecated database engines.
 - anesko_database.db (SQLite - project uses PostgreSQL)
 - Zone.Identifier files (Windows metadata)
 
-## Archival Date
-2025-11-05
+### runtime_files/
+Runtime artifacts and temporary files that should not be tracked in version control.
+
+**Reason Code**: Criterion #3 - Runtime/temporary files
+
+**Files**:
+- shiny-app_pid.txt (process ID file from app execution)
+- zone_identifiers/ (Windows zone identifier metadata files)
+
+**Archived**: 2025-11-13
+
+### alternative_implementations/
+Alternative or improved implementations that were never integrated into the active codebase.
+
+**Reason Code**: Criterion #2 - Superseded or never adopted
+
+**Files**:
+- server_improved.R (enhanced server with session cleanup and monitoring - never integrated)
+- app_with_auth.R (authentication-enabled version - alternative entry point)
+- deploy_shinyapps.R (basic deployment script - superseded by scripts/deployment/)
+
+**Archived**: 2025-11-13
+
+### config_backups/
+Backup configuration files that have active template versions.
+
+**Reason Code**: Criterion #2 - Backup files with templates available
+
+**Files**:
+- app_config_local_backup.R (backup of app configuration)
+- cloud_config.R (cloud configuration - template version exists)
+
+**Archived**: 2025-11-13
+
+### outdated_docs/
+Documentation files that are outdated or duplicated elsewhere.
+
+**Reason Code**: Criterion #2 - Outdated or superseded documentation
+
+**Files**:
+- DEPLOYMENT_INFO.txt (placeholder deployment info with future date)
+- database_setup_guide.md (duplicated/superseded by docs/)
+
+**Archived**: 2025-11-13
+
+## Archival Dates
+- **2025-11-05**: Initial archive (test files, obsolete modules, scripts, configs, databases)
+- **2025-11-13**: Runtime files, alternative implementations, config backups, outdated docs
 
 ## How to Access Archived File History
 All files were moved using `git mv` to preserve their commit history. To view the history of an archived file:

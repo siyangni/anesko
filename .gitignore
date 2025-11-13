@@ -96,6 +96,11 @@ outputs/temp/
 shiny-app/*.log
 shiny-app/rsconnect/
 
+# Runtime process files
+*.pid
+*_pid.txt
+*.lock
+
 # ===== SYSTEM FILES =====
 # macOS
 .DS_Store
