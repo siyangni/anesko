@@ -192,7 +192,7 @@ format_number <- function(x, suffix = "") {
 }
 
 # Helper function to create value boxes with consistent styling
-create_value_box <- function(value, subtitle, icon, color = "blue", width = 12) {
+create_value_box <- function(value, subtitle, icon, color = "blue", width = 12, href = NULL) {
   # Handle both numeric and string values
   formatted_value <- if(is.numeric(value)) {
     format_number(value)
@@ -205,7 +205,8 @@ create_value_box <- function(value, subtitle, icon, color = "blue", width = 12) 
     subtitle = subtitle,
     icon = icon(icon),
     color = color,
-    width = width
+    width = width,
+    href = href
   )
 }
 
