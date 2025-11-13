@@ -62,6 +62,9 @@ data/original/
 *.json
 *.xml
 
+# Exception: rsconnect manifest (needed for deployment)
+!manifest.json
+
 # Processed data (regenerated from scripts)
 data/processed/
 data/cleaned/
