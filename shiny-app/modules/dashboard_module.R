@@ -14,7 +14,7 @@ dashboardUI <- function(id) {
       )
     ),
 
-    # Add custom CSS and JavaScript for interactive value boxes
+    # Add custom CSS for interactive value boxes
     tags$head(
       tags$style(HTML("
         .value-box-clickable {
@@ -31,14 +31,6 @@ dashboardUI <- function(id) {
           margin-top: 5px;
           font-style: italic;
         }
-      ")),
-      tags$script(HTML("
-        $(document).on('click', '.value-box-clickable', function() {
-          var targetTab = $(this).attr('data-target-tab');
-          if (targetTab) {
-            Shiny.setInputValue('dashboard_module-navigate_to', targetTab, {priority: 'event'});
-          }
-        });
       "))
     ),
 
@@ -187,10 +179,11 @@ dashboardServer <- function(id) {
 
       # Helper function to create clickable value box
       create_clickable_box <- function(value, subtitle, icon, color, target_tab, hint) {
-        # Wrap the value box in a clickable div
+        # Wrap the value box in a clickable div with inline onclick handler
         div(
           class = "value-box-clickable",
-          `data-target-tab` = target_tab,
+          onclick = sprintf("Shiny.setInputValue('%s', '%s', {priority: 'event'})",
+                          session$ns("navigate_to"), target_tab),
           style = "height: 100%;",
           create_value_box(
             value = value,
