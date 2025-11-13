@@ -69,6 +69,28 @@ server <- function(input, output, session) {
       cat("User navigated to:", tab_name, "\n")
     }
   })
+
+  observeEvent(input[["dashboard_module-navigate_to"]], {
+    target_tab <- input[["dashboard_module-navigate_to"]]
+
+    if (is.null(target_tab) || !nzchar(target_tab)) {
+      return()
+    }
+
+    shinydashboard::updateTabItems(
+      session = session,
+      inputId = "main_menu",
+      selected = target_tab
+    )
+  }, ignoreNULL = TRUE)
+
+  observeEvent(input[["dashboard_module-go_sales_trends"]], {
+    shinydashboard::updateTabItems(
+      session = session,
+      inputId = "main_menu",
+      selected = "sales_trends"
+    )
+  }, ignoreNULL = TRUE)
   
   # Removed the problematic session cleanup code that was closing the shared pool
   # The pool should persist across sessions for better performance
