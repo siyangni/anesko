@@ -14,6 +14,34 @@ dashboardUI <- function(id) {
       )
     ),
 
+    # Add custom CSS and JavaScript for interactive value boxes
+    tags$head(
+      tags$style(HTML("
+        .value-box-clickable {
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .value-box-clickable:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .value-box-hint {
+          font-size: 11px;
+          color: rgba(255,255,255,0.8);
+          margin-top: 5px;
+          font-style: italic;
+        }
+      ")),
+      tags$script(HTML("
+        $(document).on('click', '.value-box-clickable', function() {
+          var targetTab = $(this).attr('data-target-tab');
+          if (targetTab) {
+            Shiny.setInputValue('dashboard_module-navigate_to', targetTab, {priority: 'event'});
+          }
+        });
+      "))
+    ),
+
     # Value boxes row
     fluidRow(
       uiOutput(ns("value_boxes"))
@@ -71,8 +99,16 @@ dashboardUI <- function(id) {
 dashboardServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
+    # Navigation from "Open Sales Trends" button
     observeEvent(input$go_sales_trends, {
       try({ shinydashboard::updateTabItems(session, inputId = "main_menu", selected = "sales_trends") }, silent = TRUE)
+    })
+
+    # Navigation from interactive value boxes
+    observeEvent(input$navigate_to, {
+      try({
+        shinydashboard::updateTabItems(session, inputId = "main_menu", selected = input$navigate_to)
+      }, silent = TRUE)
     })
 
     # Reactive data
@@ -148,35 +184,53 @@ dashboardServer <- function(id) {
     # Value boxes - Using wider layout with better spacing
     output$value_boxes <- renderUI({
       stats <- summary_stats()
-      
+
+      # Helper function to create clickable value box
+      create_clickable_box <- function(value, subtitle, icon, color, target_tab, hint) {
+        box_html <- create_value_box(
+          value = value,
+          subtitle = HTML(paste0(subtitle, '<div class="value-box-hint">', hint, '</div>')),
+          icon = icon,
+          color = color,
+          width = 12
+        )
+        # Add clickable class and data attribute
+        box_html$attribs$class <- paste(box_html$attribs$class, "value-box-clickable")
+        box_html$attribs$`data-target-tab` <- target_tab
+        box_html
+      }
+
       # Create two rows of wider boxes for better text display
       tagList(
         fluidRow(
-          column(6, create_value_box(
+          column(6, create_clickable_box(
             value = stats$total_books[1] %||% 0,
             subtitle = "Total Books in Database",
             icon = "book",
             color = "blue",
-            width = 12
+            target_tab = "books",
+            hint = "Click to explore books →"
           )),
-          column(6, create_value_box(
+          column(6, create_clickable_box(
             value = stats$unique_authors[1] %||% 0,
-            subtitle = "Unique Authors", 
+            subtitle = "Unique Authors",
             icon = "users",
             color = "green",
-            width = 12
+            target_tab = "authors",
+            hint = "Click to analyze authors →"
           ))
         ),
         br(),
         fluidRow(
-          column(6, create_value_box(
+          column(6, create_clickable_box(
             value = stats$total_copies_sold[1] %||% 0,
             subtitle = "Total Copies Sold",
             icon = "shopping-cart",
             color = "orange",
-            width = 12
+            target_tab = "sales_trends",
+            hint = "Click to view sales trends →"
           )),
-          column(6, create_value_box(
+          column(6, create_clickable_box(
             value = {
               min_yr <- if(is.na(stats$min_year[1]) || is.null(stats$min_year[1])) 1860 else stats$min_year[1]
               max_yr <- if(is.na(stats$max_year[1]) || is.null(stats$max_year[1])) 1920 else stats$max_year[1]
@@ -185,7 +239,8 @@ dashboardServer <- function(id) {
             subtitle = "Publication Year Range",
             icon = "calendar",
             color = "purple",
-            width = 12
+            target_tab = "books",
+            hint = "Click to explore by year →"
           ))
         )
       )
@@ -344,11 +399,13 @@ dashboardServer <- function(id) {
           display_data,
           options = list(
             pageLength = 10,
+            lengthMenu = c(10, 25, 50, 100),
             scrollX = TRUE,
             order = list(list(5, 'desc')),  # Sort by Total Sales desc
             columnDefs = list(
               list(className = "dt-center", targets = c(4, 5, 6, 7))
-            )
+            ),
+            stateSave = TRUE
           ),
           rownames = FALSE
         )
