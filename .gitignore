@@ -34,6 +34,15 @@ config/secrets.yml
 database_config.R
 connection_strings.R
 
+# Docker Secrets - CRITICAL: Never commit actual secrets!
+secrets/db_password.txt
+secrets/*.txt
+secrets/*.key
+secrets/*.pem
+secrets/*.crt
+!secrets/*.template
+!secrets/README.md
+
 # Shiny/R app config files with credentials (keep templates only)
 shiny-app/config/cloud_config.R
 R/config/cloud_config.R
