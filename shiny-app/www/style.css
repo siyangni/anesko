@@ -1,17 +1,37 @@
 /* Custom styles for American Authorship Dashboard */
 
 :root {
-  /* Toned-down accessible palette */
+  /* Refined accessible palette - enhanced sophistication while maintaining WCAG AA compliance */
   --color-bg: #f7fafc;
   --color-surface: #ffffff;
   --color-muted: #e5e7eb;
   --color-text: #1f2937;      /* slate-800 */
   --color-text-muted: #4b5563;/* slate-600 */
+
+  /* Primary Palette - Navy Blue (brand) */
   --color-primary: #1e3a5f;   /* deep muted blue */
   --color-primary-600: #2a4365;
+  --color-primary-700: #14293f; /* darker navy for depth */
+  --color-primary-50: #e8eef5;  /* very light blue-gray */
   --color-primary-contrast: #ffffff;
-  --color-accent: #0f766e;    /* teal */
+
+  /* Secondary Palette - Refined Supporting Colors */
+  --color-secondary-teal: #0d5e57;      /* deeper, more muted teal */
+  --color-secondary-sage: #3f5f4a;      /* sage green - analytics/data */
+  --color-secondary-slate: #475569;     /* warm slate - neutral emphasis */
+  --color-secondary-aubergine: #5b3a70; /* muted purple - insights/special */
+
+  /* Accent Palette - Sophisticated Highlights */
+  --color-accent-amber: #92582e;        /* muted amber - warnings */
+  --color-accent-terracotta: #8b4a3a;   /* terracotta - important/danger */
+  --color-accent-gold: #8b7355;         /* muted gold - highlights */
+
+  /* Legacy accent for backward compatibility */
+  --color-accent: #0d5e57;    /* refined teal */
+
+  /* Focus Rings - Enhanced Accessibility */
   --focus-ring: 0 0 0 3px rgba(30,58,95,0.35);
+  --focus-ring-secondary: 0 0 0 3px rgba(13,94,87,0.35); /* teal variant */
 
   /* Enhanced dropdown typography variables for better accessibility */
   --dropdown-trigger-font-size: 1.4rem;  /* triggers/buttons - increased from 1.35rem */
@@ -60,11 +80,19 @@ h3 { font-size: 1.7rem; line-height: 1.35; margin: 8px 0 4px; } /* Increased fro
 }
 
 
-/* Accessible focus styles */
+/* Accessible focus styles - primary blue focus ring */
 a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 .bootstrap-select .dropdown-toggle:focus {
   outline: none !important;
   box-shadow: var(--focus-ring) !important;
+}
+
+/* Secondary teal focus ring for sidebar and navigation elements */
+.sidebar-menu a:focus,
+.treeview-menu a:focus,
+.navbar a:focus {
+  outline: none !important;
+  box-shadow: var(--focus-ring-secondary) !important;
 }
 
 
@@ -100,9 +128,12 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 
 .skin-blue .sidebar-menu>li.active>a,
 .skin-blue .sidebar-menu>li:hover>a {
-  background: rgba(30,58,95,0.08) !important;
-  color: var(--color-primary) !important;
-  border-left: 3px solid var(--color-primary);
+  background: linear-gradient(90deg,
+    rgba(13,94,87,0.12) 0%,
+    rgba(13,94,87,0.06) 100%
+  ) !important;
+  color: var(--color-secondary-teal) !important;
+  border-left: 3px solid var(--color-secondary-teal);
 }
 
 .skin-blue .sidebar-menu>li>a {
@@ -116,10 +147,11 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
   color: var(--color-text) !important;
 }
 
-/* Box styling */
+/* Box styling - enhanced with blue-tinted shadows for depth */
 .box {
   border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08),
+              0 1px 2px rgba(30,58,95,0.05);
   margin-bottom: 22px;
   background: var(--color-surface);
 }
@@ -130,19 +162,60 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 .box-primary>.box-header { background: transparent; }
 .box-primary { border-top-color: var(--color-primary) !important; }
 
-/* Harmonize box header backgrounds to the primary palette for consistency */
-.box.box-solid.box-primary > .box-header { background-color: var(--color-primary) !important; }
-.box.box-solid.box-info    > .box-header { background-color: var(--color-primary) !important; }
-.box.box-solid.box-success > .box-header { background-color: var(--color-primary) !important; }
-.box.box-solid.box-warning > .box-header { background-color: var(--color-primary) !important; }
-.box.box-solid.box-danger  > .box-header { background-color: #3a1414 !important; }
+/* Semantic box header colors - differentiated for visual hierarchy and meaning */
+.box.box-solid.box-primary > .box-header {
+  background-color: var(--color-primary) !important;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.box.box-solid.box-success > .box-header {
+  background-color: var(--color-secondary-sage) !important;  /* Sage green for analytics/data */
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.box.box-solid.box-info > .box-header {
+  background-color: var(--color-secondary-aubergine) !important;  /* Aubergine for insights/special */
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.box.box-solid.box-warning > .box-header {
+  background-color: var(--color-accent-amber) !important;  /* Amber for important/action items */
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.box.box-solid.box-danger > .box-header {
+  background-color: var(--color-accent-terracotta) !important;  /* Terracotta for critical/danger */
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
 
-/* Harmonize solid box border colors to primary to avoid light blue/orange frames */
-.box.box-solid.box-info,
-.box.box-solid.box-warning,
-.box.box-solid.box-success,
+/* Hover states for box headers - subtle polish */
+.box.box-solid.box-primary > .box-header:hover {
+  background-color: var(--color-primary-600) !important;
+}
+.box.box-solid.box-success > .box-header:hover {
+  background-color: #4a7159 !important;  /* Slightly lighter sage */
+}
+.box.box-solid.box-info > .box-header:hover {
+  background-color: #6b4680 !important;  /* Slightly lighter aubergine */
+}
+.box.box-solid.box-warning > .box-header:hover {
+  background-color: #a86838 !important;  /* Slightly lighter amber */
+}
+.box.box-solid.box-danger > .box-header:hover {
+  background-color: #9f5a4a !important;  /* Slightly lighter terracotta */
+}
+
+/* Harmonize solid box border colors to match their header colors */
 .box.box-solid.box-primary {
   border: 1px solid var(--color-primary) !important;
+}
+.box.box-solid.box-success {
+  border: 1px solid var(--color-secondary-sage) !important;
+}
+.box.box-solid.box-info {
+  border: 1px solid var(--color-secondary-aubergine) !important;
+}
+.box.box-solid.box-warning {
+  border: 1px solid var(--color-accent-amber) !important;
+}
+.box.box-solid.box-danger {
+  border: 1px solid var(--color-accent-terracotta) !important;
 }
 
 
@@ -154,10 +227,10 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 }
 .info-box .progress, .small-box .icon { opacity: 0.65; }
 
-.box-info { border-top-color: var(--color-primary) !important; }
-.box-success { border-top-color: var(--color-primary) !important; }
-.box-warning { border-top-color: var(--color-primary) !important; }
-.box-danger  { border-top-color: var(--color-primary) !important; }
+.box-info { border-top-color: var(--color-secondary-aubergine) !important; }
+.box-success { border-top-color: var(--color-secondary-sage) !important; }
+.box-warning { border-top-color: var(--color-accent-amber) !important; }
+.box-danger  { border-top-color: var(--color-accent-terracotta) !important; }
 
 /* Ensure solid box headers keep high-contrast white titles on dark backgrounds */
 .box.box-solid.box-primary > .box-header,
@@ -175,16 +248,24 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
   color: #ffffff !important;
 }
 
-/* Ambient alert styles to better match the dashboard */
+/* Refined alert styles with sophisticated gradients and accent borders */
 .alert-info {
-  background-color: #2a4365 !important;  /* dark muted navy */
-  border-color: #2a4365 !important;
-  color: #ffffff !important;              /* high contrast text */
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c5f7f 100%) !important;
+  border-left: 4px solid #2c5f7f !important;
+  border-top: 1px solid rgba(44, 95, 127, 0.3) !important;
+  border-right: 1px solid rgba(44, 95, 127, 0.3) !important;
+  border-bottom: 1px solid rgba(44, 95, 127, 0.3) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 .alert-warning {
-  background-color: #463214 !important;  /* deep amber/brown */
-  border-color: #463214 !important;
+  background: linear-gradient(135deg, #92582e 0%, #a86838 100%) !important;
+  border-left: 4px solid #c97a42 !important;
+  border-top: 1px solid rgba(168, 104, 56, 0.3) !important;
+  border-right: 1px solid rgba(168, 104, 56, 0.3) !important;
+  border-bottom: 1px solid rgba(168, 104, 56, 0.3) !important;
   color: #ffffff !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 /* Icons/controls inside headers */
 .box.box-solid > .box-header .fa,
@@ -200,15 +281,24 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
   border-bottom: 1px solid #e9ecef;
 }
 
-/* Enhanced Value box styling - Wider boxes with better text display */
+/* Enhanced Value box styling - Sophisticated depth with blue-tinted shadows */
 .small-box {
   border-radius: 8px;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.12),
+              0 1px 3px rgba(30,58,95,0.08);
   min-height: 140px !important;
   width: 100% !important;
   margin-bottom: 15px !important;
   overflow: hidden;
   position: relative;
+  transition: transform 0.2s ease, box-shadow 0.3s ease;
+}
+
+/* Hover effect for value boxes - subtle lift */
+.small-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 12px rgba(0,0,0,0.15),
+              0 2px 6px rgba(30,58,95,0.12);
 }
 
 /* Ensure value box columns have adequate width */
@@ -303,17 +393,10 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
   background-color: rgba(0,0,0,0.02);
 }
 
-/* Alert styling */
+/* Alert styling - enhanced with sophisticated design */
 .alert {
-  border-radius: 5px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-/* Ambient info alert to match dark navy palette */
-.alert-info {
-  background-color: #2a4365 !important;
-  border-color: #2a4365 !important;
-  color: #ffffff !important;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.12);
 }
 
 /* Plot container styling */
@@ -321,13 +404,16 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
   border-radius: 5px;
 }
 
-/* Sidebar menu improvements */
+/* Sidebar menu improvements - refined with teal accent */
 .sidebar-menu > li.active > a {
-  border-left: 3px solid var(--color-primary);
+  border-left: 3px solid var(--color-secondary-teal);
 }
 
 .sidebar-menu > li > a:hover {
-  background-color: rgba(30,58,95,0.08);
+  background: linear-gradient(90deg,
+    rgba(13,94,87,0.10) 0%,
+    rgba(13,94,87,0.05) 100%
+  );
 }
 
 /* Submenu (treeview) styling */
@@ -342,8 +428,8 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 
 .skin-blue .treeview-menu>li>a:hover,
 .skin-blue .treeview-menu>li.active>a {
-  color: var(--color-primary) !important;
-  background-color: rgba(30,58,95,0.1) !important;
+  color: var(--color-secondary-teal) !important;
+  background-color: rgba(13,94,87,0.1) !important;
 }
 
 /* Sidebar icons */
@@ -359,21 +445,21 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 .skin-blue .sidebar-menu>li:hover>a>.fa,
 .skin-blue .sidebar-menu>li:hover>a>.glyphicon,
 .skin-blue .sidebar-menu>li:hover>a>.ion {
-  color: var(--color-primary) !important;
+  color: var(--color-secondary-teal) !important;
 }
 
 /* Filter panel styling */
 .form-group { margin-bottom: 14px; }
 
-/* Harmonize status colors to darker, ambient tones */
-.alert-warning, .bg-yellow, .label-warning { /* replace bright orange */
-  background-color: #463214 !important;
-  border-color: #463214 !important;
+/* Harmonize status colors with refined gradients */
+.bg-yellow, .label-warning {
+  background: linear-gradient(135deg, #92582e 0%, #a86838 100%) !important;
+  border-color: #92582e !important;
   color: #ffffff !important;
 }
 .bg-info, .callout.callout-info {
-  background-color: #2a4365 !important;
-  border-color: #2a4365 !important;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c5f7f 100%) !important;
+  border-left: 4px solid #2c5f7f !important;
   color: #ffffff !important;
 }
 
@@ -630,15 +716,15 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   margin-top: 10px;
 }
 
-/* Final override to ensure ambient info color everywhere (Book Explorer banner, etc.) */
+/* Final override with refined gradients for info elements everywhere */
 .alert.alert-info,
 .callout.callout-info,
 .bg-aqua, .bg-light-blue,
 .label-info,
 .small-box.bg-aqua,
 .info-box.bg-aqua {
-  background-color: #1e3a5f !important;
-  border-color: #1e3a5f !important;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c5f7f 100%) !important;
+  border-color: #2c5f7f !important;
   color: #ffffff !important;
 }
 
@@ -661,29 +747,32 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   line-height: 1.35 !important;
 }
 
-/* Final override to ensure ambient warning color everywhere */
+/* Final override with refined gradients for warning elements everywhere */
 .alert.alert-warning,
 .callout.callout-warning {
-  background-color: #463214 !important;
-  border-color: #463214 !important;
+  background: linear-gradient(135deg, #92582e 0%, #a86838 100%) !important;
+  border-left: 4px solid #c97a42 !important;
+  border-top: 1px solid rgba(168, 104, 56, 0.3) !important;
+  border-right: 1px solid rgba(168, 104, 56, 0.3) !important;
+  border-bottom: 1px solid rgba(168, 104, 56, 0.3) !important;
   color: #ffffff !important;
 }
 
 
 
 
-/* Genre color indicators */
-.genre-fiction { color: #e74c3c; }
-.genre-nonfiction { color: #3498db; }
-.genre-poetry { color: #9b59b6; }
-.genre-drama { color: #f39c12; }
-.genre-juvenile { color: #27ae60; }
-.genre-short { color: #1abc9c; }
-.genre-biography { color: #95a5a6; }
+/* Refined genre color indicators - harmonized with palette */
+.genre-fiction { color: #8b4a3a; }      /* Muted terracotta */
+.genre-nonfiction { color: #2c5f7f; }   /* Deep azure */
+.genre-poetry { color: #5b3a70; }       /* Muted aubergine */
+.genre-drama { color: #92582e; }        /* Muted amber */
+.genre-juvenile { color: #3f5f4a; }     /* Sage green */
+.genre-short { color: #0d5e57; }        /* Deep teal */
+.genre-biography { color: #6b7280; }    /* Warm gray */
 
-/* Gender color indicators */
-.gender-male { color: #3498db; }
-.gender-female { color: #e74c3c; }
+/* Refined gender color indicators - professional tones */
+.gender-male { color: #2c5f7f; }        /* Deep azure */
+.gender-female { color: #8b4a3a; }      /* Muted terracotta */
 
 /* Logo styling for header and branding */
 .header-logo-container {
@@ -706,13 +795,18 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   opacity: 0.85;
 }
 
-/* Dashboard branding banner */
+/* Dashboard branding banner - sophisticated multi-stop gradient */
 .dashboard-branding-banner {
-  background: linear-gradient(135deg, #1e3a5f 0%, #2a4365 100%);
+  background: linear-gradient(135deg,
+    #14293f 0%,      /* Darker navy for depth */
+    #1e3a5f 40%,     /* Primary navy */
+    #2a4365 70%,     /* Lighter navy */
+    #2c5f7f 100%     /* Touch of azure for sophistication */
+  );
   border-radius: 8px;
   padding: 25px 30px;
   margin-bottom: 25px;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(30,58,95,0.1);
   text-align: center;
 }
 
