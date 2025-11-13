@@ -2,7 +2,7 @@
 
 Use this worksheet to track your deployment configuration and credentials.
 
-**⚠️ SECURITY WARNING**: This file will contain sensitive information.
+** SECURITY WARNING**: This file will contain sensitive information.
 - **DO NOT** commit this file to git (it's in .gitignore)
 - Store securely (password manager, encrypted drive)
 - Share only via secure channels

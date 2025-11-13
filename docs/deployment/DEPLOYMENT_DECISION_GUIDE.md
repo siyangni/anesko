@@ -34,86 +34,86 @@ Use this decision tree to select the best hosting strategy for your needs.
 
 ## Option 1: ShinyApps.io (Free/Basic Tier)
 
-**✅ Choose if:**
+** Choose if:**
 - Fewer than 50 daily active users
 - Quick deployment needed (<15 minutes)
 - Don't want to manage servers
 - Demo, prototype, or internal tool
 - Limited technical expertise
 
-**📊 Specifications:**
+** Specifications:**
 - **Free Tier**: 25 active hours/month (good for testing)
 - **Basic Tier**: $39/month, 500 active hours
 - **Deployment time**: 15 minutes
-- **Difficulty**: ⭐ Beginner
+- **Difficulty**:  Beginner
 
-**💰 Total Cost:**
+** Total Cost:**
 - Development: $0/month (NeonDB Free + ShinyApps.io Free)
 - Production: $58/month (NeonDB Pro $19 + ShinyApps.io Basic $39)
 
-**📝 Follow:**
+** Follow:**
 - [QUICK_START_NEONDB.md](./QUICK_START_NEONDB.md)
 
 ---
 
 ## Option 2: Self-Hosted Shiny Server
 
-**✅ Choose if:**
+** Choose if:**
 - 100-500 daily active users
 - Want full control and flexibility
 - Budget-conscious (one-time costs)
 - Have basic Linux/server knowledge
 - Need custom domain and SSL
 
-**📊 Specifications:**
+** Specifications:**
 - **Server**: DigitalOcean Droplet (2 vCPU, 4GB RAM)
 - **Database**: NeonDB Pro
 - **Deployment time**: 45-60 minutes
-- **Difficulty**: ⭐⭐ Intermediate
+- **Difficulty**: Intermediate
 
-**💰 Total Cost:**
+** Total Cost:**
 - $43/month (NeonDB Pro $19 + Droplet $24)
 - One-time setup: 1-2 hours
 
-**✨ Advantages:**
+** Advantages:**
 - Unlimited active hours
 - Custom domain (yourapp.com)
 - Full SSL/HTTPS
 - No connection limits
 - Complete control
 
-**📝 Follow:**
+** Follow:**
 - [NEONDB_HOSTING_GUIDE.md](./NEONDB_HOSTING_GUIDE.md) → Part 3, Option B
 
 ---
 
 ## Option 3: ShinyApps.io Professional
 
-**✅ Choose if:**
+** Choose if:**
 - 200-1000 daily active users
 - Want managed service
 - Budget for professional tier
 - Need reliability guarantees
 - Don't want DevOps overhead
 
-**📊 Specifications:**
+** Specifications:**
 - **Standard Tier**: $99/month, 2000 active hours
 - **Professional Tier**: $299/month, 10000 active hours
 - **Deployment time**: 15 minutes
-- **Difficulty**: ⭐ Beginner
+- **Difficulty**: Beginner
 
-**💰 Total Cost:**
+** Total Cost:**
 - Standard: $118/month (NeonDB Pro $19 + ShinyApps.io $99)
 - Professional: $318/month (NeonDB Pro $19 + ShinyApps.io $299)
 
-**✨ Advantages:**
+** Advantages:**
 - Managed infrastructure
 - Automatic scaling
 - 99.9% uptime SLA (Professional)
 - Priority support
 - Easy deployment
 
-**📝 Follow:**
+** Follow:**
 - [QUICK_START_NEONDB.md](./QUICK_START_NEONDB.md)
 - Then upgrade tier in ShinyApps.io dashboard
 
@@ -121,33 +121,33 @@ Use this decision tree to select the best hosting strategy for your needs.
 
 ## Option 4: Docker on Cloud (AWS/GCP/Azure)
 
-**✅ Choose if:**
+**Choose if:**
 - 1000+ daily active users
 - Need horizontal scaling
 - Have DevOps expertise
 - Want infrastructure as code
 - Multi-region deployment needed
 
-**📊 Specifications:**
+** Specifications:**
 - **Container**: Docker with auto-scaling
 - **Orchestration**: Docker Compose or Kubernetes
 - **Database**: NeonDB Pro
 - **Deployment time**: 2-4 hours (first time)
-- **Difficulty**: ⭐⭐⭐ Advanced
+- **Difficulty**: Advanced
 
-**💰 Total Cost:**
+** Total Cost:**
 - Small: $60-80/month (NeonDB + Single container)
 - Medium: $100-150/month (NeonDB + Multi-container)
 - Large: $200-500/month (NeonDB + Load balancer + Multiple instances)
 
-**✨ Advantages:**
+** Advantages:**
 - Infinite scalability
 - Multi-region deployment
 - CI/CD integration
 - Container portability
 - Advanced monitoring
 
-**📝 Follow:**
+** Follow:**
 - [NEONDB_HOSTING_GUIDE.md](./NEONDB_HOSTING_GUIDE.md) → Part 3, Option C
 
 ---
@@ -161,10 +161,10 @@ Use this decision tree to select the best hosting strategy for your needs.
 | **Cost (Monthly)** | $0-58 | $43 | $118-318 | $60-500 |
 | **Max Users** | 50-100 | 500 | 1000+ | Unlimited |
 | **Uptime SLA** | None (Free/Basic) | Self-managed | 99.9% (Pro) | Self-managed |
-| **Custom Domain** | ❌ | ✅ | ✅ ($$$) | ✅ |
-| **SSL/HTTPS** | ✅ Auto | ✅ (via Certbot) | ✅ Auto | ✅ (configure) |
-| **Auto-Scaling** | ✅ Limited | ❌ | ✅ Yes | ✅ Yes (manual) |
-| **Server Maintenance** | ✅ Managed | ❌ You manage | ✅ Managed | ❌ You manage |
+| **Custom Domain** |  | | ($$$) | |
+| **SSL/HTTPS** | Auto | (via Certbot) | Auto | (configure) |
+| **Auto-Scaling** | Limited |  | Yes | Yes (manual) |
+| **Server Maintenance** | Managed |  You manage | Managed |  You manage |
 | **Deployment Method** | `rsconnect` | Git/rsync | `rsconnect` | Docker push |
 | **Monitoring** | Basic | Full control | Advanced | Full control |
 | **Database** | NeonDB | NeonDB | NeonDB | NeonDB or any |
@@ -173,7 +173,7 @@ Use this decision tree to select the best hosting strategy for your needs.
 
 ## Recommended Paths by Use Case
 
-### 🎓 Academic Research (Your Use Case)
+### Academic Research (Your Use Case)
 **Recommended: Option 1 → Option 2**
 
 Start with **ShinyApps.io Free** for testing:
@@ -192,7 +192,7 @@ Upgrade to **Self-Hosted** when ready for publication:
 
 ---
 
-### 💼 Enterprise/Commercial
+### Enterprise/Commercial
 **Recommended: Option 4 (Docker)**
 
 Deploy to **AWS ECS** or **GCP Cloud Run**:
@@ -206,7 +206,7 @@ Deploy to **AWS ECS** or **GCP Cloud Run**:
 
 ---
 
-### 🏢 Small Business/Startup
+### Small Business/Startup
 **Recommended: Option 2 (Self-Hosted)**
 
 Deploy to **DigitalOcean**:
@@ -400,4 +400,4 @@ Still unsure? **Start with Option 1** (ShinyApps.io Free):
 - Grow as needed (migrate to Option 2)
 - Scale when necessary (upgrade to Option 4)
 
-Your codebase is ready for all options! 🚀
+Your codebase is ready for all options! 
