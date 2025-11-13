@@ -174,7 +174,7 @@ dashboardServer <- function(id) {
 
     top_books_data <- reactive({
       tryCatch({
-        get_top_books(limit = 15)
+        get_top_books(limit = 100)
       }, error = function(e) {
         warning("Failed to load top books data: ", e$message)
         data.frame()
@@ -187,17 +187,19 @@ dashboardServer <- function(id) {
 
       # Helper function to create clickable value box
       create_clickable_box <- function(value, subtitle, icon, color, target_tab, hint) {
-        box_html <- create_value_box(
-          value = value,
-          subtitle = HTML(paste0(subtitle, '<div class="value-box-hint">', hint, '</div>')),
-          icon = icon,
-          color = color,
-          width = 12
+        # Wrap the value box in a clickable div
+        div(
+          class = "value-box-clickable",
+          `data-target-tab` = target_tab,
+          style = "height: 100%;",
+          create_value_box(
+            value = value,
+            subtitle = HTML(paste0(subtitle, '<div class="value-box-hint">', hint, '</div>')),
+            icon = icon,
+            color = color,
+            width = 12
+          )
         )
-        # Add clickable class and data attribute
-        box_html$attribs$class <- paste(box_html$attribs$class, "value-box-clickable")
-        box_html$attribs$`data-target-tab` <- target_tab
-        box_html
       }
 
       # Create two rows of wider boxes for better text display
