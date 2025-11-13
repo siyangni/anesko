@@ -1,18 +1,75 @@
 # Plotting Utility Functions
 # Functions for creating consistent, interactive plots throughout the app
 
-# Custom ggplot theme for the app - enhanced for accessibility
-theme_authorship <- function(base_size = 14) { # Increased from 12 for better readability
+# Modern custom ggplot theme - enhanced for accessibility and visual appeal
+theme_authorship <- function(base_size = 16) { # Increased from 14 for better readability
   theme_minimal(base_size = base_size) +
     theme(
-      plot.title = element_text(size = base_size + 2, face = "bold", hjust = 0.5),
-      plot.subtitle = element_text(size = base_size, color = "gray60", hjust = 0.5),
-      plot.caption = element_text(size = base_size - 2, color = "gray50"),
-      strip.text = element_text(face = "bold"),
-      legend.title = element_text(face = "bold"),
-      axis.title = element_text(face = "bold"),
+      # Typography enhancements
+      plot.title = element_text(
+        size = base_size + 4,
+        face = "bold",
+        hjust = 0.5,
+        color = "#1f2937",
+        margin = margin(b = 10)
+      ),
+      plot.subtitle = element_text(
+        size = base_size + 1,
+        color = "#4b5563",
+        hjust = 0.5,
+        margin = margin(b = 15)
+      ),
+      plot.caption = element_text(
+        size = base_size - 2,
+        color = "#6b7280",
+        hjust = 1,
+        margin = margin(t = 10)
+      ),
+
+      # Axis styling
+      axis.title = element_text(
+        face = "bold",
+        size = base_size,
+        color = "#1f2937"
+      ),
+      axis.text = element_text(
+        size = base_size - 1,
+        color = "#4b5563"
+      ),
+      axis.line = element_line(color = "#d1d5db", size = 0.5),
+
+      # Legend styling
+      legend.title = element_text(
+        face = "bold",
+        size = base_size,
+        color = "#1f2937"
+      ),
+      legend.text = element_text(
+        size = base_size - 1,
+        color = "#4b5563"
+      ),
+      legend.position = "bottom",
+      legend.background = element_rect(fill = "white", color = "#e5e7eb", size = 0.5),
+      legend.key = element_rect(fill = NA, color = NA),
+      legend.margin = margin(t = 10),
+
+      # Facet/strip styling
+      strip.text = element_text(
+        face = "bold",
+        size = base_size,
+        color = "#1f2937",
+        margin = margin(b = 5)
+      ),
+      strip.background = element_rect(fill = "#f3f4f6", color = NA),
+
+      # Grid styling
       panel.grid.minor = element_blank(),
-      panel.grid.major = element_line(color = "gray90", size = 0.3)
+      panel.grid.major = element_line(color = "#e5e7eb", size = 0.4),
+      panel.background = element_rect(fill = "#fafafa", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
+
+      # Plot margins
+      plot.margin = margin(15, 15, 15, 15)
     )
 }
 
