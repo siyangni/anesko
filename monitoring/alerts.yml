@@ -1,0 +1,228 @@
+# Prometheus Alerting Rules for American Authorship Database
+# These rules define when to send alerts based on metrics
+
+groups:
+  # ==========================================================================
+  # APPLICATION ALERTS
+  # ==========================================================================
+  - name: application_alerts
+    interval: 1m
+    rules:
+      - alert: ApplicationDown
+        expr: up{job="shiny-app"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "Shiny application is down"
+          description: "The Shiny application has been down for more than 2 minutes. Immediate action required."
+          runbook: "https://github.com/siyangni/anesko/docs/RUNBOOK.md#application-down"
+
+      - alert: HighErrorRate
+        expr: rate(shiny_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "High error rate detected"
+          description: "Application error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+          action: "Check application logs for errors"
+
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, rate(shiny_request_duration_seconds_bucket[5m])) > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Slow response times"
+          description: "95th percentile response time is {{ $value }}s"
+          action: "Check for slow database queries or high load"
+
+  # ==========================================================================
+  # DATABASE ALERTS
+  # ==========================================================================
+  - name: database_alerts
+    interval: 1m
+    rules:
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "Database has been unreachable for more than 1 minute."
+          action: "Check PostgreSQL service status and restart if needed"
+          command: "sudo service postgresql status"
+
+      - alert: DatabaseConnectionsHigh
+        expr: (pg_stat_database_numbackends / pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High database connection usage"
+          description: "Database is using {{ $value | humanizePercentage }} of available connections"
+          action: "Investigate connection pool settings or connection leaks"
+
+      - alert: DatabaseSlowQueries
+        expr: rate(pg_stat_statements_mean_time_seconds[5m]) > 1
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Average query time is {{ $value }}s"
+          action: "Check pg_stat_statements for slow queries and optimize indexes"
+
+      - alert: DatabaseDiskSpaceWarn
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/postgresql"} / node_filesystem_size_bytes{mountpoint="/var/lib/postgresql"}) < 0.2
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database disk space low"
+          description: "Database partition has less than 20% free space remaining"
+          action: "Clean up old logs or backups, or expand disk"
+
+      - alert: DatabaseDiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{mountpoint="/var/lib/postgresql"} / node_filesystem_size_bytes{mountpoint="/var/lib/postgresql"}) < 0.1
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database disk space critically low"
+          description: "Database partition has less than 10% free space remaining"
+          action: "IMMEDIATE: Free up disk space or expand storage"
+
+  # ==========================================================================
+  # SYSTEM RESOURCE ALERTS
+  # ==========================================================================
+  - name: resource_alerts
+    interval: 1m
+    rules:
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "System memory usage is {{ $value | humanizePercentage }}"
+          action: "Check for memory leaks or increase system RAM"
+
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+          action: "Check for runaway processes or scale horizontally"
+
+      - alert: SystemDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "System disk space low"
+          description: "Root partition has less than 15% free space"
+          action: "Clean up old logs, Docker images, or expand disk"
+
+  # ==========================================================================
+  # BACKUP ALERTS
+  # ==========================================================================
+  - name: backup_alerts
+    interval: 1h
+    rules:
+      - alert: BackupFailed
+        expr: time() - backup_last_success_timestamp_seconds > 86400
+        labels:
+          severity: warning
+          component: backup
+        annotations:
+          summary: "Database backup failed or overdue"
+          description: "No successful backup in the last 24 hours"
+          action: "Check backup script logs and ensure cron job is running"
+          command: "cat /var/log/backup/backup.log"
+
+      - alert: BackupOld
+        expr: time() - backup_last_success_timestamp_seconds > 172800
+        labels:
+          severity: critical
+          component: backup
+        annotations:
+          summary: "Database backups critically overdue"
+          description: "No successful backup in the last 48 hours"
+          action: "IMMEDIATE: Investigate backup failure and create manual backup"
+
+  # ==========================================================================
+  # SECURITY ALERTS
+  # ==========================================================================
+  - name: security_alerts
+    interval: 5m
+    rules:
+      - alert: HighFailedLoginAttempts
+        expr: rate(auth_failed_login_attempts_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "{{ $value }} failed login attempts per second over last 5 minutes"
+          action: "Check authentication logs for brute force attacks"
+          command: "grep 'login_failure' logs/auth/*.log | tail -100"
+
+      - alert: UnauthorizedAccessAttempt
+        expr: rate(http_requests_total{status="403"}[5m]) > 1
+        for: 10m
+        labels:
+          severity: info
+          component: security
+        annotations:
+          summary: "Unauthorized access attempts detected"
+          description: "Multiple 403 Forbidden responses observed"
+          action: "Review access logs for suspicious activity"
+
+  # ==========================================================================
+  # MONITORING ALERTS (Meta-monitoring)
+  # ==========================================================================
+  - name: monitoring_alerts
+    interval: 5m
+    rules:
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "Prometheus is down"
+          description: "Prometheus monitoring system is not responding"
+          action: "Restart Prometheus container"
+          command: "docker-compose restart prometheus"
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Alertmanager is down"
+          description: "Alert routing system is not responding - alerts may not be delivered"
+          action: "Restart Alertmanager container"

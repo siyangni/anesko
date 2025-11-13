@@ -1,0 +1,130 @@
+# Alertmanager Configuration for American Authorship Database
+# Defines how alerts are routed and where notifications are sent
+
+global:
+  # Resolve timeout - how long to wait before resolving an alert
+  resolve_timeout: 5m
+
+  # SMTP settings for email notifications
+  # smtp_smarthost: 'smtp.gmail.com:587'
+  # smtp_from: 'alerts@example.com'
+  # smtp_auth_username: 'alerts@example.com'
+  # smtp_auth_password: 'your-app-password'
+  # smtp_require_tls: true
+
+# Inhibition rules - prevent certain alerts when others are firing
+inhibit_rules:
+  # Don't alert on slow queries if database is down
+  - source_match:
+      alertname: 'DatabaseDown'
+    target_match:
+      component: 'database'
+    equal: ['instance']
+
+  # Don't alert on application issues if system is down
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['instance']
+
+# Routing tree - determines where alerts go
+route:
+  # Default receiver
+  receiver: 'team-email'
+
+  # Group alerts by these labels
+  group_by: ['alertname', 'cluster', 'service']
+
+  # How long to wait before sending initial notification
+  group_wait: 30s
+
+  # How long to wait before sending new alerts from same group
+  group_interval: 5m
+
+  # How long to wait before re-sending resolved alerts
+  repeat_interval: 4h
+
+  # Routes for specific alert types
+  routes:
+    # Critical alerts - send immediately to multiple channels
+    - match:
+        severity: critical
+      receiver: 'critical-team'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Database alerts - send to DBA team
+    - match:
+        component: database
+      receiver: 'dba-team'
+      group_interval: 3m
+
+    # Security alerts - send to security team
+    - match:
+        component: security
+      receiver: 'security-team'
+      group_wait: 1m
+
+    # Backup alerts - send to ops team
+    - match:
+        component: backup
+      receiver: 'ops-team'
+      repeat_interval: 12h  # Don't spam about backups
+
+# Receivers - define notification channels
+receivers:
+  # Default email receiver
+  - name: 'team-email'
+    email_configs:
+      - to: 'team@example.com'
+        subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        html: |
+          <h2>{{ .CommonLabels.alertname }}</h2>
+          <p><strong>Severity:</strong> {{ .CommonLabels.severity }}</p>
+          <p><strong>Description:</strong> {{ range .Alerts }}{{ .Annotations.description }}{{ end }}</p>
+          <p><strong>Action:</strong> {{ range .Alerts }}{{ .Annotations.action }}{{ end }}</p>
+
+  # Critical alerts - multiple channels
+  - name: 'critical-team'
+    email_configs:
+      - to: 'oncall@example.com, admin@example.com'
+        subject: '🚨 CRITICAL: {{ .CommonLabels.alertname }}'
+        send_resolved: true
+    # Uncomment to add Slack notifications
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    #     channel: '#critical-alerts'
+    #     title: '🚨 CRITICAL: {{ .CommonLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    # Uncomment to add PagerDuty
+    # pagerduty_configs:
+    #   - service_key: 'your-pagerduty-service-key'
+
+  # DBA team
+  - name: 'dba-team'
+    email_configs:
+      - to: 'dba@example.com'
+        subject: '[Database] {{ .CommonLabels.alertname }}'
+
+  # Security team
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@example.com'
+        subject: '[Security] {{ .CommonLabels.alertname }}'
+
+  # Ops team
+  - name: 'ops-team'
+    email_configs:
+      - to: 'ops@example.com'
+        subject: '[Operations] {{ .CommonLabels.alertname }}'
+
+  # Webhook receiver (for custom integrations)
+  - name: 'webhook'
+    webhook_configs:
+      - url: 'http://localhost:5001/alert'
+        send_resolved: true
+
+# Templates for notifications (optional)
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
