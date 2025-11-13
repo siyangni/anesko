@@ -120,19 +120,19 @@ test_that("ui component works", {
 
 ### DO
 
-- ✅ Write tests before fixing bugs (TDD)
-- ✅ Test edge cases (NULL, NA, empty values)
-- ✅ Use descriptive test names
-- ✅ Keep tests fast and independent
-- ✅ Mock external dependencies when possible
+- Write tests before fixing bugs (TDD)
+- Test edge cases (NULL, NA, empty values)
+- Use descriptive test names
+- Keep tests fast and independent
+- Mock external dependencies when possible
 
 ### DON'T
 
-- ❌ Test framework code (only test your code)
-- ❌ Write tests that depend on each other
-- ❌ Use hardcoded passwords or secrets
-- ❌ Skip cleanup in test teardown
-- ❌ Commit screenshot files (unless for regression testing)
+- Test framework code (only test your code)
+- Write tests that depend on each other
+- Use hardcoded passwords or secrets
+- Skip cleanup in test teardown
+- Commit screenshot files (unless for regression testing)
 
 ## Test Coverage Goals
 

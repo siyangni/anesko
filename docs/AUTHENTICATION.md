@@ -63,7 +63,7 @@ For testing purposes, three demo users are provided:
 | researcher | research   | User       | Full read access             |
 | viewer     | view       | User       | Read-only access             |
 
-⚠️ **CRITICAL**: Change these passwords immediately in production!
+ **CRITICAL**: Change these passwords immediately in production!
 
 ### Creating Production Users
 
@@ -412,32 +412,32 @@ To migrate from the unauthenticated version:
 
 ### Development
 
-- ✅ Use demo credentials
-- ✅ Set AUTH_SOURCE=demo
-- ✅ Log all authentication events
-- ✅ Test with different user roles
+- Use demo credentials
+- Set AUTH_SOURCE=demo
+- Log all authentication events
+- Test with different user roles
 
 ### Staging
 
-- ✅ Use file-based credentials
-- ✅ Set AUTH_SOURCE=file
-- ✅ Test password changes
-- ✅ Test session timeouts
-- ✅ Monitor authentication logs
+- Use file-based credentials
+- Set AUTH_SOURCE=file
+- Test password changes
+- Test session timeouts
+- Monitor authentication logs
 
 ### Production
 
-- ✅ Use database-based credentials
-- ✅ Set AUTH_SOURCE=database
-- ✅ Use strong passwords (12+ characters)
-- ✅ Enforce password expiration (90 days)
-- ✅ Enable account lockout after failed attempts
-- ✅ Monitor logs for suspicious activity
-- ✅ Regular security audits
-- ✅ Consider upgrading to OAuth2/SAML for sensitive data
-- ❌ Never use demo credentials
-- ❌ Never store passwords in plain text
-- ❌ Never commit users.rds to git
+- Use database-based credentials
+- Set AUTH_SOURCE=database
+- Use strong passwords (12+ characters)
+- Enforce password expiration (90 days)
+- Enable account lockout after failed attempts
+- Monitor logs for suspicious activity
+- Regular security audits
+- Consider upgrading to OAuth2/SAML for sensitive data
+- Never use demo credentials
+- Never store passwords in plain text
+- Never commit users.rds to git
 
 ## Future Enhancements
 

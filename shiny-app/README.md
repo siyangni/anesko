@@ -2,7 +2,7 @@
 
 Interactive dashboard for exploring the American Authorship Database (1860-1920).
 
-## 🏗️ Application Structure
+## Application Structure
 
 ```
 shiny-app/
@@ -27,7 +27,7 @@ shiny-app/
 └── README.md               # This file
 ```
 
-## 🚀 Features
+## Features
 
 ### Dashboard Overview
 - **Summary Statistics**: Total books, authors, sales, and date range
@@ -49,7 +49,7 @@ shiny-app/
 - **Author Analysis**: Gender disparities and career patterns
 - **Genre Analysis**: Literary genre evolution and market dynamics
 
-## 📋 Prerequisites
+## Prerequisites
 
 ### R Packages Required
 The application automatically loads these packages (install if needed):
@@ -76,7 +76,7 @@ install.packages(c("stringr", "scales", "markdown"))
 - American Authorship database populated (see migration scripts)
 - Database credentials configured
 
-## ⚙️ Configuration
+## Configuration
 
 ### Database Connection
 The app looks for database credentials in this order:
@@ -93,7 +93,7 @@ Modify `config/app_config.R` to customize:
 - Performance parameters
 - Feature flags
 
-## 🖥️ Running the Application
+## Running the Application
 
 ### Option 1: Run from R/RStudio
 ```r
@@ -119,7 +119,7 @@ Rscript app.R
 shiny::runApp("path/to/anesko/shiny-app")
 ```
 
-## 🎨 Customization
+## Customization
 
 ### Adding New Modules
 1. Create new module file in `modules/` directory
@@ -138,21 +138,21 @@ shiny::runApp("path/to/anesko/shiny-app")
 - Follow the `safe_db_query()` pattern for error handling
 - Use parameterized queries for security
 
-## 📊 Data Structure
+## Data Structure
 
 The dashboard expects these database tables:
 - `book_entries`: Book metadata and author information
 - `book_sales`: Sales records by year
 - `book_sales_summary`: Pre-aggregated view for performance
 
-## 🔒 Security Notes
+## Security Notes
 
 - Database credentials should never be committed to version control
 - Use environment variables for production deployments
 - The app includes SQL injection protection via parameterized queries
 - Connection pooling is implemented for better performance
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -206,7 +206,7 @@ options(shiny.trace = TRUE)
 shiny::runApp("shiny-app/")
 ```
 
-## 📈 Future Enhancements
+## Future Enhancements
 
 ### Planned Features
 - **Advanced Sales Analysis**: Seasonal patterns, market cycles
@@ -222,7 +222,7 @@ shiny::runApp("shiny-app/")
 - **Mobile Optimization**: Responsive design improvements
 - **Accessibility**: WCAG compliance features
 
-## 👥 Contributing
+## Contributing
 
 To extend or modify the dashboard:
 
@@ -232,7 +232,7 @@ To extend or modify the dashboard:
 4. Document new features and functions
 5. Test thoroughly before deployment
 
-## 📞 Support
+## Support
 
 For technical issues or feature requests:
 - Check the troubleshooting section above

@@ -4,7 +4,7 @@ This directory contains sensitive credentials for the American Authorship Databa
 
 ## Security Guidelines
 
-🔒 **CRITICAL**: Files in this directory (except templates and README) are **NEVER** committed to git.
+ **CRITICAL**: Files in this directory (except templates and README) are **NEVER** committed to git.
 
 ## Setup Instructions
 
@@ -98,13 +98,13 @@ If you've accidentally committed credentials:
 
 ## Best Practices
 
-- ✅ Use `openssl rand -base64 32` for password generation
-- ✅ Rotate passwords every 90 days
-- ✅ Never share passwords via email or chat
-- ✅ Use environment-specific passwords (dev vs. prod)
-- ❌ Never commit `db_password.txt` to version control
-- ❌ Never reuse passwords across environments
-- ❌ Never use simple/guessable passwords
+- Use `openssl rand -base64 32` for password generation
+- Rotate passwords every 90 days
+- Never share passwords via email or chat
+- Use environment-specific passwords (dev vs. prod)
+- Never commit `db_password.txt` to version control
+- Never reuse passwords across environments
+- Never use simple/guessable passwords
 
 ## Production Deployment
 
