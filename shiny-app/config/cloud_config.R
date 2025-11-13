@@ -23,10 +23,24 @@ if (file.exists(".env")) {
 
 # Database configuration using environment variables
 # BEST PRACTICE: Set these as environment variables, not hardcoded
+# SECURITY: Supports Docker secrets via _FILE environment variables
 db_host <- Sys.getenv("DB_HOST", "")
 db_name <- Sys.getenv("DB_NAME", "")
 db_user <- Sys.getenv("DB_USER", "")
-db_password <- Sys.getenv("DB_PASSWORD", "")
+
+# Support Docker secrets pattern: check for DB_PASSWORD_FILE first
+db_password_file <- Sys.getenv("DB_PASSWORD_FILE", "")
+if (db_password_file != "" && file.exists(db_password_file)) {
+  # Read password from Docker secret file
+  db_password <- trimws(readLines(db_password_file, warn = FALSE, n = 1))
+  cat("🔐 Loaded database password from Docker secret file\n")
+} else {
+  # Fallback to environment variable (for non-Docker deployments)
+  db_password <- Sys.getenv("DB_PASSWORD", "")
+  if (db_password != "") {
+    cat("⚠️  Using DB_PASSWORD from environment (consider using secrets file)\n")
+  }
+}
 
 config_loaded <- FALSE
 

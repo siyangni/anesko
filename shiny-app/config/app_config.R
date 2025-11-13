@@ -9,10 +9,13 @@ APP_DESCRIPTION <- "Interactive dashboard for exploring American literary market
 # Load cloud database configuration
 source("config/cloud_config.R")
 
-# Connection pool settings
-POOL_SIZE_MIN <- 1
-POOL_SIZE_MAX <- 5  # Neon handles more connections than ElephantSQL
-POOL_IDLE_TIMEOUT <- 60
+# Connection pool settings (UPDATED for production)
+# Increased from 5 to 20 to support 50+ concurrent users
+# Each user typically uses 1-2 connections during active use
+POOL_SIZE_MIN <- 2  # Keep at least 2 connections warm
+POOL_SIZE_MAX <- 20  # Support up to 20 concurrent connections
+POOL_IDLE_TIMEOUT <- 120  # Increased to 2 minutes to reduce connection churn
+POOL_VALIDATION_INTERVAL <- 3600  # Validate connections every hour
 
 # Data refresh settings
 CACHE_REFRESH_MINUTES <- 30

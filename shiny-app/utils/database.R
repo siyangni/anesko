@@ -1,5 +1,14 @@
 # Database Utility Functions
 # Functions for database connection management and common queries
+# SECURITY: All queries use parameterized statements to prevent SQL injection
+
+# Load input validation utilities
+tryCatch({
+  source("utils/input_validation.R", local = TRUE)
+}, error = function(e) {
+  # Validation functions will be loaded on-demand if this fails
+  NULL
+})
 
 # Create database connection pool
 create_db_pool <- function() {

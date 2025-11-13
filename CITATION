@@ -1,0 +1,56 @@
+Preferred citation for this dataset:
+
+Anesko, Michael W., Ni, Siyang, McLean, Nick, & Isasi, Jennifer. (2025).
+Database of American Authorship, 1860-1920 (Version 1.0.0) [Dataset].
+GitHub. https://github.com/siyangni/anesko
+
+BibTeX:
+
+```bibtex
+@misc{anesko2025database,
+  author = {Anesko, Michael W. and Ni, Siyang and McLean, Nick and Isasi, Jennifer},
+  title = {Database of American Authorship, 1860-1920},
+  year = {2025},
+  version = {1.0.0},
+  publisher = {GitHub},
+  url = {https://github.com/siyangni/anesko},
+  note = {Interactive Shiny dashboard for exploring publishing and sales data from major American publishers during the late 19th and early 20th centuries}
+}
+```
+
+For the methodology and archival sources:
+
+```bibtex
+@article{anesko2025methodology,
+  author = {Anesko, Michael W.},
+  title = {Quantifying American Authorship: A Statistical Database of Publishing and Sales Data, 1860-1920},
+  journal = {TBD},
+  year = {2025},
+  note = {Manuscript in preparation}
+}
+```
+
+Data sources should be cited as:
+
+- Houghton, Mifflin Co. Records, Houghton Library, Harvard University
+- Harper & Brothers Publishing Records (Chadwyck-Healey Microfilm)
+- Charles Scribner's Sons Archive, Princeton University Library
+- J. B. Lippincott Company Records, University of Pennsylvania
+
+When using this database for research, please:
+
+1. Cite the database using the references above
+2. Acknowledge the specific publisher archives used for your analysis
+3. Note the version number and access date
+4. Follow Penn State University data sharing policies
+
+Example acknowledgment:
+
+"This research uses data from the Database of American Authorship, 1860-1920
+(Anesko et al., 2025), which aggregates sales and royalty information from
+major American publisher archives."
+
+For questions about citing specific components or requesting a DOI,
+please contact: Dr. Michael Anesko (mwa2@psu.edu)
+
+DOI: [To be assigned - recommend registering with Zenodo or similar repository]

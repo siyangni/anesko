@@ -1,0 +1,277 @@
+# Improved CI/CD Pipeline - Production Ready
+# This file addresses audit recommendations:
+# - Make tests blocking (no continue-on-error)
+# - Add security scanning
+# - Add Docker build testing
+# - Add code coverage reporting
+# - Add dependency vulnerability scanning
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop, claude/* ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # =============================================================================
+  # SECURITY SCANNING
+  # =============================================================================
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+
+  # =============================================================================
+  # R PACKAGE CHECKS
+  # =============================================================================
+  r-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        r-version: ['4.2.0', '4.3.0']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ matrix.r-version }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libpq-dev \
+            libsodium-dev
+
+      - name: Install R dependencies
+        run: |
+          install.packages(c("remotes", "rcmdcheck"))
+          remotes::install_deps(dependencies = TRUE)
+        shell: Rscript {0}
+
+      - name: Check R code
+        run: rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran"), error_on = "warning")
+        shell: Rscript {0}
+
+  # =============================================================================
+  # LINTING (NOW BLOCKING)
+  # =============================================================================
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.0'
+
+      - name: Install linting tools
+        run: |
+          install.packages(c("lintr", "styler"))
+        shell: Rscript {0}
+
+      - name: Run lintr (BLOCKING)
+        run: |
+          library(lintr)
+          results <- lint_package()
+          if (length(results) > 0) {
+            print(results)
+            quit(status = 1)
+          }
+        shell: Rscript {0}
+        # REMOVED continue-on-error - lint failures now block merge
+
+  # =============================================================================
+  # TESTING (NOW BLOCKING)
+  # =============================================================================
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.0'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libpq-dev
+
+      - name: Install R dependencies
+        run: |
+          install.packages(c("remotes", "testthat", "covr"))
+          remotes::install_deps(dependencies = TRUE)
+        shell: Rscript {0}
+
+      - name: Run tests (BLOCKING)
+        run: |
+          library(testthat)
+          if (dir.exists("tests")) {
+            test_results <- test_dir("tests")
+            if (any(as.data.frame(test_results)$failed > 0)) {
+              quit(status = 1)
+            }
+          }
+        shell: Rscript {0}
+        # REMOVED continue-on-error - test failures now block merge
+
+      - name: Test coverage
+        run: |
+          library(covr)
+          coverage <- package_coverage()
+          percent_coverage <- percent_coverage(coverage)
+          cat("Code coverage:", percent_coverage, "%\n")
+
+          # Fail if coverage < 50%
+          if (percent_coverage < 50) {
+            stop("Code coverage below 50%: ", percent_coverage, "%")
+          }
+        shell: Rscript {0}
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+
+  # =============================================================================
+  # DOCKER BUILD TEST
+  # =============================================================================
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false
+          tags: american-authorship:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run Trivy vulnerability scanner on image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'american-authorship:test'
+          format: 'sarif'
+          output: 'trivy-docker-results.sarif'
+
+  # =============================================================================
+  # DEPENDENCY AUDIT
+  # =============================================================================
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.3.0'
+
+      - name: Install oysteR
+        run: install.packages("oysteR")
+        shell: Rscript {0}
+
+      - name: Audit R package vulnerabilities
+        run: |
+          library(oysteR)
+          audit_results <- audit_installed_r_pkgs()
+          if (nrow(audit_results) > 0) {
+            print(audit_results)
+            # Warn but don't fail for now
+            cat("::warning::Found", nrow(audit_results), "package vulnerabilities\n")
+          }
+        shell: Rscript {0}
+
+  # =============================================================================
+  # STRUCTURE VALIDATION
+  # =============================================================================
+  structure-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Check required files
+        run: |
+          echo "Checking for required files..."
+          required_files=("DESCRIPTION" "README.md" "License.md" ".gitignore" "secrets/README.md" "secrets/db_password.txt.template")
+
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✓ $file exists"
+            else
+              echo "✗ $file missing"
+              exit 1
+            fi
+          done
+
+          echo "All required files present!"
+
+      - name: Check directory structure
+        run: |
+          echo "Checking directory structure..."
+          required_dirs=("shiny-app" "scripts" "docs" "tests" "secrets")
+
+          for dir in "${required_dirs[@]}"; do
+            if [ -d "$dir" ]; then
+              echo "✓ $dir/ exists"
+            else
+              echo "✗ $dir/ directory missing"
+              exit 1
+            fi
+          done
+
+      - name: Verify secrets are gitignored
+        run: |
+          if git check-ignore secrets/db_password.txt; then
+            echo "✓ secrets/db_password.txt is properly gitignored"
+          else
+            echo "✗ secrets/db_password.txt is NOT gitignored - SECURITY ISSUE!"
+            exit 1
+          fi
