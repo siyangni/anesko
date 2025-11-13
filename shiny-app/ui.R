@@ -12,12 +12,12 @@ ui <- dashboardPage(
         tags$div(style = "display: flex; align-items: center; gap: 15px; height: 50px;",
           tags$a(href = "https://la.psu.edu/", target = "_blank",
             tags$img(src = "psu_cla_logo.png",
-                     style = "height: 32px; width: auto; object-fit: contain;",
+                     style = "height: 60px; width: auto; object-fit: contain;",
                      alt = "Penn State College of Liberal Arts")
           ),
           tags$a(href = "https://dla.psu.edu/", target = "_blank",
             tags$img(src = "psu_dla_logo.png",
-                     style = "height: 32px; width: auto; object-fit: contain;",
+                     style = "height: 38px; width: auto; object-fit: contain;",
                      alt = "Digital Liberal Arts Research Initiative")
           )
         )
@@ -48,7 +48,7 @@ ui <- dashboardPage(
     br(), br(),
     div(
       style = "position: absolute; bottom: 20px; left: 20px; right: 20px;
-               color: #ccc; font-size: 14px; text-align: center;",
+               color: #6c757d; font-size: 14px; text-align: center;",
       p("American Authorship Database"),
       p("1860-1920"),
       p(paste("Version", APP_VERSION))
@@ -145,11 +145,11 @@ ui <- dashboardPage(
                 h4("Supported By"),
                 div(class = "about-logos-container",
                   tags$a(href = "https://la.psu.edu/", target = "_blank",
-                    tags$img(src = "psu_cla_logo.png", class = "about-logo",
+                    tags$img(src = "psu_cla_logo.png", class = "about-logo about-logo-cla",
                              alt = "Penn State College of Liberal Arts")
                   ),
                   tags$a(href = "https://dla.psu.edu/", target = "_blank",
-                    tags$img(src = "psu_dla_logo.png", class = "about-logo",
+                    tags$img(src = "psu_dla_logo.png", class = "about-logo about-logo-dla",
                              alt = "Digital Liberal Arts Research Initiative")
                   )
                 )

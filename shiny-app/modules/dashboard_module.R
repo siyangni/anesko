@@ -11,16 +11,6 @@ dashboardUI <- function(id) {
       div(class = "banner-text",
         tags$h2("American Authorship Database (1860-1920)"),
         tags$p("A comprehensive digital resource exploring literary publishing, authorship, and economic trends in American literature")
-      ),
-      div(class = "banner-logos",
-        tags$a(href = "https://la.psu.edu/", target = "_blank",
-          tags$img(src = "psu_cla_logo.png", class = "banner-logo",
-                   alt = "Penn State College of Liberal Arts")
-        ),
-        tags$a(href = "https://dla.psu.edu/", target = "_blank",
-          tags$img(src = "psu_dla_logo.png", class = "banner-logo",
-                   alt = "Digital Liberal Arts Research Initiative")
-        )
       )
     ),
 

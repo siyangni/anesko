@@ -73,18 +73,47 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
   background-color: var(--color-bg) !important;
 }
 .main-header .logo, .main-header .navbar {
-  background: var(--color-primary) !important;
+  background: #e8eef5 !important; /* Light blue-gray background for better logo visibility */
+  border-bottom: 1px solid #dee2e6;
 }
 .main-header .logo {
-  color: var(--color-primary-contrast) !important;
+  color: var(--color-text) !important; /* Dark text on light background */
   font-size: 20px; /* Increased from 18px for better readability */
+  border-right: 1px solid #dee2e6;
 }
+/* Sidebar styling - light theme for consistency */
+.skin-blue .main-sidebar {
+  background-color: #f4f6f9 !important;
+  border-right: 1px solid #dee2e6;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+
+/* Treeview menu arrow/chevron styling */
+.skin-blue .sidebar-menu .treeview-menu>li>a>.fa-angle-left,
+.skin-blue .sidebar-menu .treeview-menu>li>a>.pull-right-container>.fa-angle-left {
+  color: var(--color-text-muted) !important;
+}
+
+.skin-blue .sidebar-menu>li>a>.pull-right-container>.fa-angle-left {
+  color: var(--color-text-muted) !important;
+}
+
 .skin-blue .sidebar-menu>li.active>a,
 .skin-blue .sidebar-menu>li:hover>a {
-  background: rgba(30,58,95,0.15) !important;
+  background: rgba(30,58,95,0.08) !important;
+  color: var(--color-primary) !important;
+  border-left: 3px solid var(--color-primary);
+}
+
+.skin-blue .sidebar-menu>li>a {
+  color: var(--color-text) !important;
+  border-left: 3px solid transparent;
 }
 .skin-blue .main-header .navbar .sidebar-toggle:hover{
-  background: rgba(30,58,95,0.2) !important;
+  background: rgba(30,58,95,0.1) !important;
+}
+.skin-blue .main-header .navbar .sidebar-toggle {
+  color: var(--color-text) !important;
 }
 
 /* Box styling */
@@ -300,7 +329,38 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 .sidebar-menu > li > a:hover {
   background-color: rgba(30,58,95,0.08);
 }
-.sidebar .treeview-menu>li>a { font-size: 1.05rem; } /* Increased from 0.98rem for better accessibility */
+
+/* Submenu (treeview) styling */
+.skin-blue .treeview-menu {
+  background-color: #e8eef5 !important;
+}
+
+.skin-blue .treeview-menu>li>a {
+  color: var(--color-text-muted) !important;
+  font-size: 1.05rem;
+}
+
+.skin-blue .treeview-menu>li>a:hover,
+.skin-blue .treeview-menu>li.active>a {
+  color: var(--color-primary) !important;
+  background-color: rgba(30,58,95,0.1) !important;
+}
+
+/* Sidebar icons */
+.skin-blue .sidebar-menu>li>a>.fa,
+.skin-blue .sidebar-menu>li>a>.glyphicon,
+.skin-blue .sidebar-menu>li>a>.ion {
+  color: var(--color-text-muted) !important;
+}
+
+.skin-blue .sidebar-menu>li.active>a>.fa,
+.skin-blue .sidebar-menu>li.active>a>.glyphicon,
+.skin-blue .sidebar-menu>li.active>a>.ion,
+.skin-blue .sidebar-menu>li:hover>a>.fa,
+.skin-blue .sidebar-menu>li:hover>a>.glyphicon,
+.skin-blue .sidebar-menu>li:hover>a>.ion {
+  color: var(--color-primary) !important;
+}
 
 /* Filter panel styling */
 .form-group { margin-bottom: 14px; }
@@ -653,16 +713,11 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   padding: 25px 30px;
   margin-bottom: 25px;
   box-shadow: 0 3px 8px rgba(0,0,0,0.12);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
+  text-align: center;
 }
 
 .dashboard-branding-banner .banner-text {
-  flex: 1;
-  min-width: 300px;
+  width: 100%;
 }
 
 .dashboard-branding-banner h2 {
@@ -680,65 +735,50 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   line-height: 1.5;
 }
 
-.dashboard-branding-banner .banner-logos {
-  display: flex;
-  align-items: center;
-  gap: 25px;
-  flex-wrap: wrap;
-}
-
-.dashboard-branding-banner .banner-logo {
-  height: 50px;
-  width: auto;
-  object-fit: contain;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.dashboard-branding-banner .banner-logo:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-/* About page logo section */
+/* About page logo section - low profile */
 .about-logos-section {
   text-align: center;
-  padding: 30px 20px;
-  background: linear-gradient(135deg, #1e3a5f 0%, #2a4365 100%);
-  border-radius: 8px;
+  padding: 20px 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
   margin-bottom: 20px;
+  border: 1px solid #e5e7eb;
 }
 
 .about-logos-section h4 {
-  color: #ffffff;
-  margin: 0 0 20px 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  color: #6c757d;
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
 .about-logos-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 35px;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
 .about-logo {
-  height: 65px;
+  height: 50px;
   width: auto;
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.97);
-  padding: 12px 18px;
-  border-radius: 8px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 8px 12px;
+  border-radius: 4px;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+/* Make the Penn State CLA logo larger as it appears smaller */
+.about-logo-cla {
+  height: 90px;
+  padding: 14px 20px;
 }
 
 .about-logo:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  opacity: 1;
 }
 
 /* Responsive adjustments for logos */
@@ -755,11 +795,6 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
 
   .dashboard-branding-banner {
     padding: 20px;
-    text-align: center;
-  }
-
-  .dashboard-branding-banner .banner-text {
-    text-align: center;
   }
 
   .dashboard-branding-banner h2 {
@@ -770,21 +805,26 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
     font-size: 1.05rem;
   }
 
-  .dashboard-branding-banner .banner-logos {
-    justify-content: center;
-    gap: 20px;
+  .about-logos-section {
+    padding: 15px 12px;
   }
 
-  .dashboard-branding-banner .banner-logo {
-    height: 40px;
+  .about-logos-section h4 {
+    font-size: 1rem;
   }
 
   .about-logos-container {
-    gap: 25px;
+    gap: 15px;
   }
 
   .about-logo {
-    height: 55px;
+    height: 42px;
+    padding: 6px 10px;
+  }
+
+  .about-logo-cla {
+    height: 70px;
+    padding: 12px 16px;
   }
 }
 
@@ -801,11 +841,13 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
     font-size: 1.4rem;
   }
 
-  .dashboard-branding-banner .banner-logo {
-    height: 35px;
+  .about-logo {
+    height: 36px;
+    padding: 5px 8px;
   }
 
-  .about-logo {
-    height: 45px;
+  .about-logo-cla {
+    height: 60px;
+    padding: 10px 14px;
   }
 }
