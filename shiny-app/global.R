@@ -87,14 +87,8 @@ initialize_db_pool <- function() {
 # Initialize the pool
 pool <- initialize_db_pool()
 
-# Global data cache (will be populated on app start)
-cache <- reactiveValues(
-  books_summary = NULL,
-  genre_summary = NULL,
-  decade_summary = NULL,
-  author_summary = NULL,
-  last_updated = Sys.time()
-)
+# NOTE: Data cache (reactiveValues) is created inside server.R
+# because it must be created in a reactive context
 
 # Custom theme for the app (toned-down, accessible palette)
 app_theme <- fresh::create_theme(
@@ -182,10 +176,11 @@ format_number <- function(x, suffix = "") {
   # Handle negative numbers
   if (x < 0) return("N/A")
 
-  if (x >= 1000000) {
-    paste0(round(x / 1000000, 1), "M", suffix)
-  } else if (x >= 1000) {
-    paste0(round(x / 1000, 1), "K", suffix)
+  # Use constants from app_config.R
+  if (x >= FORMAT_MILLION_THRESHOLD) {
+    paste0(round(x / FORMAT_MILLION_THRESHOLD, 1), "M", suffix)
+  } else if (x >= FORMAT_THOUSAND_THRESHOLD) {
+    paste0(round(x / FORMAT_THOUSAND_THRESHOLD, 1), "K", suffix)
   } else {
     paste0(formatC(x, format = "d", big.mark = ","), suffix)
   }

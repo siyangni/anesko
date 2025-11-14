@@ -75,7 +75,7 @@ jobs:
             message("No tests directory found")
           }
         shell: Rscript {0}
-        continue-on-error: true
+        # Tests are now blocking - failures will stop the build
 
   structure-check:
     runs-on: ubuntu-latest
