@@ -7,7 +7,16 @@ APP_VERSION <- "1.0.0"
 APP_DESCRIPTION <- "Interactive dashboard for exploring American literary marketplace data"
 
 # Load cloud database configuration
-source("config/cloud_config.R")
+# Try cloud_config.R first, fall back to template if it doesn't exist
+if (file.exists("config/cloud_config.R")) {
+  source("config/cloud_config.R")
+} else if (file.exists("config/cloud_config.template.R")) {
+  cat("⚠️  cloud_config.R not found, using template\n")
+  cat("   For production, create cloud_config.R from template with your credentials\n")
+  source("config/cloud_config.template.R")
+} else {
+  stop("Database configuration not found. Please create config/cloud_config.R from template")
+}
 
 # Connection pool settings
 POOL_SIZE_MIN <- 1
