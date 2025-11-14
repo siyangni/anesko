@@ -36,6 +36,24 @@ ENABLE_DOWNLOADS <- TRUE
 ENABLE_BOOKMARKS <- TRUE
 ENABLE_TOOLTIPS <- TRUE
 
+# Formatting constants (for number display)
+FORMAT_MILLION_THRESHOLD <- 1000000
+FORMAT_THOUSAND_THRESHOLD <- 1000
+
+# Analysis thresholds
+MIN_BOOKS_FOR_AUTHOR_ANALYSIS <- 2  # Authors need at least 2 books
+MIN_BOOKS_FOR_PUBLISHER_ANALYSIS <- 5  # Publishers need at least 5 books
+MIN_PERIOD_COMPARISON_YEARS <- 10  # Period comparison needs 10+ years
+
+# Query limits (security: prevent excessive resource usage)
+MAX_FILTER_VALUES <- 100  # Maximum values in IN clause
+MAX_QUERY_LIMIT <- 10000   # Maximum rows returned
+DEFAULT_QUERY_LIMIT <- 100 # Default rows if not specified
+
+# Input validation ranges (wider than data range for flexibility)
+INPUT_MIN_YEAR <- 1800
+INPUT_MAX_YEAR <- 2100
+
 # Text constants
 ABOUT_TEXT <- "
 This dashboard provides interactive exploration of the American Authorship Database (1860-1920), 

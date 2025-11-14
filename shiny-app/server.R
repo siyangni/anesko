@@ -1,7 +1,16 @@
 # Main Server for American Authorship Dashboard
 
 server <- function(input, output, session) {
-  
+
+  # Create reactive cache for data (FIXED: moved from global.R for proper scope)
+  cache <- reactiveValues(
+    books_summary = NULL,
+    genre_summary = NULL,
+    decade_summary = NULL,
+    author_summary = NULL,
+    last_updated = Sys.time()
+  )
+
   # Show loading screen on startup
   waiter <- waiter::Waiter$new(
     html = tagList(
@@ -53,14 +62,7 @@ server <- function(input, output, session) {
       )
     })
   })
-  
-  # Module servers
-  dashboardServer("dashboard_module")
-  bookExplorerServer("books_module")
-  salesTrendsServer("sales_trends_module")
-  authorAnalysisServer("authors_module")
-  genreAnalysisServer("genres_module")
-  
+
   # Handle navigation
   observeEvent(input$main_menu, {
     tab_name <- input$main_menu

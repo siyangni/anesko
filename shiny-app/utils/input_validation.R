@@ -56,8 +56,15 @@ validate_year <- function(year, param_name = "year") {
 
   year <- as.integer(year)
 
-  if (year < 1800 || year > 2100) {
-    stop(sprintf("%s must be between 1800 and 2100", param_name))
+  # Use constants from app_config.R
+  if (year < INPUT_MIN_YEAR || year > INPUT_MAX_YEAR) {
+    stop(sprintf("%s must be between %d and %d", param_name, INPUT_MIN_YEAR, INPUT_MAX_YEAR))
+  }
+
+  # Warn if outside dataset range but allow it
+  if (year < MIN_YEAR || year > MAX_YEAR) {
+    warning(sprintf("%s (%d) is outside dataset range (%d-%d)",
+                    param_name, year, MIN_YEAR, MAX_YEAR))
   }
 
   year
@@ -147,7 +154,7 @@ validate_dimension <- function(dimension) {
 #' @param field_name Name of field being filtered (for error messages)
 #' @param max_values Maximum number of values allowed (default: 100)
 #' @return Sanitized character vector
-validate_filter_values <- function(values, field_name = "filter", max_values = 100) {
+validate_filter_values <- function(values, field_name = "filter", max_values = MAX_FILTER_VALUES) {
   if (is.null(values) || length(values) == 0) {
     return(character(0))
   }
@@ -155,7 +162,7 @@ validate_filter_values <- function(values, field_name = "filter", max_values = 1
   # Sanitize each value
   values <- sanitize_string_input(values)
 
-  # Check max values
+  # Check max values (use constant from app_config.R)
   if (length(values) > max_values) {
     warning(sprintf(
       "%s has %d values, limiting to first %d",
@@ -172,9 +179,9 @@ validate_filter_values <- function(values, field_name = "filter", max_values = 1
 #' @param limit Numeric limit value
 #' @param max_limit Maximum allowed limit (default: 10000)
 #' @return Validated limit as integer
-validate_limit <- function(limit, max_limit = 10000) {
+validate_limit <- function(limit, max_limit = MAX_QUERY_LIMIT) {
   if (is.null(limit)) {
-    return(100L)  # Default limit
+    return(as.integer(DEFAULT_QUERY_LIMIT))  # Use constant from app_config.R
   }
 
   if (!is.numeric(limit) || limit < 1) {
@@ -183,6 +190,7 @@ validate_limit <- function(limit, max_limit = 10000) {
 
   limit <- as.integer(limit)
 
+  # Use constant from app_config.R
   if (limit > max_limit) {
     warning(sprintf(
       "Limit %d exceeds maximum %d, using %d",
