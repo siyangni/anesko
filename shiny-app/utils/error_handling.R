@@ -216,20 +216,21 @@ create_empty_plot_message <- function(base_message, genre_filter, binding_filter
 create_no_data_summary <- function() {
   div(
     class = "alert alert-info",
-    style = paste("margin: 20px 0; padding: 15px;", 
-                  "background-color: #d9edf7;", 
-                  "border: 1px solid #bce8f1;", 
-                  "border-radius: 4px;"),
+    style = paste("margin: 20px 0; padding: 20px;", 
+                  "background: linear-gradient(145deg, #1f3b54 0%, #26486a 100%);", 
+                  "border: 1px solid rgba(255, 255, 255, 0.18);", 
+                  "border-radius: 6px;",
+                  "color: #f4f8ff;"),
     h4("No Analysis Results", 
-       style = "margin-top: 0; color: #31708f;"),
+       style = "margin-top: 0; margin-bottom: 12px; color: #f7fbff;"),
     p("Click 'Run Analysis' to generate results with your selected parameters.", 
-      style = "margin-bottom: 10px; color: #31708f;"),
+      style = "margin-bottom: 12px; color: #f0f5ff;"),
     tags$ul(
       tags$li("Try selecting different genres, binding types, or author genders"),
       tags$li("Expand your date range to include more years"),
       tags$li("Switch between 'Total Sales' and 'Average Sales' metrics"),
       tags$li("Consider using 'All Genres' or 'All Authors' for broader analysis"),
-      style = "color: #31708f; margin-bottom: 0;"
+      style = "color: #e8f1ff; margin-bottom: 0;"
     )
   )
 }
