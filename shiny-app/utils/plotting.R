@@ -2,15 +2,17 @@
 # Functions for creating consistent, interactive plots throughout the app
 
 # Custom ggplot theme for the app - enhanced for accessibility
-theme_authorship <- function(base_size = 14) { # Increased from 12 for better readability
+theme_authorship <- function(base_size = 16) { # Increased from 14 for better senior readability
   theme_minimal(base_size = base_size) +
     theme(
-      plot.title = element_text(size = base_size + 2, face = "bold", hjust = 0.5),
-      plot.subtitle = element_text(size = base_size, color = "gray60", hjust = 0.5),
-      plot.caption = element_text(size = base_size - 2, color = "gray50"),
+      plot.title = element_text(size = base_size + 4, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = base_size + 1, color = "gray50", hjust = 0.5),
+      plot.caption = element_text(size = base_size, color = "gray50"),
       strip.text = element_text(face = "bold"),
       legend.title = element_text(face = "bold"),
-      axis.title = element_text(face = "bold"),
+      legend.text = element_text(size = base_size),
+      axis.title = element_text(size = base_size + 1, face = "bold"),
+      axis.text = element_text(size = base_size),
       panel.grid.minor = element_blank(),
       panel.grid.major = element_line(color = "gray90", size = 0.3)
     )
@@ -23,8 +25,8 @@ create_timeseries_plot <- function(data, x_col, y_col, group_col = NULL,
   if (nrow(data) == 0) {
     return(ggplot() + 
            theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"), 
-                    size = 6, color = "gray60"))
+           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"),
+                    size = 7, color = "#4b5563", fontface = "bold"))
   }
   
   p <- ggplot(data, aes(x = .data[[x_col]], y = .data[[y_col]]))
@@ -63,8 +65,8 @@ create_bar_plot <- function(data, x_col, y_col, fill_col = NULL,
   
   if (nrow(data) == 0) {
     return(ggplot() + theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"), 
-                    size = 6, color = "gray60"))
+           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"),
+                    size = 7, color = "#4b5563", fontface = "bold"))
   }
   
   # Limit to top 15 categories for readability
@@ -109,8 +111,8 @@ create_scatter_plot <- function(data, x_col, y_col, color_col = NULL, size_col =
   
   if (nrow(data) == 0) {
     return(ggplot() + theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"), 
-                    size = 6, color = "gray60"))
+           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"),
+                    size = 7, color = "#4b5563", fontface = "bold"))
   }
   
   p <- ggplot(data, aes(x = .data[[x_col]], y = .data[[y_col]]))
@@ -158,8 +160,8 @@ create_histogram <- function(data, x_col, fill_col = NULL, bins = 30,
   
   if (nrow(data) == 0 || !x_col %in% names(data)) {
     return(ggplot() + theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"), 
-                    size = 6, color = "gray60"))
+           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"),
+                    size = 7, color = "#4b5563", fontface = "bold"))
   }
   
   # Remove NA values
@@ -167,8 +169,8 @@ create_histogram <- function(data, x_col, fill_col = NULL, bins = 30,
   
   if (nrow(plot_data) == 0) {
     return(ggplot() + theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No valid data"), 
-                    size = 6, color = "gray60"))
+           geom_text(aes(x = 0.5, y = 0.5, label = "No valid data"),
+                    size = 7, color = "#4b5563", fontface = "bold"))
   }
   
   p <- ggplot(plot_data, aes(x = .data[[x_col]]))
@@ -196,8 +198,8 @@ create_box_plot <- function(data, x_col, y_col, title = "Box Plot") {
   
   if (nrow(data) == 0) {
     return(ggplot() + theme_void() + 
-           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"), 
-                    size = 6, color = "gray60"))
+           geom_text(aes(x = 0.5, y = 0.5, label = "No data available"),
+                    size = 7, color = "#4b5563", fontface = "bold"))
   }
   
   p <- ggplot(data, aes(x = .data[[x_col]], y = .data[[y_col]])) +
