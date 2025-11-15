@@ -26,8 +26,8 @@ dashboardUI <- function(id) {
           box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .value-box-hint {
-          font-size: 11px;
-          color: rgba(255,255,255,0.8);
+          font-size: 14px;
+          color: rgba(255,255,255,0.9);
           margin-top: 5px;
           font-style: italic;
         }

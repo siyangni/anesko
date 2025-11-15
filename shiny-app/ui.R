@@ -48,7 +48,7 @@ ui <- dashboardPage(
     br(), br(),
     div(
       style = "position: absolute; bottom: 20px; left: 20px; right: 20px;
-               color: #6c757d; font-size: 14px; text-align: center;",
+               color: #4b5563; font-size: 16px; text-align: center;",
       p("American Authorship Database"),
       p("1860-1920"),
       p(paste("Version", APP_VERSION))
@@ -227,8 +227,8 @@ ui <- dashboardPage(
     # Footer with copyright and accessibility statement
     tags$footer(
       style = "margin-top: 30px; padding: 20px; background-color: #f8f9fa;
-               border-top: 1px solid #dee2e6; text-align: center; font-size: 12px;
-               color: #6c757d;",
+               border-top: 1px solid #dee2e6; text-align: center; font-size: 15px;
+               color: #4b5563;",
       HTML("© 2025 The Pennsylvania State University. All rights reserved.
             Except where otherwise noted, this work is subject to a
             <a href='https://creativecommons.org/licenses/by-nc-sa/4.0/' target='_blank'
