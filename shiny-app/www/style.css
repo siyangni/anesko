@@ -376,14 +376,43 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 
 /* Table styling */
 .dataTables_wrapper {
+  width: 100% !important;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Ensure table stretches to full width */
+.dataTables_wrapper table.dataTable {
+  width: 100% !important;
+}
+
+/* Handle the scrollX wrapper that DataTables creates */
+.dataTables_wrapper .dataTables_scroll {
+  width: 100% !important;
+}
+
+.dataTables_wrapper .dataTables_scrollBody {
+  width: 100% !important;
+}
+
+.dataTables_wrapper .dataTables_scrollHead,
+.dataTables_wrapper .dataTables_scrollHeadInner {
+  width: 100% !important;
+}
+
+.dataTables_wrapper .dataTables_scrollHeadInner table {
+  width: 100% !important;
+}
+
+/* Remove any margin/padding that might prevent full width alignment */
+.box-body .dataTables_wrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+}
 
 /* Widget headings align with button color (primary) */
 .box .box-header .box-title { color: var(--color-text); }
 .box.box-solid .box-header .box-title { color: #ffffff; }
-
-  font-size: 16px;
-  line-height: 1.6;
-}
 
 .dataTables_wrapper th {
   font-size: 17px;
@@ -440,7 +469,7 @@ a:focus, button:focus, .btn:focus, .form-control:focus, .selectize-input.focus,
 
 .skin-blue .treeview-menu>li>a {
   color: var(--color-text-muted) !important;
-  font-size: 1.05rem;
+  font-size: 1.25rem;
 }
 
 .skin-blue .treeview-menu>li>a:hover,
@@ -834,7 +863,7 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
 .dashboard-branding-banner h2 {
   color: #ffffff;
   margin: 0 0 8px 0;
-  font-size: 1.9rem;
+  font-size: 2.4rem;
   font-weight: 700;
   line-height: 1.3;
 }
@@ -842,7 +871,7 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
 .dashboard-branding-banner p {
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.4rem;
   line-height: 1.5;
 }
 
@@ -909,11 +938,11 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   }
 
   .dashboard-branding-banner h2 {
-    font-size: 1.6rem;
+    font-size: 2.0rem;
   }
 
   .dashboard-branding-banner p {
-    font-size: 1.05rem;
+    font-size: 1.25rem;
   }
 
   .about-logos-section {
@@ -949,7 +978,7 @@ select.form-control option { font-size: var(--dropdown-menu-font-size); }
   }
 
   .dashboard-branding-banner h2 {
-    font-size: 1.4rem;
+    font-size: 1.75rem;
   }
 
   .about-logo {

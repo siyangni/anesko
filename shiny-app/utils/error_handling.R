@@ -222,15 +222,15 @@ create_no_data_summary <- function() {
                   "border-radius: 6px;",
                   "color: #f4f8ff;"),
     h4("No Analysis Results", 
-       style = "margin-top: 0; margin-bottom: 12px; color: #f7fbff;"),
+       style = "margin-top: 0; margin-bottom: 12px; color: #f7fbff; font-size: 20px;"),
     p("Click 'Run Analysis' to generate results with your selected parameters.", 
-      style = "margin-bottom: 12px; color: #f0f5ff;"),
+      style = "margin-bottom: 12px; color: #f0f5ff; font-size: 16px;"),
     tags$ul(
       tags$li("Try selecting different genres, binding types, or author genders"),
       tags$li("Expand your date range to include more years"),
       tags$li("Switch between 'Total Sales' and 'Average Sales' metrics"),
       tags$li("Consider using 'All Genres' or 'All Authors' for broader analysis"),
-      style = "color: #e8f1ff; margin-bottom: 0;"
+      style = "color: #e8f1ff; margin-bottom: 0; font-size: 15px;"
     )
   )
 }

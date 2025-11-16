@@ -6,7 +6,8 @@ genreAnalysisUI <- function(id) {
 
   fluidPage(
     h3("Genre & Market Analysis"),
-    p("Comprehensive analysis of literary genre trends, market dynamics, and publishing patterns."),
+    p("Comprehensive analysis of literary genre trends, market dynamics, and publishing patterns.", 
+      style = "font-size: 16px;"),
 
     # Control Panel
     fluidRow(
@@ -14,59 +15,84 @@ genreAnalysisUI <- function(id) {
         title = "Analysis Controls", status = "primary", solidHeader = TRUE,
         width = 12, collapsible = TRUE,
 
+        tags$style(HTML("
+          .control-group label { font-size: 18px; font-weight: 200; }
+          .genre-radio-group .control-label,
+          .genre-radio-group .shiny-options-group label,
+          .genre-radio-group .checkbox label {
+            font-size: 18px;
+            font-weight: 200;
+          }
+          .genre-radio-group .shiny-options-group label {
+            margin-right: 14px;
+          }
+        ")),
+        
         fluidRow(
           column(3,
-            dateRangeInput(ns("date_range"), "Date Range:",
-                          start = "1860-01-01", end = "1920-12-31",
-                          min = "1860-01-01", max = "1920-12-31",
-                          format = "yyyy")
+            tags$div(class = "control-group",
+              dateRangeInput(ns("date_range"), "Date Range:",
+                            start = "1860-01-01", end = "1920-12-31",
+                            min = "1860-01-01", max = "1920-12-31",
+                            format = "yyyy")
+            )
           ),
           column(3,
-            selectInput(ns("analysis_type"), "Analysis Type:",
-                       choices = list(
-                         "Sales Distribution Explorer" = "distribution_explorer",
-                         "Period Comparison & Trends" = "period_comparison"
-                       ),
-                       selected = "distribution_explorer")
+            tags$div(class = "control-group",
+              selectInput(ns("analysis_type"), "Analysis Type:",
+                         choices = list(
+                           "Sales Distribution Explorer" = "distribution_explorer",
+                           "Period Comparison & Trends" = "period_comparison"
+                         ),
+                         selected = "distribution_explorer")
+            )
           ),
           column(3,
-            selectInput(ns("genre_filter"), "Focus on Genre:",
-                       choices = NULL, multiple = FALSE)
+            tags$div(class = "control-group",
+              selectInput(ns("genre_filter"), "Focus on Genre:",
+                         choices = NULL, multiple = FALSE)
+            )
           ),
           column(3,
-            selectInput(ns("gender_filter"), "Author Gender:",
-                       choices = list("All Authors" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
-                       selected = "")
+            tags$div(class = "control-group",
+              selectInput(ns("gender_filter"), "Author Gender:",
+                         choices = list("All Authors" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
+                         selected = "")
+            )
           )
         ),
 
         fluidRow(
           column(3,
-            selectizeInput(ns("binding_filter"), "Binding Type:",
-                           choices = NULL,
-                           multiple = FALSE,
-                           options = list(
-                             placeholder = "Select binding type...",
-                             create = FALSE
-                           ))
+            tags$div(class = "control-group",
+              selectizeInput(ns("binding_filter"), "Binding Type:",
+                             choices = NULL,
+                             multiple = FALSE,
+                             options = list(
+                               placeholder = "Select binding type...",
+                               create = FALSE
+                             ))
+            )
           ),
           column(3,
             conditionalPanel(
               condition = "input.analysis_type == 'distribution_explorer'",
               ns = ns,
-              radioButtons(ns("metric_type"), "Metric:",
-                          choices = list("Average Sales" = "average", "Total Sales" = "total"),
-                          selected = "total", inline = TRUE)
+              tags$div(class = "genre-radio-group",
+                radioButtons(ns("metric_type"), "Metric:",
+                            choices = list("Average Sales" = "average", "Total Sales" = "total"),
+                            selected = "total", inline = TRUE)
+              )
             )
           ),
           column(3,
             br(),
             actionButton(ns("run_analysis"), "Run Analysis",
-                        class = "btn-primary", style = "margin-top: 5px;")
+                        class = "btn-primary", style = "margin-top: 5px; font-size: 16px;")
           ),
           column(3,
             br(),
-            div(style = "margin-top: 5px;",
+            div(style = "margin-top: 5px; font-size: 15px;",
               actionButton(ns("view_author_analysis"), "View in Author Analysis →",
                           class = "btn-link btn-sm"),
               br(),
@@ -81,38 +107,46 @@ genreAnalysisUI <- function(id) {
             condition = "input.analysis_type == 'distribution_explorer'",
             ns = ns,
             column(3,
-              selectInput(ns("primary_breakdown"), "Primary Breakdown:",
-                choices = list("Genre" = "genre", "Binding" = "binding"),
-                selected = "genre"
-              ),
-              shiny::helpText("Choose the main category to analyze.")
+              tags$div(class = "control-group",
+                selectInput(ns("primary_breakdown"), "Primary Breakdown:",
+                  choices = list("Genre" = "genre", "Binding" = "binding"),
+                  selected = "genre"
+                ),
+                shiny::helpText("Choose the main category to analyze.", style = "font-size: 14px;")
+              )
             ),
             column(3,
-              selectInput(ns("secondary_split"), "Secondary Split:",
-                choices = list("None" = "", "Gender" = "gender"),
-                selected = ""
-              ),
-              shiny::helpText("Optionally split bars by gender.")
+              tags$div(class = "control-group",
+                selectInput(ns("secondary_split"), "Secondary Split:",
+                  choices = list("None" = "", "Gender" = "gender"),
+                  selected = ""
+                ),
+                shiny::helpText("Optionally split bars by gender.", style = "font-size: 14px;")
+              )
             ),
             column(3,
-              radioButtons(ns("normalize"), "Normalization:",
-                choices = list("Absolute" = "absolute", "Percent of total" = "percent"),
-                selected = "absolute", inline = TRUE
-              ),
-              shiny::checkboxInput(ns("show_cumulative"), "Show cumulative share (table)", value = FALSE)
+              tags$div(class = "genre-radio-group",
+                radioButtons(ns("normalize"), "Normalization:",
+                  choices = list("Absolute" = "absolute", "Percent of total" = "percent"),
+                  selected = "absolute", inline = TRUE
+                ),
+                shiny::checkboxInput(ns("show_cumulative"), "Show cumulative share (table)", value = FALSE)
+              )
             ),
             column(3,
-              numericInput(ns("top_n"), "Top N categories:", value = 10, min = 1),
-              selectInput(ns("sort_by"), "Sort by:",
-                choices = list("Value" = "value", "Share" = "share", "Alphabetical" = "alpha"),
-                selected = "value"
-              ),
-              conditionalPanel(
-                condition = "input.secondary_split == 'gender'",
-                ns = ns,
-                selectInput(ns("bar_mode"), "Bar mode:",
-                  choices = list("Grouped" = "group", "Stacked" = "stack"),
-                  selected = "group"
+              tags$div(class = "control-group",
+                numericInput(ns("top_n"), "Top N categories:", value = 10, min = 1),
+                selectInput(ns("sort_by"), "Sort by:",
+                  choices = list("Value" = "value", "Share" = "share", "Alphabetical" = "alpha"),
+                  selected = "value"
+                ),
+                conditionalPanel(
+                  condition = "input.secondary_split == 'gender'",
+                  ns = ns,
+                  selectInput(ns("bar_mode"), "Bar mode:",
+                    choices = list("Grouped" = "group", "Stacked" = "stack"),
+                    selected = "group"
+                  )
                 )
               )
             )
@@ -829,7 +863,7 @@ genreAnalysisServer <- function(id) {
     output$insights_panel <- renderUI({
       results <- analysis_results()
       if (nrow(results) == 0 || "Error" %in% names(results)) {
-        return(div(class = "alert alert-warning", "Run an analysis to see market insights"))
+        return(div(class = "alert alert-warning", style = "font-size: 16px;", "Run an analysis to see insights"))
       }
 
       insights <- switch(legacy_type(),

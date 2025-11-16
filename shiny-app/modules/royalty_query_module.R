@@ -7,20 +7,39 @@ royaltyQueryUI <- function(id) {
   fluidPage(
     h3("Royalty Income Query"),
     p("Calculate royalty income from book sales within a specified date range. Choose between book-specific queries or author-wide summaries."),
+    tags$style(HTML("
+      .royalty-query-options .control-label {
+        font-size: 24px;
+        font-weight: 200;
+      }
+      .royalty-query-options .radio label {
+        font-size: 20px !important;
+        font-weight: 200 !important;
+      }
+    ")),
 
     # Query Type Selection
     fluidRow(
       box(
         title = "Query Type", status = "info", solidHeader = TRUE,
         width = 12,
-        radioButtons(
-          ns("query_type"), "Select Query Type:",
-          choices = list(
-            "Book-Specific Royalty" = "book",
-            "Author Total Royalty" = "author"
-          ),
-          selected = "book",
-          inline = TRUE
+        tags$div(
+          class = "royalty-query-options",
+          style = "font-size: 18px;",
+          radioButtons(
+            ns("query_type"),
+            tags$span(
+              style = "font-size: 24px; font-weight: 200; display: inline-block; margin-bottom: 8px;",
+              "Select Query Type:"
+            ),
+            choiceNames = list(
+              tags$span(style = "font-size: 20px; font-weight: 200;", "Book-Specific Royalty"),
+              tags$span(style = "font-size: 20px; font-weight: 200;", "Author Total Royalty")
+            ),
+            choiceValues = list("book", "author"),
+            selected = "book",
+            inline = TRUE
+          )
         )
       )
     ),

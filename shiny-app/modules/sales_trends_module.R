@@ -6,7 +6,18 @@ salesTrendsUI <- function(id) {
 
   fluidPage(
     h3("Sales Trends"),
-    p("Interactive time-series analysis of sales across years and dimensions."),
+    p("Interactive time-series analysis of sales across years and dimensions.", 
+      style = "font-size: 17px;"),
+    
+    tags$style(HTML("
+      .control-group-large label,
+      .control-group-large .radio label,
+      .control-group-large .checkbox label {
+        font-size: 18px;
+        font-weight: 200;
+      }
+      .control-group-large .help-block { font-size: 16px; }
+    ")),
 
     # Controls Row
     fluidRow(
@@ -16,28 +27,35 @@ salesTrendsUI <- function(id) {
 
         fluidRow(
           column(3,
-            sliderInput(
-              ns("year_range"), "Publication Year Range:",
-              min = MIN_YEAR, max = MAX_YEAR, value = DEFAULT_YEAR_RANGE,
-              step = 1, sep = ""
-            ),
-            radioButtons(
-              ns("group_dim"), "Primary Grouping:",
-              choices = c(
-                "Author Gender" = "gender",
-                "Author" = "author",
-                "Publisher" = "publisher",
-                "Book" = "book",
-                "Genre" = "genre",
-                "Binding" = "binding"
+            tags$div(class = "control-group-large",
+              sliderInput(
+                ns("year_range"), "Publication Year Range:",
+                min = MIN_YEAR, max = MAX_YEAR, value = DEFAULT_YEAR_RANGE,
+                step = 1, sep = ""
               ),
-              selected = "gender"
-            ),
-            helpText("Tip: Select multiple values in the filters to compare multiple series (e.g., choose several authors or publishers)."),
-            checkboxGroupInput(
-              ns("gender_filter"), "Author Gender:",
-              choices = c("Male", "Female", "Unknown"),
-              selected = c("Male", "Female", "Unknown")
+              tags$div(class = "control-group-large",
+                radioButtons(
+                  ns("group_dim"), "Primary Grouping:",
+                  choices = c(
+                    "Author Gender" = "gender",
+                    "Author" = "author",
+                    "Publisher" = "publisher",
+                    "Book" = "book",
+                    "Genre" = "genre",
+                    "Binding" = "binding"
+                  ),
+                  selected = "gender"
+                )
+              ),
+              helpText("Tip: Select multiple values in the filters to compare multiple series (e.g., choose several authors or publishers).", 
+                       style = "font-size: 15px;"),
+              tags$div(class = "control-group-large",
+                checkboxGroupInput(
+                  ns("gender_filter"), "Author Gender:",
+                  choices = c("Male", "Female", "Unknown"),
+                  selected = c("Male", "Female", "Unknown")
+                )
+              )
             )
           ),
           column(3,
@@ -81,17 +99,21 @@ salesTrendsUI <- function(id) {
                              `live-search-placeholder` = "Search top books…",
                              `selected-text-format` = "count > 2")
             ),
-            checkboxGroupInput(
-              ns("secondary_options"), "Options:",
-              choices = c(
-                "Include Unknown Gender" = "include_unknown_gender",
-                "7-year Moving Average" = "smooth"
-              ),
-              selected = c("include_unknown_gender")
+            tags$div(class = "control-group-large",
+              checkboxGroupInput(
+                ns("secondary_options"), "Options:",
+                choices = c(
+                  "Include Unknown Gender" = "include_unknown_gender",
+                  "7-year Moving Average" = "smooth"
+                ),
+                selected = c("include_unknown_gender")
+              )
             ),
             div(style = "margin-top: 10px;",
-              actionButton(ns("update"), "Update Analysis", class = "btn-primary"),
-              actionButton(ns("reset"), "Reset Filters", class = "btn-warning", style = "margin-left: 8px;")
+              actionButton(ns("update"), "Update Analysis", class = "btn-primary", 
+                          style = "font-size: 16px; padding: 8px 16px;"),
+              actionButton(ns("reset"), "Reset Filters", class = "btn-warning", 
+                          style = "margin-left: 8px; font-size: 16px; padding: 8px 16px;")
             )
           )
         )
@@ -112,7 +134,7 @@ salesTrendsUI <- function(id) {
         box(title = "Total Sales Summary", status = "info", solidHeader = TRUE,
             width = NULL,
             p("Total sales across all years for each group in your current selection.",
-              style = "font-size: 12px; color: #666; margin-bottom: 10px;"),
+              style = "font-size: 18px; color: #666; margin-bottom: 10px;"),
             plotlyOutput(ns("totals_plot"), height = "420px"))
       )
     ),
@@ -270,9 +292,24 @@ salesTrendsServer <- function(id) {
                        "<br>Books: ", book_count
                      ),
                      hovertemplate = "%{text}<extra></extra>") %>%
-        layout(title = "Sales Over Time",
-               xaxis = list(title = "Year"), yaxis = list(title = "Total Sales"),
-               legend = list(orientation = "h"))
+        layout(
+          title = list(text = "Sales Over Time", font = list(size = 18)),
+          xaxis = list(
+            title = list(text = "Year", font = list(size = 16)),
+            tickfont = list(size = 14)
+          ),
+          yaxis = list(
+            title = list(text = "Total Sales", font = list(size = 16)),
+            tickfont = list(size = 14)
+          ),
+          legend = list(orientation = "h", font = list(size = 14)),
+          margin = list(t = 80, b = 80, l = 80, r = 50)
+        ) %>%
+        config(
+          displayModeBar = TRUE,
+          modeBarButtonsToRemove = c('select2d', 'lasso2d', 'autoScale2d'),
+          displaylogo = FALSE
+        )
       plt
     })
 
@@ -283,22 +320,45 @@ salesTrendsServer <- function(id) {
 
       plot_ly(td, x = ~reorder(group_label, total_sales), y = ~total_sales,
               type = "bar", marker = list(color = "#2a4365"),
-              text = ~paste0(
-                "Total Sales: ", scales::comma(total_sales),
+              hovertemplate = ~paste0(
+                "Group: ", group_label,
+                "<br>Total Sales: ", scales::comma(total_sales),
                 "<br>Avg Annual Sales: ", scales::comma(round(avg_annual_sales, 0)),
                 "<br>Books: ", book_count,
-                "<br>Years with Data: ", years_with_data
-              ),
-              hovertemplate = "Group: %{x}<br>%{text}<extra></extra>") %>%
+                "<br>Years with Data: ", years_with_data,
+                "<extra></extra>"
+              )) %>%
         layout(
           title = list(
-            text = "Total Sales by Selected Groups<br><sub>Bars show total sales across all years for each group in your selection</sub>",
-            font = list(size = 14)
+            text = "Total Sales by Selected Groups",
+            font = list(size = 18)
           ),
-          xaxis = list(title = "Selected Groups"),
-          yaxis = list(title = "Total Sales")
+          xaxis = list(
+            title = list(text = "Selected Groups", font = list(size = 16)),
+            tickfont = list(size = 14)
+          ),
+          yaxis = list(
+            title = list(text = "Total Sales", font = list(size = 16)),
+            tickfont = list(size = 14)
+          ),
+          margin = list(t = 80, b = 80, l = 80, r = 20)
         ) %>%
-        config(displayModeBar = TRUE)
+        add_annotations(
+          text = "Bars show total sales across all years for each group in your selection.",
+          xref = "paper",
+          yref = "paper",
+          x = 0,
+          y = 1.05,
+          xanchor = "left",
+          yanchor = "bottom",
+          showarrow = FALSE,
+          font = list(size = 13, color = "gray60")
+        ) %>%
+        config(
+          displayModeBar = TRUE,
+          modeBarButtonsToRemove = c('select2d', 'lasso2d', 'autoScale2d'),
+          displaylogo = FALSE
+        )
     })
 
     # Summary table

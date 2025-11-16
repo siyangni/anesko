@@ -1,42 +1,20 @@
-# Lintr Configuration for American Authorship Database
-# This file defines code style and quality rules for R code
-
-# Line length (default is 80, extended for Shiny apps)
 linters: linters_with_defaults(
   line_length_linter = line_length_linter(120),
-
-  # Object naming
   object_name_linter = object_name_linter(styles = c("snake_case", "symbols")),
-
-  # Assignment operators
-  assignment_linter = NULL,  # Allow both <- and =
-
-  # Spacing
-  spaces_left_parentheses_linter = NULL,  # Allow spaces before (
-
-  # Comments
-  commented_code_linter = NULL,  # Allow commented code
-
-  # Cyclomatic complexity
+  assignment_linter = NULL,
+  spaces_left_parentheses_linter = NULL,
+  commented_code_linter = NULL,
   cyclocomp_linter = cyclocomp_linter(complexity_limit = 25),
-
-  # Disabled linters (too strict for Shiny apps)
-  object_usage_linter = NULL,  # Shiny uses non-standard evaluation
-  implicit_integer_linter = NULL,  # Allow implicit integers
-  undesirable_function_linter = NULL,  # Allow sapply, etc.
-
-  # Security and best practices (keep enabled)
+  object_usage_linter = NULL,
+  implicit_integer_linter = NULL,
+  undesirable_function_linter = NULL,
   absolute_path_linter = absolute_path_linter(),
   any_duplicated_linter = any_duplicated_linter(),
   any_is_na_linter = any_is_na_linter(),
   equals_na_linter = equals_na_linter(),
-
-  # Consistency
-  T_and_F_symbol_linter = T_and_F_symbol_linter(),  # Use TRUE/FALSE not T/F
-  seq_linter = seq_linter()  # Use seq_len() not 1:length()
+  T_and_F_symbol_linter = T_and_F_symbol_linter(),
+  seq_linter = seq_linter()
 )
-
-# Exclude paths from linting
 exclusions: list(
   "archive/",
   "renv/",
@@ -44,6 +22,4 @@ exclusions: list(
   "tests/testthat.R",
   "scripts/obsolete/"
 )
-
-# Encoding
 encoding: "UTF-8"

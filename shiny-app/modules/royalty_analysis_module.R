@@ -7,8 +7,14 @@ royaltyAnalysisUI <- function(id) {
   
   fluidPage(
     h3("Royalty Structure Analysis"),
-    p("Analyze royalty rates, tier structures, and payment schemes across different books, authors, and publishers."),
+    p("Analyze royalty rates, tier structures, and payment schemes across different books, authors, and publishers.", 
+      style = "font-size: 17px;"),
     br(),
+    
+    tags$style(HTML("
+      .royalty-controls label { font-size: 18px; font-weight: 500; }
+      .royalty-controls .checkbox label { font-size: 17px; }
+    ")),
     
     fluidRow(
       # Controls
@@ -19,52 +25,56 @@ royaltyAnalysisUI <- function(id) {
           solidHeader = TRUE,
           width = NULL,
           
-          selectInput(
-            ns("analysis_type"),
-            "Analysis Type:",
-            choices = list(
-              "Royalty Tiers Overview" = "tiers",
-              "Rate Distribution" = "rates",
-              "Publisher Comparison" = "publishers",
-              "Author Comparison" = "authors"
+          tags$div(class = "royalty-controls",
+            selectInput(
+              ns("analysis_type"),
+              "Analysis Type:",
+              choices = list(
+                "Royalty Tiers Overview" = "tiers",
+                "Rate Distribution" = "rates",
+                "Publisher Comparison" = "publishers",
+                "Author Comparison" = "authors"
+              ),
+              selected = "tiers"
             ),
-            selected = "tiers"
-          ),
-          
-          conditionalPanel(
-            condition = "input.analysis_type == 'publishers'",
-            ns = ns,
-            selectInput(
-              ns("publisher_select"),
-              "Select Publishers:",
-              choices = NULL,
-              multiple = TRUE
+            
+            conditionalPanel(
+              condition = "input.analysis_type == 'publishers'",
+              ns = ns,
+              selectInput(
+                ns("publisher_select"),
+                "Select Publishers:",
+                choices = NULL,
+                multiple = TRUE
+              )
+            ),
+            
+            conditionalPanel(
+              condition = "input.analysis_type == 'authors'",
+              ns = ns,
+              selectInput(
+                ns("author_select"),
+                "Select Authors:",
+                choices = NULL,
+                multiple = TRUE
+              )
+            ),
+            
+            sliderInput(
+              ns("year_range"),
+              "Publication Year Range:",
+              min = 1860, max = 1920, 
+              value = c(1860, 1920),
+              step = 1, sep = ""
+            ),
+            
+            tags$div(style = "font-size: 17px;",
+              checkboxInput(
+                ns("sliding_scale_only"),
+                "Sliding Scale Only",
+                value = FALSE
+              )
             )
-          ),
-          
-          conditionalPanel(
-            condition = "input.analysis_type == 'authors'",
-            ns = ns,
-            selectInput(
-              ns("author_select"),
-              "Select Authors:",
-              choices = NULL,
-              multiple = TRUE
-            )
-          ),
-          
-          sliderInput(
-            ns("year_range"),
-            "Publication Year Range:",
-            min = 1860, max = 1920, 
-            value = c(1860, 1920),
-            step = 1, sep = ""
-          ),
-          
-          checkboxInput(
-            ns("sliding_scale_only"),
-            "Sliding Scale Only",
-            value = FALSE
           ),
 
           # Add info about sliding scale filter
@@ -82,7 +92,7 @@ royaltyAnalysisUI <- function(id) {
             ns("update_analysis"),
             "Update Analysis",
             class = "btn-primary",
-            style = "width: 100%;"
+            style = "width: 100%; font-size: 16px; padding: 10px;"
           )
         ),
         

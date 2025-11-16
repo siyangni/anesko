@@ -56,9 +56,11 @@ genreContentAnalysisUI <- function(id) {
             conditionalPanel(
               condition = "input.analysis_type == 'genre_comparison' || input.analysis_type == 'genre_gender'",
               ns = ns,
-              radioButtons(ns("metric_type"), "Metric:",
-                          choices = list("Average Sales" = "average", "Total Sales" = "total"),
-                          selected = "total", inline = TRUE)
+              tags$div(style = "font-size: 17px;",
+                radioButtons(ns("metric_type"), "Metric:",
+                            choices = list("Average Sales" = "average", "Total Sales" = "total"),
+                            selected = "total", inline = TRUE)
+              )
             )
           ),
           column(3,
@@ -322,29 +324,86 @@ genreContentAnalysisServer <- function(id) {
             incProgress(0.3, detail = "Comparing selected titles...")
             if (is.null(input$book_title_1) || input$book_title_1 == "" ||
                 is.null(input$book_title_2) || input$book_title_2 == "") {
-              showNotification("Please select two book titles.", type = "warning")
+              showNotification("Please select two book titles to compare.", type = "warning", duration = 5)
               data.frame(Error = "Select two book titles to compare")
             } else if (is.null(input$binding_filter) || input$binding_filter == "") {
-              showNotification("Please choose a binding type.", type = "warning")
+              showNotification("Please select a binding type.", type = "warning", duration = 5)
               data.frame(Error = "Select a binding type")
             } else {
               res_a <- safe_query(function() {
                 get_book_sales_by_title_binding(input$book_title_1, input$binding_filter, start_year, end_year)
-              }, default_value = data.frame())
+              }, default_value = data.frame(),
+              error_message = paste0("Error retrieving data for '", as.character(input$book_title_1)[1], "'"))
+              
               res_b <- safe_query(function() {
                 get_book_sales_by_title_binding(input$book_title_2, input$binding_filter, start_year, end_year)
-              }, default_value = data.frame())
+              }, default_value = data.frame(),
+              error_message = paste0("Error retrieving data for '", as.character(input$book_title_2)[1], "'"))
 
-              agg_fun <- function(df) {
-                if (nrow(df) == 0) return(data.frame(book_title = character(0), binding = character(0), total_sales = numeric(0)))
+              # Aggregation helper with consistent structure
+              agg_fun <- function(df, title) {
+                if (is.null(df) || nrow(df) == 0) {
+                  return(data.frame(
+                    book_title = character(0),
+                    binding = character(0),
+                    total_sales = numeric(0),
+                    selection = character(0),
+                    stringsAsFactors = FALSE
+                  ))
+                }
                 res <- aggregate(total_sales ~ book_title + binding, df, sum)
-                res
+                res$selection <- title
+                return(res)
               }
 
-              a <- agg_fun(res_a); a$selection <- "A"
-              b <- agg_fun(res_b); b$selection <- "B"
-              combined <- rbind(a, b)
-              combined
+              # Aggregate results
+              a <- agg_fun(res_a, "A")
+              b <- agg_fun(res_b, "B")
+              
+              # Check for data availability
+              has_a <- nrow(a) > 0
+              has_b <- nrow(b) > 0
+              
+              if (!has_a && !has_b) {
+                msg <- paste0(
+                  "No sales data found for either book in the selected year range (", 
+                  start_year, "-", end_year, ") with ", as.character(input$binding_filter)[1], " binding."
+                )
+                showNotification(msg, type = "warning", duration = 7)
+                return(data.frame(Error = "No data available for comparison"))
+              }
+              
+              if (!has_a) {
+                msg <- paste0(
+                  "No sales data found for '", as.character(input$book_title_1)[1], 
+                  "'. Showing results for '", as.character(input$book_title_2)[1], "' only."
+                )
+                showNotification(msg, type = "message", duration = 7)
+              }
+              
+              if (!has_b) {
+                msg <- paste0(
+                  "No sales data found for '", as.character(input$book_title_2)[1], 
+                  "'. Showing results for '", as.character(input$book_title_1)[1], "' only."
+                )
+                showNotification(msg, type = "message", duration = 7)
+              }
+              
+              # Safely combine results
+              tryCatch({
+                if (has_a && has_b) {
+                  combined <- rbind(a, b)
+                } else if (has_a) {
+                  combined <- a
+                } else {
+                  combined <- b
+                }
+                return(combined)
+              }, error = function(e) {
+                msg <- paste0("Error combining comparison results: ", as.character(e$message)[1])
+                showNotification(msg, type = "error", duration = 10)
+                return(data.frame(Error = paste0("Combination error: ", as.character(e$message)[1])))
+              })
             }
           },
 

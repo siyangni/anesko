@@ -10,6 +10,20 @@ authorNetworksUI <- function(id) {
     p("Explore relationships between authors based on shared publishers, publication periods, and collaboration patterns using the new author_id field."),
     br(),
     
+    tags$style(HTML("
+      .network-controls-panel label.control-label,
+      .network-controls-panel .checkbox label {
+        font-size: 18px;
+        font-weight: 200;
+      }
+      .network-controls-panel .irs-single,
+      .network-controls-panel .irs-min,
+      .network-controls-panel .irs-max,
+      .network-controls-panel .irs-grid-text {
+        font-size: 15px;
+      }
+    ")),
+    
     fluidRow(
       # Controls
       column(4,
@@ -19,43 +33,45 @@ authorNetworksUI <- function(id) {
           solidHeader = TRUE,
           width = NULL,
           
-          selectInput(
-            ns("network_type"),
-            "Network Type:",
-            choices = list(
-              "Shared Publishers" = "publishers",
-              "Similar Publication Years" = "years",
-              "Genre Overlap" = "genres"
+          tags$div(class = "network-controls-panel",
+            selectInput(
+              ns("network_type"),
+              "Network Type:",
+              choices = list(
+                "Shared Publishers" = "publishers",
+                "Similar Publication Years" = "years",
+                "Genre Overlap" = "genres"
+              ),
+              selected = "publishers"
             ),
-            selected = "publishers"
-          ),
-          
-          sliderInput(
-            ns("min_books"),
-            "Minimum Books per Author:",
-            min = 1, max = 10, value = 2, step = 1
-          ),
-          
-          sliderInput(
-            ns("year_range"),
-            "Publication Year Range:",
-            min = 1860, max = 1920, 
-            value = c(1860, 1920),
-            step = 1, sep = ""
-          ),
-          
-          checkboxGroupInput(
-            ns("gender_filter"),
-            "Include Genders:",
-            choices = list("Male" = "Male", "Female" = "Female"),
-            selected = c("Male", "Female")
-          ),
-          
-          actionButton(
-            ns("update_network"),
-            "Update Network",
-            class = "btn-primary",
-            style = "width: 100%;"
+            
+            sliderInput(
+              ns("min_books"),
+              "Minimum Books per Author:",
+              min = 1, max = 10, value = 2, step = 1
+            ),
+            
+            sliderInput(
+              ns("year_range"),
+              "Publication Year Range:",
+              min = 1860, max = 1920, 
+              value = c(1860, 1920),
+              step = 1, sep = ""
+            ),
+            
+            checkboxGroupInput(
+              ns("gender_filter"),
+              "Include Genders:",
+              choices = list("Male" = "Male", "Female" = "Female"),
+              selected = c("Male", "Female")
+            ),
+            
+            actionButton(
+              ns("update_network"),
+              "Update Network",
+              class = "btn-primary",
+              style = "width: 100%;"
+            )
           )
         ),
         

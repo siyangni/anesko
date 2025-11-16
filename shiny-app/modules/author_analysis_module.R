@@ -6,8 +6,9 @@ authorAnalysisUI <- function(id) {
 
   fluidPage(
     h3("Author & Gender Analysis"),
-    p("Comprehensive analysis of author performance, gender disparities, and career metrics."),
-    tags$style(HTML("\n      .insights-large, .insights-large p { font-size: 1.15rem; line-height: 1.5; }\n      .insights-large h5 { font-size: 1.3rem; font-weight: 600; margin-top: 8px; }\n      .metric-emphasis { font-size: 1.2rem; font-weight: 600; }\n    ")),
+    p("Comprehensive analysis of author performance, gender disparities, and career metrics.", 
+      style = "font-size: 16px;"),
+    tags$style(HTML("\n      .insights-large, .insights-large p { font-size: 1.15rem; line-height: 1.5; }\n      .insights-large h5 { font-size: 1.3rem; font-weight: 600; margin-top: 8px; }\n      .metric-emphasis { font-size: 1.2rem; font-weight: 600; }\n      .control-group label { font-size: 16px; font-weight: 500; }\n    ")),
 
     # Control Panel
     fluidRow(
@@ -17,72 +18,84 @@ authorAnalysisUI <- function(id) {
 
         fluidRow(
           column(3,
-            dateRangeInput(ns("date_range"), "Date Range:",
-                          start = "1860-01-01", end = "1920-12-31",
-                          min = "1860-01-01", max = "1920-12-31",
-                          format = "yyyy")
+            tags$div(class = "control-group",
+              dateRangeInput(ns("date_range"), "Date Range:",
+                            start = "1860-01-01", end = "1920-12-31",
+                            min = "1860-01-01", max = "1920-12-31",
+                            format = "yyyy")
+            )
           ),
           column(3,
-            selectInput(ns("analysis_type"), "Analysis Type:",
-                       choices = list(
-                         "Gender Performance" = "gender_performance",
-                         "Genre Mix by Author Gender" = "genre_by_gender",
-                         "Author Career Overview" = "author_overview"
-                       ),
-                       selected = "gender_performance")
+            tags$div(class = "control-group",
+              selectInput(ns("analysis_type"), "Analysis Type:",
+                         choices = list(
+                           "Gender Performance" = "gender_performance",
+                           "Genre Mix by Author Gender" = "genre_by_gender",
+                           "Author Career Overview" = "author_overview"
+                         ),
+                         selected = "gender_performance")
+            )
           ),
           column(3,
             conditionalPanel(
               condition = "input.analysis_type == 'author_overview'",
               ns = ns,
-              tagList(
-                selectizeInput(ns("author_name"), "Author Surname:",
-                               choices = NULL,
-                               multiple = FALSE,
-                               options = list(
-                                 placeholder = "Select author surname...",
-                                 create = TRUE,
-                                 persist = TRUE
-                               )),
-                br(),
-                selectizeInput(ns("author_id"), "Author ID:",
-                               choices = NULL,
-                               multiple = FALSE,
-                               options = list(
-                                 placeholder = "Select author ID (optional)...",
-                                 create = FALSE,
-                                 persist = TRUE
-                               ))
+              tags$div(class = "control-group",
+                tagList(
+                  selectizeInput(ns("author_name"), "Author Surname:",
+                                 choices = NULL,
+                                 multiple = FALSE,
+                                 options = list(
+                                   placeholder = "Select author surname...",
+                                   create = TRUE,
+                                   persist = TRUE
+                                 )),
+                  br(),
+                  selectizeInput(ns("author_id"), "Author ID:",
+                                 choices = NULL,
+                                 multiple = FALSE,
+                                 options = list(
+                                   placeholder = "Select author ID (optional)...",
+                                   create = FALSE,
+                                   persist = TRUE
+                                 ))
+                )
               )
             ),
             conditionalPanel(
               condition = "input.analysis_type == 'gender_performance' || input.analysis_type == 'genre_by_gender'",
               ns = ns,
-              selectInput(ns("gender_filter"), "Focus on Gender:",
-                         choices = list("Compare Both" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
-                         selected = "")
+              tags$div(class = "control-group",
+                selectInput(ns("gender_filter"), "Focus on Gender:",
+                           choices = list("Compare Both" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
+                           selected = "")
+              )
             )
           ),
           column(3,
             conditionalPanel(
               condition = "input.analysis_type == 'gender_performance' || input.analysis_type == 'genre_by_gender'",
               ns = ns,
-              selectInput(ns("genre_filter"), "Genre Focus:",
-                         choices = NULL, multiple = FALSE)
+              tags$div(class = "control-group",
+                selectInput(ns("genre_filter"), "Genre Focus:",
+                           choices = NULL, multiple = FALSE)
+              )
             ),
             conditionalPanel(
               condition = "input.analysis_type == 'gender_performance' || input.analysis_type == 'genre_by_gender'",
               ns = ns,
-              tagList(
-                selectizeInput(ns("binding_filter"), "Binding Type:",
-                               choices = NULL,
-                               multiple = FALSE,
-                               options = list(
-                                 placeholder = "Select or type binding type...",
-                                 create = FALSE
-                               )),
-                helpText("Hint: try 'cloth', 'paper'"),
-                actionButton(ns("clear_binding"), "Clear", class = "btn-link btn-sm")
+              tags$div(class = "control-group",
+                tagList(
+                  selectizeInput(ns("binding_filter"), "Binding Type:",
+                                 choices = NULL,
+                                 multiple = FALSE,
+                                 options = list(
+                                   placeholder = "Select or type binding type...",
+                                   create = FALSE
+                                 )),
+                  helpText("Hint: try 'cloth', 'paper'", style = "font-size: 14px;"),
+                  actionButton(ns("clear_binding"), "Clear", class = "btn-link btn-sm")
+                )
               )
             )
           )
@@ -93,15 +106,24 @@ authorAnalysisUI <- function(id) {
             conditionalPanel(
               condition = "input.analysis_type == 'gender_performance'",
               ns = ns,
-              radioButtons(ns("metric_type"), "Metric:",
-                          choices = list("Average Sales" = "average", "Total Sales" = "total"),
-                          selected = "average", inline = TRUE)
+              tags$div(class = "author-metric-group"),
+              radioButtons(
+                ns("metric_type"),
+                tags$span(style = "font-size: 18px; font-weight: 200;", "Metric:"),
+                choiceNames = list(
+                  tags$span(style = "font-size: 18px; font-weight: 200;", "Average Sales"),
+                  tags$span(style = "font-size: 18px; font-weight: 200;", "Total Sales")
+                ),
+                choiceValues = list("average", "total"),
+                selected = "average",
+                inline = TRUE
+              )
             )
           ),
           column(4,
             br(),
             actionButton(ns("run_analysis"), "Run Analysis",
-                        class = "btn-primary", style = "margin-top: 5px;")
+                        class = "btn-primary", style = "margin-top: 5px; font-size: 16px;")
           )
         )
       )
@@ -568,7 +590,7 @@ authorAnalysisServer <- function(id) {
     output$insights_panel <- renderUI({
       results <- analysis_results()
       if (nrow(results) == 0 || "Error" %in% names(results)) {
-        return(div(class = "alert alert-warning", "Run an analysis to see insights"))
+        return(div(class = "alert alert-warning", style = "font-size: 16px;", "Run an analysis to see insights"))
       }
 
       insights <- switch(legacy_type(),
@@ -578,7 +600,7 @@ authorAnalysisServer <- function(id) {
             female_data <- results[results$gender == "Female", ]
 
             tagList(
-              h5("Gender Analysis Insights:"),
+              h5("Gender Analysis Insights:", style = "font-size: 18px; font-weight: bold;"),
               if (nrow(male_data) > 0 && nrow(female_data) > 0) {
                 if (input$metric_type == "average") {
                   male_avg <- mean(male_data$avg_total_sales_per_book, na.rm = TRUE)
@@ -594,25 +616,25 @@ authorAnalysisServer <- function(id) {
                     "Performance similar or insufficient data for comparison"
                   }
                   tagList(
-                    p(paste("Male authors averaged", round(male_avg, 0), "sales per book")),
-                    p(paste("Female authors averaged", round(female_avg, 0), "sales per book")),
-                    p(comparison_msg)
+                    p(paste("Male authors averaged", round(male_avg, 0), "sales per book"), style = "font-size: 16px;"),
+                    p(paste("Female authors averaged", round(female_avg, 0), "sales per book"), style = "font-size: 16px;"),
+                    p(comparison_msg, style = "font-size: 16px;")
                   )
                 } else {
                   male_total <- sum(male_data$total_sales, na.rm = TRUE)
                   female_total <- sum(female_data$total_sales, na.rm = TRUE)
                   tagList(
-                    p(paste("Male authors:", format(male_total, big.mark = ","), "total sales")),
-                    p(paste("Female authors:", format(female_total, big.mark = ","), "total sales")),
-                    p(paste("Female market share:", round(female_total/(male_total + female_total) * 100, 1), "%"))
+                    p(paste("Male authors:", format(male_total, big.mark = ","), "total sales"), style = "font-size: 16px;"),
+                    p(paste("Female authors:", format(female_total, big.mark = ","), "total sales"), style = "font-size: 16px;"),
+                    p(paste("Female market share:", round(female_total/(male_total + female_total) * 100, 1), "%"), style = "font-size: 16px;")
                   )
                 }
               } else {
-                p("Insufficient data for gender comparison")
+                p("Insufficient data for gender comparison", style = "font-size: 16px;")
               }
             )
           } else {
-            p("No gender data available")
+            p("No gender data available", style = "font-size: 16px;")
           }
         },
 
@@ -748,9 +770,19 @@ authorAnalysisServer <- function(id) {
                    colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
                    hovertemplate = paste0("Gender: %{x}<br>Books: %{customdata}<br>", y_title, ": %{y:,.0f}<extra></extra>"),
                    customdata = ~book_count) %>%
-              layout(title = paste("Sales by Gender -", y_title),
-                     xaxis = list(title = "Author Gender"),
-                     yaxis = list(title = y_title))
+              layout(
+                title = list(text = paste("Sales by Gender -", y_title), font = list(size = 18)),
+                xaxis = list(
+                  title = list(text = "Author Gender", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                yaxis = list(
+                  title = list(text = y_title, font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                margin = list(t = 80, b = 80, l = 80, r = 50)
+              ) %>%
+              config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
           } else {
             plotly_empty("No gender data available")
           }
@@ -766,10 +798,21 @@ authorAnalysisServer <- function(id) {
                    color = ~gender, type = "bar",
                    colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
                    hovertemplate = paste0("Genre: %{x}<br>Gender: %{color}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
-              layout(title = paste("Sales by Genre and Gender -", y_title),
-                     xaxis = list(title = "Genre"),
-                     yaxis = list(title = y_title),
-                     barmode = "group")
+              layout(
+                title = list(text = paste("Sales by Genre and Gender -", y_title), font = list(size = 18)),
+                xaxis = list(
+                  title = list(text = "Genre", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                yaxis = list(
+                  title = list(text = y_title, font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                legend = list(font = list(size = 14)),
+                barmode = "group",
+                margin = list(t = 80, b = 80, l = 80, r = 50)
+              ) %>%
+              config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
           } else {
             plotly_empty("No genre/gender data available")
           }
@@ -782,9 +825,19 @@ authorAnalysisServer <- function(id) {
               plot_ly(plot_data, x = ~book_title, y = ~royalty_income, type = "bar",
                      text = ~paste("Sales:", total_sales),
                      hovertemplate = "%{text}<br>Royalty: $%{y:,.2f}<extra></extra>") %>%
-                layout(title = paste("Royalty Income by Book -", input$author_name),
-                       xaxis = list(title = "Book Title"),
-                       yaxis = list(title = "Royalty Income ($)"))
+                layout(
+                  title = list(text = paste("Royalty Income by Book -", input$author_name), font = list(size = 18)),
+                  xaxis = list(
+                    title = list(text = "Book Title", font = list(size = 16)),
+                    tickfont = list(size = 14)
+                  ),
+                  yaxis = list(
+                    title = list(text = "Royalty Income ($)", font = list(size = 16)),
+                    tickfont = list(size = 14)
+                  ),
+                  margin = list(t = 80, b = 100, l = 80, r = 50)
+                ) %>%
+                config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
             } else {
               plotly_empty("No royalty data available")
             }
@@ -798,9 +851,19 @@ authorAnalysisServer <- function(id) {
             plot_ly(results, x = ~publication_year, y = ~total_sales, type = "scatter", mode = "markers+lines",
                    text = ~book_title, size = ~total_sales,
                    hovertemplate = "%{text}<br>Year: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
-              layout(title = paste("Publication Timeline -", input$author_name),
-                     xaxis = list(title = "Publication Year"),
-                     yaxis = list(title = "Total Sales"))
+              layout(
+                title = list(text = paste("Publication Timeline -", input$author_name), font = list(size = 18)),
+                xaxis = list(
+                  title = list(text = "Publication Year", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                yaxis = list(
+                  title = list(text = "Total Sales", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                margin = list(t = 80, b = 80, l = 80, r = 50)
+              ) %>%
+              config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
           } else {
             plotly_empty("No author data available")
           }
@@ -828,10 +891,21 @@ authorAnalysisServer <- function(id) {
                    color = ~gender, type = "bar",
                    colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
                    hovertemplate = paste0("Genre: %{x}<br>Gender: %{color}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
-              layout(title = paste("Gender Performance by Genre -", y_title),
-                     xaxis = list(title = "Genre"),
-                     yaxis = list(title = y_title),
-                     barmode = "group")
+              layout(
+                title = list(text = paste("Gender Performance by Genre -", y_title), font = list(size = 18)),
+                xaxis = list(
+                  title = list(text = "Genre", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                yaxis = list(
+                  title = list(text = y_title, font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                legend = list(font = list(size = 14)),
+                barmode = "group",
+                margin = list(t = 80, b = 80, l = 80, r = 50)
+              ) %>%
+              config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
           } else {
             plotly_empty("No genre/gender data available")
           }
@@ -847,10 +921,21 @@ authorAnalysisServer <- function(id) {
                    color = ~gender, type = "bar",
                    colors = c("Male" = "#3498db", "Female" = "#e74c3c"),
                    hovertemplate = paste0("Binding: %{x}<br>Gender: %{color}<br>", y_title, ": %{y:,.0f}<extra></extra>")) %>%
-              layout(title = paste("Sales by Binding and Gender -", y_title),
-                     xaxis = list(title = "Binding"),
-                     yaxis = list(title = y_title),
-                     barmode = "group")
+              layout(
+                title = list(text = paste("Sales by Binding and Gender -", y_title), font = list(size = 18)),
+                xaxis = list(
+                  title = list(text = "Binding", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                yaxis = list(
+                  title = list(text = y_title, font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                legend = list(font = list(size = 14)),
+                barmode = "group",
+                margin = list(t = 80, b = 80, l = 80, r = 50)
+              ) %>%
+              config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
           } else {
             plotly_empty("No binding/gender data available")
           }
@@ -863,9 +948,19 @@ authorAnalysisServer <- function(id) {
               plot_ly(plot_data, x = ~total_sales, y = ~royalty_income, type = "scatter", mode = "markers",
                      text = ~book_title, size = ~total_sales,
                      hovertemplate = "%{text}<br>Sales: %{x:,}<br>Royalty: $%{y:,.2f}<extra></extra>") %>%
-                layout(title = "Sales vs Royalty Income",
-                       xaxis = list(title = "Total Sales"),
-                       yaxis = list(title = "Royalty Income ($)"))
+                layout(
+                  title = list(text = "Sales vs Royalty Income", font = list(size = 18)),
+                  xaxis = list(
+                    title = list(text = "Total Sales", font = list(size = 16)),
+                    tickfont = list(size = 14)
+                  ),
+                  yaxis = list(
+                    title = list(text = "Royalty Income ($)", font = list(size = 16)),
+                    tickfont = list(size = 14)
+                  ),
+                  margin = list(t = 80, b = 80, l = 80, r = 50)
+                ) %>%
+                config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
             } else {
               plotly_empty("No comparison data available")
             }
@@ -879,9 +974,19 @@ authorAnalysisServer <- function(id) {
             plot_ly(results, x = ~genre, y = ~total_sales, type = "bar",
                    hovertemplate = "Genre: %{x}<br>Sales: %{y:,}<br>Book: %{customdata}<extra></extra>",
                    customdata = ~book_title) %>%
-              layout(title = paste("Sales by Genre -", input$author_name),
-                     xaxis = list(title = "Genre"),
-                     yaxis = list(title = "Total Sales"))
+              layout(
+                title = list(text = paste("Sales by Genre -", input$author_name), font = list(size = 18)),
+                xaxis = list(
+                  title = list(text = "Genre", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                yaxis = list(
+                  title = list(text = "Total Sales", font = list(size = 16)),
+                  tickfont = list(size = 14)
+                ),
+                margin = list(t = 80, b = 80, l = 80, r = 50)
+              ) %>%
+              config(displayModeBar = TRUE, modeBarButtonsToRemove = c('select2d', 'lasso2d'), displaylogo = FALSE)
           } else {
             plotly_empty("No genre data available")
           }

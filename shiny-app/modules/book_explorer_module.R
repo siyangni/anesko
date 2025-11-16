@@ -6,57 +6,96 @@ bookExplorerUI <- function(id) {
   ns <- NS(id)
 
   fluidPage(
+    tags$style(HTML("
+      .book-explorer-filters label.control-label,
+      .book-explorer-filters .checkbox label {
+        font-size: 18px;
+        font-weight: 200;
+      }
+      .book-explorer-filters .irs-single,
+      .book-explorer-filters .irs-min,
+      .book-explorer-filters .irs-max,
+      .book-explorer-filters .irs-grid-text {
+        font-size: 15px;
+      }
+      /* DataTable search and filter inputs */
+      .dataTables_wrapper input[type='search'],
+      .dataTables_wrapper select,
+      .dataTables_filter input {
+        font-size: 16px !important;
+        padding: 6px 12px !important;
+        height: auto !important;
+      }
+      /* Column filter inputs in table header - give them more width */
+      table.dataTable thead input,
+      table.dataTable thead select {
+        font-size: 16px !important;
+        padding: 8px 10px !important;
+        height: auto !important;
+        min-height: 38px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      /* Make table columns wider to accommodate filters */
+      table.dataTable th {
+        min-width: 120px !important;
+      }
+    ")),
+    
     fluidRow(
       # Filters sidebar
       column(3,
         box(
           title = "Filters", status = "primary", solidHeader = TRUE,
           width = NULL,
+          
+          tags$div(class = "book-explorer-filters",
+            # Search with suggestions (titles and authors)
+            selectizeInput(ns("search_term"), "Search Books or Authors:",
+                           choices = NULL, multiple = FALSE,
+                           options = list(
+                             placeholder = "Type a title or author…",
+                             create = TRUE,
+                             maxOptions = 100,
+                             closeAfterSelect = TRUE
+                           )),
 
-          # Search with suggestions (titles and authors)
-          selectizeInput(ns("search_term"), "Search Books or Authors:",
-                         choices = NULL, multiple = FALSE,
-                         options = list(
-                           placeholder = "Type a title or author…",
-                           create = TRUE,
-                           maxOptions = 100,
-                           closeAfterSelect = TRUE
-                         )),
+            # Genre filter (with searchable multi-select)
+            shinyWidgets::pickerInput(ns("genre_filter"), "Genre:",
+                           choices = NULL, multiple = TRUE,
+                           options = list(
+                             `actions-box` = TRUE,
+                             `live-search` = TRUE,
+                             `live-search-placeholder` = "Search genres…",
+                             `selected-text-format` = "count > 2"
+                           )),
 
-          # Genre filter (with searchable multi-select)
-          shinyWidgets::pickerInput(ns("genre_filter"), "Genre:",
-                         choices = NULL, multiple = TRUE,
-                         options = list(
-                           `actions-box` = TRUE,
-                           `live-search` = TRUE,
-                           `live-search-placeholder` = "Search genres…",
-                           `selected-text-format` = "count > 2"
-                         )),
+            # Gender filter (updated for new database schema)
+            checkboxGroupInput(ns("gender_filter"), "Author Gender:",
+                             choices = list("Male" = "Male", "Female" = "Female"),
+                             selected = c("Male", "Female")),
 
-          # Gender filter (updated for new database schema)
-          checkboxGroupInput(ns("gender_filter"), "Author Gender:",
-                           choices = list("Male" = "Male", "Female" = "Female"),
-                           selected = c("Male", "Female")),
+            # Year range
+            sliderInput(ns("year_range"), "Publication Year Range:",
+                       min = MIN_YEAR, max = MAX_YEAR,
+                       value = DEFAULT_YEAR_RANGE, step = 1,
+                       sep = ""),
 
-          # Year range
-          sliderInput(ns("year_range"), "Publication Year Range:",
-                     min = MIN_YEAR, max = MAX_YEAR,
-                     value = DEFAULT_YEAR_RANGE, step = 1,
-                     sep = ""),
+            # Publisher filter (with searchable multi-select)
+            shinyWidgets::pickerInput(ns("publisher_filter"), "Publisher:",
+                           choices = NULL, multiple = TRUE,
+                           options = list(
+                             `actions-box` = TRUE,
+                             `live-search` = TRUE,
+                             `live-search-placeholder` = "Search publishers…",
+                             `selected-text-format` = "count > 2"
+                           )),
 
-          # Publisher filter (with searchable multi-select)
-          shinyWidgets::pickerInput(ns("publisher_filter"), "Publisher:",
-                         choices = NULL, multiple = TRUE,
-                         options = list(
-                           `actions-box` = TRUE,
-                           `live-search` = TRUE,
-                           `live-search-placeholder` = "Search publishers…",
-                           `selected-text-format` = "count > 2"
-                         )),
-
-          br(),
-          actionButton(ns("reset_filters"), "Reset Filters",
-                      class = "btn-warning", width = "100%")
+            br(),
+            actionButton(ns("reset_filters"), "Reset Filters",
+                        class = "btn-warning", width = "100%")
+          )
         )
       ),
 
@@ -104,17 +143,17 @@ bookExplorerUI <- function(id) {
               )
             )
           )
-        ),
-
-        # Books table
-        fluidRow(
-          column(12,
-            box(
-              title = "Books", status = "primary", solidHeader = TRUE,
-              width = NULL,
-              DT::dataTableOutput(ns("books_table"))
-            )
-          )
+        )
+      )
+    ),
+    
+    # Books table - full width across both columns
+    fluidRow(
+      column(12,
+        box(
+          title = "Books", status = "primary", solidHeader = TRUE,
+          width = NULL,
+          DT::dataTableOutput(ns("books_table"))
         )
       )
     )
@@ -222,48 +261,109 @@ bookExplorerServer <- function(id) {
 
     # Title vs Title comparison logic
     cmp_results <- eventReactive(input$cmp_run, {
+      # Validate inputs
       t1 <- input$cmp_book_title_1
       t2 <- input$cmp_book_title_2
       b  <- input$cmp_binding
+      
       if (is.null(t1) || t1 == "" || is.null(t2) || t2 == "") {
-        showNotification("Please select two book titles.", type = "warning")
+        showNotification("Please select two book titles to compare.", type = "warning", duration = 5)
         return(data.frame())
       }
       if (is.null(b) || b == "") {
-        showNotification("Please choose a binding type.", type = "warning")
+        showNotification("Please select a binding type.", type = "warning", duration = 5)
         return(data.frame())
       }
+      
+      # Get year range
       years <- input$year_range %||% c(MIN_YEAR, MAX_YEAR)
-      start_year <- years[1]; end_year <- years[2]
+      start_year <- years[1]
+      end_year <- years[2]
 
-      res_a <- safe_query(function() {
-        get_book_sales_by_title_binding(t1, b, start_year, end_year)
-      }, default_value = data.frame())
-      res_b <- safe_query(function() {
-        get_book_sales_by_title_binding(t2, b, start_year, end_year)
-      }, default_value = data.frame())
+      # Query data with error handling
+      res_a <- safe_query(
+        function() get_book_sales_by_title_binding(t1, b, start_year, end_year),
+        default_value = data.frame(),
+        error_message = paste0("Error retrieving data for '", as.character(t1)[1], "'")
+      )
+      
+      res_b <- safe_query(
+        function() get_book_sales_by_title_binding(t2, b, start_year, end_year),
+        default_value = data.frame(),
+        error_message = paste0("Error retrieving data for '", as.character(t2)[1], "'")
+      )
 
-      # Handle empty results gracefully with descriptive messages
-      if (nrow(res_a) == 0 && nrow(res_b) == 0) {
-        showNotification("No results for either title within the selected publication year range and binding.", type = "warning")
+      # Aggregation helper function with consistent output structure
+      agg <- function(df, title) {
+        if (is.null(df) || nrow(df) == 0) {
+          return(data.frame(
+            book_title = character(0),
+            binding = character(0),
+            total_sales = numeric(0),
+            selection = character(0),
+            stringsAsFactors = FALSE
+          ))
+        }
+        result <- aggregate(total_sales ~ book_title + binding, df, sum)
+        result$selection <- title
+        return(result)
+      }
+
+      # Aggregate results
+      a <- agg(res_a, "A")
+      b <- agg(res_b, "B")
+
+      # Handle empty results with informative messages
+      has_a <- nrow(a) > 0
+      has_b <- nrow(b) > 0
+      
+      if (!has_a && !has_b) {
+        msg <- paste0(
+          "No sales data found for either book in the selected year range (", 
+          start_year, "-", end_year, ") with ", as.character(b)[1], " binding."
+        )
+        showNotification(msg, type = "warning", duration = 7)
         return(data.frame())
       }
-      if (nrow(res_a) == 0) {
-        showNotification(paste0("No results for '", t1, "' (", b, ") in ", start_year, "-", end_year, "."), type = "message")
+      
+      if (!has_a) {
+        msg <- paste0(
+          "No sales data found for '", as.character(t1)[1], "' (", 
+          as.character(b)[1], " binding) in ", start_year, "-", end_year, 
+          ". Showing results for '", as.character(t2)[1], "' only."
+        )
+        showNotification(msg, type = "message", duration = 7)
       }
-      if (nrow(res_b) == 0) {
-        showNotification(paste0("No results for '", t2, "' (", b, ") in ", start_year, "-", end_year, "."), type = "message")
+      
+      if (!has_b) {
+        msg <- paste0(
+          "No sales data found for '", as.character(t2)[1], "' (", 
+          as.character(b)[1], " binding) in ", start_year, "-", end_year, 
+          ". Showing results for '", as.character(t1)[1], "' only."
+        )
+        showNotification(msg, type = "message", duration = 7)
       }
 
-      agg <- function(df) {
-        if (is.null(df) || nrow(df) == 0) return(data.frame(book_title = character(0), binding = character(0), total_sales = numeric(0)))
-        aggregate(total_sales ~ book_title + binding, df, sum)
-      }
-
-      a <- agg(res_a); a$selection <- "A"
-      b <- agg(res_b); b$selection <- "B"
-      out <- rbind(a, b)
-      if (nrow(out) == 0) return(data.frame()) else out
+      # Safely combine results
+      tryCatch({
+        if (has_a && has_b) {
+          out <- rbind(a, b)
+        } else if (has_a) {
+          out <- a
+        } else {
+          out <- b
+        }
+        
+        if (nrow(out) == 0) {
+          return(data.frame())
+        }
+        
+        return(out)
+      }, error = function(e) {
+        msg <- paste0("Error combining comparison results: ", as.character(e$message)[1])
+        showNotification(msg, type = "error", duration = 10)
+        return(data.frame())
+      })
     }, ignoreInit = TRUE)
 
     output$cmp_plot <- renderPlotly({

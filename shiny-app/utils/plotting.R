@@ -102,7 +102,61 @@ create_bar_plot <- function(data, x_col, y_col, fill_col = NULL,
     p <- p + scale_y_continuous(labels = scales::comma_format())
   }
   
-  ggplotly(p, tooltip = c("x", "y"))
+  # Convert to plotly
+  plotly_obj <- ggplotly(p, tooltip = c("x", "y"))
+  
+  # Calculate appropriate tick spacing based on max value
+  max_val <- max(data[[y_col]], na.rm = TRUE)
+  tick_spacing <- if (max_val > 10000000) {
+    1000000  # 1 million intervals for very large numbers
+  } else if (max_val > 1000000) {
+    500000   # 500k intervals for millions
+  } else if (max_val > 100000) {
+    50000    # 50k intervals
+  } else if (max_val > 10000) {
+    10000    # 10k intervals
+  } else {
+    1000     # 1k intervals for smaller numbers
+  }
+  
+  # Fix x-axis label overlap for horizontal orientation
+  # Note: coord_flip() swaps the axes, so we need to configure xaxis for horizontal charts
+  if (orientation == "horizontal") {
+    plotly_obj <- plotly_obj %>%
+      layout(
+        xaxis = list(
+          tickangle = 0,
+          tickformat = ",.0f",     # Format with commas, no decimals
+          dtick = tick_spacing,     # Fixed spacing between ticks
+          automargin = TRUE,        # Auto-adjust margins for labels
+          separatethousands = TRUE, # Ensure thousand separators
+          tickfont = list(size = 14)  # Improved font size for readability
+        ),
+        yaxis = list(
+          tickfont = list(size = 14)  # Improved font size for readability
+        ),
+        margin = list(b = 80, l = 150, r = 50, t = 80)  # Increase margins
+      )
+  } else {
+    # For vertical orientation, handle x-axis text
+    plotly_obj <- plotly_obj %>%
+      layout(
+        xaxis = list(
+          tickangle = -45,
+          automargin = TRUE,
+          tickfont = list(size = 14)  # Improved font size for readability
+        ),
+        yaxis = list(
+          tickformat = ",.0f",
+          dtick = tick_spacing,
+          separatethousands = TRUE,
+          tickfont = list(size = 14)  # Improved font size for readability
+        ),
+        margin = list(b = 100, l = 50, r = 50, t = 80)
+      )
+  }
+  
+  return(plotly_obj)
 }
 
 # Create scatter plot
