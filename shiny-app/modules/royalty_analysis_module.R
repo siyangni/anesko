@@ -172,7 +172,7 @@ royaltyAnalysisServer <- function(id) {
          WHERE author_id IS NOT NULL 
          GROUP BY author_id, author_surname
          HAVING COUNT(*) >= 2
-         ORDER BY book_count DESC, author_surname
+         ORDER BY author_surname
          LIMIT 50"
       )
       author_choices <- setNames(

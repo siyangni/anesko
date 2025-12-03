@@ -215,7 +215,13 @@ bookExplorerServer <- function(id) {
       updateSelectizeInput(session, "search_term", choices = suggestions_labels, server = TRUE)
 
       # Fill comparison title inputs with labels, but values remain the plain title strings
-      cmp_choices <- if (is.list(title_vec)) stats::setNames(title_values, title_labels) else sort(unique(title_vec))
+      # Sort alphabetically by title for easier searching
+      cmp_choices <- if (is.list(title_vec)) {
+        sorted_order <- order(title_values)
+        stats::setNames(title_values[sorted_order], title_labels[sorted_order])
+      } else {
+        sort(unique(title_vec))
+      }
       updateSelectizeInput(session, "cmp_book_title_1", choices = cmp_choices, server = TRUE)
       updateSelectizeInput(session, "cmp_book_title_2", choices = cmp_choices, server = TRUE)
 

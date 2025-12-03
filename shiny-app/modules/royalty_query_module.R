@@ -255,7 +255,7 @@ royaltyQueryServer <- function(id) {
           WHERE be.author_surname IS NOT NULL
           GROUP BY be.author_surname
           HAVING COUNT(*) >= 1
-          ORDER BY book_count DESC, total_sales DESC, be.author_surname
+          ORDER BY be.author_surname
           LIMIT 200
         "
         df <- safe_db_query(query)
