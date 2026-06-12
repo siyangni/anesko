@@ -66,6 +66,34 @@ source("scripts/migration/03_import_data.R")
 
 Imports the cleaned CSV files into the database tables.
 
+### June 2026 Book ID Append-Only Update
+
+The June 2026 DOCX update only contains `book_entries` data. Do not run the
+full `03_import_data.R` refresh for this batch, because that script truncates
+all migrated tables and expects sales and royalty-tier CSVs.
+
+Dry-run and write staging/report files:
+
+```bash
+Rscript db/migrations/04_import_june_2026_book_ids.R
+```
+
+Commit the 170 new IDs after reviewing the dry-run report:
+
+```bash
+Rscript db/migrations/04_import_june_2026_book_ids.R --commit
+```
+
+The script writes these maintenance outputs under `data/update/`:
+
+- `june_2026_book_ids_staging.csv`
+- `june_2026_book_ids_skipped_conflicts.csv`
+- `june_2026_book_ids_validation_summary.txt`
+
+Default mode is dry-run. Existing `book_id` collisions are skipped with
+`ON CONFLICT (book_id) DO NOTHING`; `book_sales` and `royalty_tiers` are not
+modified.
+
 ## Database Schema
 
 ### book_entries
