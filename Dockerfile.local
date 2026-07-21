@@ -1,0 +1,73 @@
+# Local-run variant of ./Dockerfile
+# Differences from the original:
+#   - rocker/shiny:4.4.1 (newer R, matches DESCRIPTION minimums like ggplot2 3.5.0+)
+#   - uses the image's default Posit Package Manager repo (prebuilt Linux binaries)
+#     instead of cran.rstudio.com source builds -> minutes instead of ~1 hour
+#   - no credentials baked in; mount shiny-app/.env at runtime
+
+FROM rocker/shiny:4.4.1
+
+WORKDIR /srv/shiny-server/
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    postgresql-client \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libmariadb-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install R packages (default repo = Posit PPM with Linux binaries)
+RUN R -e "install.packages(c( \
+    'shiny', \
+    'shinydashboard', \
+    'shinydashboardPlus', \
+    'DT', \
+    'plotly', \
+    'ggplot2', \
+    'dplyr', \
+    'tidyr', \
+    'lubridate', \
+    'DBI', \
+    'RPostgreSQL', \
+    'RPostgres', \
+    'RSQLite', \
+    'pool', \
+    'shinyWidgets', \
+    'waiter', \
+    'fresh', \
+    'htmltools', \
+    'scales', \
+    'stringr', \
+    'readxl', \
+    'purrr', \
+    'glue', \
+    'broom' \
+  )); ok <- c('shiny','shinydashboard','shinydashboardPlus','pool','RPostgreSQL','plotly') %in% rownames(installed.packages()); if (!all(ok)) stop('package install failed')"
+
+# Copy app files
+COPY shiny-app/ /srv/shiny-server/american-authorship/
+
+RUN mkdir -p /srv/shiny-server/american-authorship/data \
+    && chown -R shiny:shiny /srv/shiny-server/
+
+# Configure Shiny Server
+RUN echo "server { \n\
+  listen 3838; \n\
+  location / { \n\
+    site_dir /srv/shiny-server; \n\
+    log_dir /var/log/shiny-server; \n\
+    directory_index on; \n\
+  } \n\
+  location /american-authorship { \n\
+    app_dir /srv/shiny-server/american-authorship; \n\
+    log_dir /var/log/shiny-server; \n\
+  } \n\
+}" > /etc/shiny-server/shiny-server.conf
+
+EXPOSE 3838
+
+CMD ["/usr/bin/shiny-server"]

@@ -1,5 +1,5 @@
 June 2026 Book ID Import Validation Summary
-Generated: 2026-06-12 19:16:36 EDT
+Generated: 2026-06-12 19:46:06 EDT
 
 Source checks:
 - DOCX table count: 1
@@ -13,7 +13,7 @@ Source checks:
 - Invalid Book IDs in DOCX: 0
 
 Reference and import counts:
-- Existing-ID reference: cleaned CSV fallback
+- Existing-ID reference: PostgreSQL book_entries
 - Staged rows: 175
 - Insert candidates: 170
 - Skipped existing-ID collisions: 5
@@ -31,3 +31,17 @@ Data warnings for insert candidates:
 - Missing title: 1 FHB1884B
 - Missing genre: 3 FS1894A, FS1895A, FS1896A
 - Missing publisher: 1 HB1894B
+
+Database counts before dry-run/commit:
+- book_entries: 686
+- book_sales: 11813
+- royalty_tiers: 1007
+
+Commit verification:
+- Inserted rows: NA
+- book_entries before: 686
+- book_entries after: 856
+- book_sales before: 11813
+- book_sales after: 11813
+- royalty_tiers before: 1007
+- royalty_tiers after: 1007
