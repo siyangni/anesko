@@ -45,7 +45,7 @@ test_that("Dashboard displays summary statistics", {
   expect_true(grepl("[0-9]+(\\.?[0-9]*)?[KM]?", value_boxes_html))
 })
 
-test_that("Dashboard navigation works", {
+test_that("Dashboard navigation syncs ?tab= in the URL", {
   skip_if_not_installed("shinytest2")
 
   app <- shinytest2::AppDriver$new(
@@ -55,18 +55,32 @@ test_that("Dashboard navigation works", {
 
   app$wait_for_idle()
 
-  # Click on "Sales Trends" menu item
-  app$click("main_menu")
+  # Sidebar navigation should update the query string for deep links / Back
   app$set_inputs(main_menu = "sales_trends")
   app$wait_for_idle()
+  expect_true(grepl("[?&]tab=sales_trends", app$get_url()))
 
-  # Check that Sales Trends module is displayed
-  expect_true(grepl("sales_trends", tolower(app$get_url())))
+  app$set_inputs(main_menu = "books")
+  app$wait_for_idle()
+  expect_true(grepl("[?&]tab=books", app$get_url()))
 
-  # Navigate back to dashboard
+  # Return via sidebar (simulates in-app path; browser Back uses same URL sync)
   app$set_inputs(main_menu = "dashboard")
   app$wait_for_idle()
+  expect_true(grepl("[?&]tab=dashboard", app$get_url()))
+})
 
-  # Check we're back on dashboard
-  expect_true(grepl("dashboard", tolower(app$get_url())))
+test_that("Deep link style tab selection updates URL and menu state", {
+  skip_if_not_installed("shinytest2")
+
+  app <- shinytest2::AppDriver$new(
+    app_dir = "../../shiny-app",
+    name = "dashboard-deeplink"
+  )
+
+  app$wait_for_idle()
+  app$set_inputs(main_menu = "about")
+  app$wait_for_idle()
+  expect_true(grepl("[?&]tab=about", app$get_url()))
+  expect_equal(app$get_value(input = "main_menu"), "about")
 })

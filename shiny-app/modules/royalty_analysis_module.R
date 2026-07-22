@@ -453,6 +453,7 @@ royaltyAnalysisServer <- function(id) {
           `Sliding Scale` = sliding_scale
         ) %>%
         mutate(
+          Title = format_title_catalog_style(Title),
           Rate = paste0(round(Rate * 100, 1), "%"),
           `Lower Limit` = scales::comma(`Lower Limit`),
           `Upper Limit` = ifelse(is.na(`Upper Limit`), "∞", scales::comma(`Upper Limit`)),

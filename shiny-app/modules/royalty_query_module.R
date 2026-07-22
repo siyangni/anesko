@@ -229,11 +229,15 @@ royaltyQueryServer <- function(id) {
     })
 
     observe({
-      # Book titles
-      book_titles <- safe_query(function() safe_db_query("SELECT DISTINCT book_title FROM book_entries WHERE book_title IS NOT NULL ORDER BY book_title"),
+      # Book titles (catalog-style labels; values stay original stored titles)
+      book_titles <- safe_query(get_book_titles,
                                default_value = data.frame(book_title = character(0)))
       if (!is.null(book_titles) && nrow(book_titles) > 0) {
-        updateSelectizeInput(session, "royalty_book_title", choices = book_titles$book_title, server = TRUE)
+        updateSelectizeInput(
+          session, "royalty_book_title",
+          choices = make_title_choices(book_titles$book_title),
+          server = TRUE
+        )
       }
 
       # Binding states
@@ -367,6 +371,7 @@ royaltyQueryServer <- function(id) {
         # Format the results for display - show all books by the author
         display_results <- display_results %>%
           dplyr::mutate(
+            book_title = format_title_catalog_style(book_title),
             `Total Sales` = format_number(total_sales),
             `Retail Price` = ifelse(is.na(retail_price), "", paste0("$", sprintf("%.2f", retail_price))),
             `Royalty Income` = paste0("$", sprintf("%.2f", royalty_income))
@@ -381,6 +386,7 @@ royaltyQueryServer <- function(id) {
         # Format the results for display - book-specific query
         display_results <- results %>%
           dplyr::mutate(
+            book_title = format_title_catalog_style(book_title),
             `Total Sales` = format_number(total_sales),
             `Retail Price` = ifelse(is.na(retail_price), "", paste0("$", sprintf("%.2f", retail_price))),
             `Royalty Income` = paste0("$", sprintf("%.2f", royalty_income))
@@ -456,7 +462,7 @@ royaltyQueryServer <- function(id) {
 
         details_content <- div(
           h5("Book Royalty Calculation Details:"),
-          p(strong("Book:"), result$book_title),
+          p(strong("Book:"), format_title_catalog_style(result$book_title)),
           p(strong("Binding:"), result$binding),
           p(strong("Sales:"), format_number(result$total_sales), "copies"),
           p(strong("Retail Price:"), paste0("$", sprintf("%.2f", result$retail_price))),
@@ -575,6 +581,8 @@ royaltyQueryServer <- function(id) {
         plot_data <- rbind(plot_data, other_row)
       }
 
+      plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+
       # Create the plot
       par(mar = c(5, 8, 4, 2))  # Increase left margin for book titles
       barplot(
@@ -624,7 +632,8 @@ royaltyQueryServer <- function(id) {
       if (book_count > 0) {
         top_book <- book_data[which.max(book_data$royalty_income), ]
         top_book_info <- paste0(
-          tags$b(top_book$book_title), " ($", sprintf("%.2f", top_book$royalty_income), ")"
+          tags$b(format_title_catalog_style(top_book$book_title)),
+          " ($", sprintf("%.2f", top_book$royalty_income), ")"
         )
       }
 

@@ -41,6 +41,7 @@ source("utils/queries_sales.R")
 source("utils/error_handling.R")
 source("utils/queries_timeseries.R")
 source("utils/queries_royalties.R")
+source("utils/navigation.R")
 
 # Load modules
 source("modules/dashboard_module.R")
@@ -86,6 +87,21 @@ initialize_db_pool <- function() {
 
 # Initialize the pool
 pool <- initialize_db_pool()
+
+# Release DB pool (and allow the OS to free the listen port) when the app stops.
+# Triggered by Ctrl+C / session end / runApp() returning — not by kill -9.
+shiny::onStop(function() {
+  if (exists("pool", envir = .GlobalEnv) && !is.null(get("pool", envir = .GlobalEnv))) {
+    tryCatch({
+      pool::poolClose(get("pool", envir = .GlobalEnv))
+      assign("pool", NULL, envir = .GlobalEnv)
+      cat("\n✅ Database pool closed\n")
+    }, error = function(e) {
+      cat("\n⚠️  Could not close database pool cleanly:", e$message, "\n")
+    })
+  }
+  cat("👋 Shiny app stopped; listen port released.\n")
+})
 
 # NOTE: Data cache (reactiveValues) is created inside server.R
 # because it must be created in a reactive context
@@ -151,40 +167,6 @@ AMBIENT_COLORS <- c(
 )
 
 
-
-# Define %||% operator for NULL coalescing
-`%||%` <- function(x, y) {
-  if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) y else x
-}
-
-# Helper function to format numbers
-format_number <- function(x, suffix = "") {
-  if (is.null(x) || length(x) == 0) return("N/A")
-
-  # Handle vectors
-  if (length(x) > 1) {
-    return(sapply(x, format_number, suffix = suffix))
-  }
-
-  # Check for NA, NULL, or non-numeric values
-  if (is.na(x) || !is.numeric(x)) return("N/A")
-
-  # Convert to numeric if it's not already
-  x <- as.numeric(x)
-  if (is.na(x) || is.infinite(x)) return("N/A")
-
-  # Handle negative numbers
-  if (x < 0) return("N/A")
-
-  # Use constants from app_config.R
-  if (x >= FORMAT_MILLION_THRESHOLD) {
-    paste0(round(x / FORMAT_MILLION_THRESHOLD, 1), "M", suffix)
-  } else if (x >= FORMAT_THOUSAND_THRESHOLD) {
-    paste0(round(x / FORMAT_THOUSAND_THRESHOLD, 1), "K", suffix)
-  } else {
-    paste0(formatC(x, format = "d", big.mark = ","), suffix)
-  }
-}
 
 # Helper function to create value boxes with consistent styling
 create_value_box <- function(value, subtitle, icon, color = "blue", width = 12, href = NULL) {

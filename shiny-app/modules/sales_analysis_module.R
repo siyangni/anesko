@@ -119,9 +119,13 @@ salesAnalysisServer <- function(id) {
       binding_states <- safe_query(get_binding_states,
                                   default_value = data.frame(binding = character(0)))
 
-      # Update book title choices
+      # Update book title choices (catalog-style labels; values stay original titles)
       if (nrow(book_titles) > 0) {
-        updateSelectizeInput(session, "book_title", choices = book_titles$book_title, server = TRUE)
+        updateSelectizeInput(
+          session, "book_title",
+          choices = make_title_choices(book_titles$book_title),
+          server = TRUE
+        )
       }
 
       # Update binding state choices
@@ -291,7 +295,9 @@ salesAnalysisServer <- function(id) {
       switch(input$analysis_type,
         "book_sales" = {
           if ("total_sales" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~book_title, y = ~total_sales, type = "bar",
+            plot_data <- results
+            plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+            plot_ly(plot_data, x = ~book_title, y = ~total_sales, type = "bar",
                    text = ~paste("Author:", author_surname, "<br>Binding:", binding),
                    hovertemplate = "%{text}<br>Sales: %{y:,}<extra></extra>") %>%
               layout(title = "Book Sales by Title", xaxis = list(title = "Book Title"),
@@ -303,7 +309,9 @@ salesAnalysisServer <- function(id) {
 
         "royalty_book" = {
           if ("royalty_income" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~book_title, y = ~royalty_income, type = "bar",
+            plot_data <- results
+            plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+            plot_ly(plot_data, x = ~book_title, y = ~royalty_income, type = "bar",
                    text = ~paste("Sales:", total_sales, "<br>Price: USD", retail_price),
                    hovertemplate = "%{text}<br>Royalty: USD %{y:,.2f}<extra></extra>") %>%
               layout(title = "Royalty Income by Book", xaxis = list(title = "Book Title"),
@@ -315,7 +323,9 @@ salesAnalysisServer <- function(id) {
 
         "avg_book_sales" = {
           if ("avg_sales_per_year" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~book_title, y = ~avg_sales_per_year, type = "bar",
+            plot_data <- results
+            plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+            plot_ly(plot_data, x = ~book_title, y = ~avg_sales_per_year, type = "bar",
                    text = ~paste("Years:", years_with_sales, "<br>Total:", total_sales),
                    hovertemplate = "%{text}<br>Avg/Year: %{y:.1f}<extra></extra>") %>%
               layout(title = "Average Sales per Year by Book", xaxis = list(title = "Book Title"),

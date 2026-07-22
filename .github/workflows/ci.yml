@@ -2,113 +2,284 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, develop, claude/* ]
+    branches: [main, master, develop]
   pull_request:
-    branches: [ main, master ]
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  lint-and-check:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: '4.3.0'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libpq-dev
-
-      - name: Install R dependencies
-        run: |
-          install.packages(c("remotes", "rcmdcheck"))
-          remotes::install_deps(dependencies = TRUE)
-        shell: Rscript {0}
-
-      - name: Check R code
-        run: rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran"), error_on = "warning")
-        shell: Rscript {0}
-
-      - name: Lint R code (non-blocking)
-        run: |
-          if (requireNamespace("lintr", quietly = TRUE)) {
-            lintr::lint_package()
-          } else {
-            message("lintr not available, skipping")
-          }
-        shell: Rscript {0}
-        continue-on-error: true
-
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup R
-        uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: '4.3.0'
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libcurl4-openssl-dev libssl-dev libxml2-dev libpq-dev
-
-      - name: Install R dependencies
-        run: |
-          install.packages(c("remotes", "testthat"))
-          remotes::install_deps(dependencies = TRUE)
-        shell: Rscript {0}
-
-      - name: Run tests
-        run: |
-          if (dir.exists("tests")) {
-            testthat::test_dir("tests")
-          } else {
-            message("No tests directory found")
-          }
-        shell: Rscript {0}
-        # Tests are now blocking - failures will stop the build
-
   structure-check:
+    name: Structure
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Check required files
+      - name: Check required files and directories
+        shell: bash
         run: |
-          echo "Checking for required files..."
-          files_to_check=("DESCRIPTION" "README.md" "License.md" ".gitignore")
+          required_files=(
+            "DESCRIPTION"
+            "README.md"
+            "License.md"
+            ".gitignore"
+            "secrets/README.md"
+            "secrets/db_password.txt.template"
+          )
+          required_dirs=("shiny-app" "scripts" "docs" "tests" "secrets")
 
-          for file in "${files_to_check[@]}"; do
-            if [ -f "$file" ]; then
-              echo "✓ $file exists"
-            else
-              echo "✗ $file missing"
+          for path in "${required_files[@]}"; do
+            test -f "$path" || {
+              echo "::error file=$path::Required file is missing"
               exit 1
-            fi
+            }
           done
 
-          echo "All required files present!"
+          for path in "${required_dirs[@]}"; do
+            test -d "$path" || {
+              echo "::error file=$path::Required directory is missing"
+              exit 1
+            }
+          done
 
-      - name: Check directory structure
+          git check-ignore --quiet secrets/db_password.txt || {
+            echo "::error file=.gitignore::secrets/db_password.txt must be ignored"
+            exit 1
+          }
+
+  r-quality:
+    name: R quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5"
+          use-public-rspm: true
+
+      - name: Install R test dependencies
+        shell: Rscript {0}
         run: |
-          echo "Checking directory structure..."
-          required_dirs=("shiny-app" "R" "scripts" "docs" "archive")
+          install.packages(c(
+            "testthat",
+            "lintr",
+            "cyclocomp",
+            "shiny"
+          ))
 
-          for dir in "${required_dirs[@]}"; do
-            if [ -d "$dir" ]; then
-              echo "✓ $dir/ exists"
-            else
-              echo "✗ $dir/ directory missing (one of shiny-app or R is required)"
-            fi
-          done
+      - name: Parse active R files
+        shell: Rscript {0}
+        run: |
+          files <- list.files(
+            ".",
+            pattern = "[.][Rr]$",
+            recursive = TRUE,
+            full.names = TRUE,
+            all.files = TRUE
+          )
+          excluded <- grepl(
+            "(^|/)(archive|renv|packrat|[.]kilo)(/|$)",
+            files
+          )
+          files <- files[!excluded]
+
+          failures <- character()
+          for (file in files) {
+            tryCatch(
+              parse(file = file, keep.source = FALSE),
+              error = function(error) {
+                failures <<- c(
+                  failures,
+                  sprintf("%s: %s", file, conditionMessage(error))
+                )
+              }
+            )
+          }
+
+          if (length(failures) > 0) {
+            stop(
+              paste(c("R syntax errors:", failures), collapse = "\n"),
+              call. = FALSE
+            )
+          }
+          message("Parsed ", length(files), " active R files")
+
+      - name: Lint tests
+        shell: Rscript {0}
+        run: |
+          lints <- lintr::lint_dir("tests/testthat")
+          print(lints)
+          if (length(lints) > 0) {
+            stop("Lint found ", length(lints), " issue(s)", call. = FALSE)
+          }
+
+      - name: Run unit tests
+        shell: Rscript {0}
+        run: |
+          testthat::test_dir(
+            "tests/testthat",
+            reporter = "summary",
+            stop_on_failure = TRUE,
+            stop_on_warning = FALSE
+          )
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    env:
+      OSSINDEX_USER: ${{ secrets.OSSINDEX_USER }}
+      OSSINDEX_TOKEN: ${{ secrets.OSSINDEX_TOKEN }}
+    steps:
+      - name: Check audit configuration
+        id: audit-config
+        shell: bash
+        run: |
+          if [[ -n "$OSSINDEX_USER" && -n "$OSSINDEX_TOKEN" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Dependency audit skipped::Configure OSSINDEX_USER and OSSINDEX_TOKEN repository secrets to enable it."
+          fi
+
+      - name: Checkout repository
+        if: steps.audit-config.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        if: steps.audit-config.outputs.enabled == 'true'
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.5"
+          use-public-rspm: true
+
+      - name: Install oysteR
+        if: steps.audit-config.outputs.enabled == 'true'
+        run: install.packages("oysteR")
+        shell: Rscript {0}
+
+      - name: Audit DESCRIPTION dependencies
+        if: steps.audit-config.outputs.enabled == 'true'
+        shell: Rscript {0}
+        run: |
+          audit_error <- NULL
+          vulnerabilities <- tryCatch(
+            {
+              description <- read.dcf("DESCRIPTION")
+              fields <- intersect(
+                c("Depends", "Imports"),
+                colnames(description)
+              )
+              entries <- unlist(
+                strsplit(description[1, fields], ",", fixed = TRUE),
+                use.names = FALSE
+              )
+              direct_packages <- setdiff(
+                sub("[[:space:]]*[(].*$", "", trimws(entries)),
+                "R"
+              )
+
+              repository <- available.packages()
+              missing_packages <- setdiff(
+                direct_packages,
+                rownames(repository)
+              )
+              if (length(missing_packages) > 0) {
+                stop(
+                  "Packages not found in the configured repository: ",
+                  paste(missing_packages, collapse = ", "),
+                  call. = FALSE
+                )
+              }
+
+              dependency_map <- tools::package_dependencies(
+                direct_packages,
+                db = repository,
+                which = c("Depends", "Imports", "LinkingTo"),
+                recursive = TRUE
+              )
+              packages <- sort(unique(c(
+                direct_packages,
+                unlist(dependency_map, use.names = FALSE)
+              )))
+              packages <- intersect(packages, rownames(repository))
+              versions <- unname(repository[packages, "Version"])
+
+              audit <- oysteR::audit(
+                packages,
+                versions,
+                type = "CRAN",
+                token = list(
+                  user = Sys.getenv("OSSINDEX_USER"),
+                  token = Sys.getenv("OSSINDEX_TOKEN")
+                )
+              )
+              oysteR::get_vulnerabilities(audit)
+            },
+            error = function(error) {
+              audit_error <<- conditionMessage(error)
+              NULL
+            }
+          )
+
+          if (!is.null(audit_error)) {
+            message(
+              "::warning title=Dependency audit unavailable::",
+              gsub("[\r\n]+", " ", audit_error)
+            )
+            quit(status = 0)
+          }
+
+          if (NROW(vulnerabilities) > 0) {
+            print(vulnerabilities)
+            stop(
+              "Found ",
+              NROW(vulnerabilities),
+              " known package vulnerability/vulnerabilities",
+              call. = FALSE
+            )
+          }
+          message("No known vulnerabilities found in DESCRIPTION dependencies")
+
+  security-scan:
+    name: Security scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan filesystem for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: "."
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy results
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Check for verified secrets
+        uses: trufflesecurity/trufflehog@27b0417c16317ca9a472a9a8092acce143b49c55 # v3.95.9
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event.pull_request.head.sha || github.sha }}
+          extra_args: --only-verified
+          version: "3.95.9"

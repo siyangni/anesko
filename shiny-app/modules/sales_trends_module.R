@@ -192,11 +192,13 @@ salesTrendsServer <- function(id) {
         shinyWidgets::updatePickerInput(session, "binding_filter", choices = sort(unique(stringr::str_to_title(trimws(binds$binding)))))
       }
 
-      # Top books for selection
+      # Top books for selection (catalog-style title labels; values stay book_id)
       top_books <- safe_query(function() get_top_books(limit = 200), default_value = data.frame())
       if (!is.null(top_books) && nrow(top_books) > 0) {
-        labels <- paste0(top_books$book_title, " (", top_books$author_surname, ", ", top_books$publication_year, ")")
-        choices <- stats::setNames(top_books$book_id, labels)
+        catalog_titles <- format_title_catalog_style(top_books$book_title)
+        labels <- paste0(catalog_titles, " (", top_books$author_surname, ", ", top_books$publication_year, ")")
+        ord <- order(labels, top_books$book_id)
+        choices <- stats::setNames(top_books$book_id[ord], labels[ord])
         shinyWidgets::updatePickerInput(session, "book_filter", choices = choices)
       }
 

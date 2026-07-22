@@ -29,6 +29,10 @@ shiny-app/
 
 ## Features
 
+### Navigation
+- **Browser Back/Forward**: Left-sidebar page changes update the URL (`?tab=...`) so the browser back/forward buttons move between dashboard sections
+- **Deep links**: Share or bookmark a section directly (e.g. `?tab=sales_trends`, `?tab=authors`, `?tab=about`)
+
 ### Dashboard Overview
 - **Summary Statistics**: Total books, authors, sales, and date range
 - **Sales Trends**: Interactive time series of annual sales
@@ -97,26 +101,36 @@ Modify `config/app_config.R` to customize:
 
 ### Option 1: Run from R/RStudio
 ```r
-# Navigate to the shiny-app directory
+# From the project root (recommended)
+shiny::runApp("shiny-app/")
+
+# Or from inside shiny-app/
 setwd("path/to/anesko/shiny-app")
-
-# Run the app
 shiny::runApp()
-
-# Or with specific options
-shiny::runApp(port = 3838, host = "0.0.0.0")
 ```
+
+**Port selection**
+
+- Prefer **http://127.0.0.1:3838** when free; otherwise use any free port and print the URL.
+- Because this app has `server.R`, `shiny::runApp("shiny-app/")` uses the classic
+  `global.R` / `ui.R` / `server.R` layout and **does not use** `app.R` for launch options.
+  Free-port defaults come from `shiny-app/.Rprofile` (when R starts in that directory)
+  or from Shiny’s own free-port logic when `shiny.port` is unset.
+- Press **Ctrl+C** in the terminal to stop and free the port (avoid `kill -9` unless needed).
+- Do **not** pass `port = 3838` unless you know that port is free; a fixed busy port will fail with `address already in use`.
 
 ### Option 2: Command Line
 ```bash
-cd /path/to/anesko/shiny-app
-Rscript app.R
+cd /path/to/anesko
+R -e 'shiny::runApp("shiny-app/")'
+# or from shiny-app/ (loads .Rprofile free-port defaults):
+cd shiny-app && R -e 'shiny::runApp()'
 ```
 
-### Option 3: Direct Launch
+### Option 3: Explicit host/port override
 ```r
-# From any R session
-shiny::runApp("path/to/anesko/shiny-app")
+# Only when you need a fixed port that is free
+shiny::runApp("shiny-app/", host = "0.0.0.0", port = 8080)
 ```
 
 ## Customization

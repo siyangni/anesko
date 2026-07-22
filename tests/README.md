@@ -23,26 +23,13 @@ tests/
 
 ```r
 # From project root
-testthat::test_dir("tests")
-
-# Or use devtools
-devtools::test()
+testthat::test_dir("tests/testthat")
 ```
 
 ### Run Specific Test File
 
 ```r
 testthat::test_file("tests/testthat/test-input-validation.R")
-```
-
-### Run with Coverage
-
-```r
-# Generate coverage report
-covr::package_coverage()
-
-# View coverage in browser
-covr::report()
 ```
 
 ## Test Categories
@@ -55,7 +42,7 @@ Tests for individual functions without external dependencies.
 - `test-data-processing.R` - Data formatting and helpers
 - `test-error-handling.R` - Error validation logic
 
-**Run with**: `testthat::test_dir("tests", filter = "input|data|error")`
+**Run with**: `testthat::test_dir("tests/testthat", filter = "input|data|error")`
 
 ### Integration Tests (Medium)
 
@@ -146,10 +133,10 @@ test_that("ui component works", {
 ## Continuous Integration
 
 Tests run automatically on:
-- Every push to `main`, `develop`, or `claude/*` branches
-- Every pull request
+- Every push to `main`, `master`, or `develop`
+- Every pull request targeting `main` or `master`
 
-See `.github/workflows/ci-improved.yml` for CI configuration.
+See `.github/workflows/ci.yml` for CI configuration.
 
 ## Troubleshooting
 

@@ -1,0 +1,47 @@
+June 2026 Book ID Import Validation Summary
+Generated: 2026-06-12 19:46:06 EDT
+
+Source checks:
+- DOCX table count: 1
+- Total DOCX table rows: 239
+- Data rows after header: 238
+- Nonblank data rows: 176
+- Dropped blank-ID separator rows: 1
+- Blank-ID separator DOCX row: 23
+- Rows with valid Book ID: 175
+- Duplicate Book IDs in DOCX: 0
+- Invalid Book IDs in DOCX: 0
+
+Reference and import counts:
+- Existing-ID reference: PostgreSQL book_entries
+- Staged rows: 175
+- Insert candidates: 170
+- Skipped existing-ID collisions: 5
+- Skipped IDs: HHB1874A, HHB1877A, HJ1900A, JCH1894A, MES1897A
+
+Data warnings for insert candidates:
+- Blank royalty rates: 79
+- SS royalty rates stored as NULL: 3 RG1890A, RG1890B, MES1900A
+- Database NULL royalty_rate total: 82
+- Blank retail prices: 53
+- Multi-price retail values stored as NULL: 2 FL1910A, TNP1904B
+- Database NULL retail_price total: 55
+- Missing contract terms: 110
+- Missing gender: 1 EW1902B
+- Missing title: 1 FHB1884B
+- Missing genre: 3 FS1894A, FS1895A, FS1896A
+- Missing publisher: 1 HB1894B
+
+Database counts before dry-run/commit:
+- book_entries: 686
+- book_sales: 11813
+- royalty_tiers: 1007
+
+Commit verification:
+- Inserted rows: NA
+- book_entries before: 686
+- book_entries after: 856
+- book_sales before: 11813
+- book_sales after: 11813
+- royalty_tiers before: 1007
+- royalty_tiers after: 1007

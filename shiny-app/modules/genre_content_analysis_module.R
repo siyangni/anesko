@@ -201,10 +201,10 @@ genreContentAnalysisServer <- function(id) {
         })
 
 
-	    # Initialize book title choices for comparison dropdowns
+	    # Initialize book title choices for comparison dropdowns (catalog-style labels)
 	    observe({
 	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
-	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
 	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
 	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
 	    })
@@ -222,11 +222,11 @@ genreContentAnalysisServer <- function(id) {
 
 
 
-	    # Initialize book title choices for comparison UI
+	    # Initialize book title choices for comparison UI (catalog-style labels)
 	    observe({
 	      titles_df <- safe_query(get_book_titles,
 	                              default_value = data.frame(book_title = character(0)))
-	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
 	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
 	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
 	    })
@@ -235,7 +235,7 @@ genreContentAnalysisServer <- function(id) {
 	    # Initialize book title choices used by title comparison analysis
 	    observe({
 	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
-	      titles <- if (nrow(titles_df) > 0) sort(unique(titles_df$book_title)) else character(0)
+	      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
 	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
 	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
 	    })
@@ -674,7 +674,8 @@ genreContentAnalysisServer <- function(id) {
             tagList(
               h5("Title vs Title (by Binding) Insights:"),
               p(paste("Binding:", input$binding_filter)),
-              p(paste("Higher-seller:", results$book_title[which.max(results$total_sales)])),
+              p(paste("Higher-seller:",
+                      format_title_catalog_style(results$book_title[which.max(results$total_sales)]))),
               p(paste("Difference:", format(diff(range(results$total_sales)), big.mark = ",")))
             )
           } else {
@@ -834,7 +835,9 @@ genreContentAnalysisServer <- function(id) {
 
         "title_binding_compare" = {
           if (all(c("book_title", "total_sales", "selection") %in% names(results)) && nrow(results) > 0) {
-            plot_ly(results, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
+            plot_data <- results
+            plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+            plot_ly(plot_data, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
                    hovertemplate = "Title: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
               layout(title = paste0("Sales Comparison (", input$binding_filter, ")"),
                      xaxis = list(title = "Book Title"),
