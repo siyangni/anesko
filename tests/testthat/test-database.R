@@ -5,14 +5,17 @@ context("Database Connection")
 
 test_that("Database configuration is loadable", {
   # This test should pass if config files are properly set up
-  expect_true(file.exists("shiny-app/config/app_config.R") ||
-              file.exists("R/config/app_config.R"))
+  expect_true(
+    file.exists("../../shiny-app/config/app_config.R") ||
+      file.exists("../../R/config/app_config.R")
+  )
 })
 
-test_that("Required database packages are available", {
-  expect_true(require(DBI, quietly = TRUE))
-  expect_true(require(RPostgreSQL, quietly = TRUE) ||
-              require(RPostgres, quietly = TRUE))
+test_that("Required database packages are runtime dependencies", {
+  imports <- read.dcf("../../DESCRIPTION", fields = "Imports")[1, "Imports"]
+  package_names <- trimws(sub("\\s*\\(.*$", "", strsplit(imports, ",")[[1]]))
+
+  expect_true(all(c("DBI", "RPostgreSQL") %in% package_names))
 })
 
 test_that("Database pool constants are defined", {

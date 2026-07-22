@@ -6,20 +6,18 @@ linters: linters_with_defaults(
   commented_code_linter = NULL,
   cyclocomp_linter = cyclocomp_linter(complexity_limit = 25),
   object_usage_linter = NULL,
-  implicit_integer_linter = NULL,
-  undesirable_function_linter = NULL,
   absolute_path_linter = absolute_path_linter(),
   any_duplicated_linter = any_duplicated_linter(),
   any_is_na_linter = any_is_na_linter(),
   equals_na_linter = equals_na_linter(),
   T_and_F_symbol_linter = T_and_F_symbol_linter(),
   seq_linter = seq_linter()
-)
+  )
 exclusions: list(
   "archive/",
   "renv/",
   "packrat/",
   "tests/testthat.R",
   "scripts/obsolete/"
-)
+  )
 encoding: "UTF-8"

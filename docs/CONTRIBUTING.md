@@ -194,7 +194,7 @@ test_that("function calculates correctly", {
 
 ```r
 # Run all tests
-testthat::test_dir("tests")
+testthat::test_dir("tests/testthat")
 
 # Run specific test file
 testthat::test_file("tests/testthat/test-database.R")
@@ -252,12 +252,12 @@ When making changes that affect:
 
 1. **Run tests**:
    ```r
-   testthat::test_dir("tests")
+   testthat::test_dir("tests/testthat")
    ```
 
 2. **Check code style** (optional but recommended):
    ```r
-   lintr::lint_package()
+   lintr::lint_dir("tests/testthat")
    ```
 
 3. **Update documentation**

@@ -93,7 +93,7 @@ validate_year_range <- function(start_year, end_year) {
 
 #' Sanitize string input for database queries
 #'
-#' Removes potentially dangerous characters from user input.
+#' Normalizes and bounds user-supplied text.
 #' Note: This is a defense-in-depth measure; always use parameterized queries!
 #'
 #' @param input Character vector to sanitize
@@ -106,9 +106,6 @@ sanitize_string_input <- function(input, max_length = 200) {
 
   # Convert to character
   input <- as.character(input)
-
-  # Remove NULL bytes (can cause SQL parsing issues)
-  input <- gsub("\0", "", input, fixed = TRUE)
 
   # Truncate to maximum length
   input <- substr(input, 1, max_length)

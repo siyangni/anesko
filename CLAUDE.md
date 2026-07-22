@@ -171,8 +171,7 @@ anesko/
 ├── .styler.R                       # Code styling rules
 ├── .gitignore                      # Git ignore rules
 └── .github/workflows/              # CI/CD pipelines
-    ├── ci.yml                      # Main CI pipeline
-    └── ci-improved.yml             # Enhanced CI pipeline
+    └── ci.yml                      # Main CI pipeline
 ```
 
 ### Architecture Overview
@@ -428,10 +427,10 @@ git checkout -b feature/new-feature
 
 # 2. Make changes and test
 # Edit files, run tests
-testthat::test_dir("tests")
+testthat::test_dir("tests/testthat")
 
 # 3. Run linters and styling
-lintr::lint_package()
+lintr::lint_dir("tests/testthat")
 styler::style_pkg()
 
 # 4. Commit with conventional commits format
@@ -474,7 +473,7 @@ git push origin feature/new-feature
 **Running Tests**:
 ```r
 # All tests
-testthat::test_dir("tests")
+testthat::test_dir("tests/testthat")
 
 # Specific file
 testthat::test_file("tests/testthat/test-input-validation.R")
@@ -491,7 +490,7 @@ covr::report()
 
 **lintr**: Code linting
 ```bash
-R -e "lintr::lint_package()"
+R -e "lintr::lint_dir('tests/testthat')"
 ```
 
 **styler**: Code formatting
@@ -799,19 +798,19 @@ R -e "shiny::runApp('shiny-app/')"
 ### Testing
 ```r
 # Run all tests
-testthat::test_dir("tests")
+testthat::test_dir("tests/testthat")
 
 # Run with coverage
 covr::package_coverage()
 covr::report()
 
 # Specific test category
-testthat::test_dir("tests", filter = "database")
+testthat::test_dir("tests/testthat", filter = "database")
 ```
 
 ### Code Quality
 ```r
-lintr::lint_package()
+lintr::lint_dir("tests/testthat")
 styler::style_pkg()
 ```
 

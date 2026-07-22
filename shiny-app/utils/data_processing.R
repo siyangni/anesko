@@ -2,6 +2,34 @@
 # Functions for data transformation, aggregation, and preparation
 # Updated for new PostgreSQL database schema with author_id and proper NULLs
 
+# NULL coalescing operator used throughout the application
+`%||%` <- function(x, y) {
+  if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) y else x
+}
+
+# Format numeric values for compact display
+format_number <- function(x, suffix = "") {
+  if (is.null(x) || length(x) == 0) return("N/A")
+
+  if (length(x) > 1) {
+    return(sapply(x, format_number, suffix = suffix))
+  }
+
+  if (is.na(x) || !is.numeric(x)) return("N/A")
+
+  x <- as.numeric(x)
+  if (is.na(x) || is.infinite(x)) return("N/A")
+  if (x < 0) return("N/A")
+
+  if (x >= FORMAT_MILLION_THRESHOLD) {
+    paste0(round(x / FORMAT_MILLION_THRESHOLD, 1), "M", suffix)
+  } else if (x >= FORMAT_THOUSAND_THRESHOLD) {
+    paste0(round(x / FORMAT_THOUSAND_THRESHOLD, 1), "K", suffix)
+  } else {
+    paste0(formatC(x, format = "d", big.mark = ","), suffix)
+  }
+}
+
 # Clean and standardize genre codes (updated for new database values)
 clean_genre <- function(genre) {
   # Handle vectors properly

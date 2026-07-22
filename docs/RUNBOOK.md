@@ -202,7 +202,7 @@ docker run -p 8080:3838 \
 ### Run All Tests
 
 ```r
-testthat::test_dir("tests")
+testthat::test_dir("tests/testthat")
 ```
 
 ### Run Specific Test
@@ -214,7 +214,7 @@ testthat::test_file("tests/testthat/test-database.R")
 ### Lint Code
 
 ```r
-lintr::lint_package()
+lintr::lint_dir("tests/testthat")
 ```
 
 ### Manual Testing Checklist

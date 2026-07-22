@@ -1,8 +1,15 @@
 # Unit Tests for Data Processing Functions
 
-test_that("format_number handles various inputs", {
-  source("../../shiny-app/global.R", local = TRUE)
+list2env(
+  list(
+    FORMAT_MILLION_THRESHOLD = 1000000,
+    FORMAT_THOUSAND_THRESHOLD = 1000
+  ),
+  envir = environment()
+)
+source("../../shiny-app/utils/data_processing.R", local = TRUE)
 
+test_that("format_number handles various inputs", {
   expect_equal(format_number(1500), "1.5K")
   expect_equal(format_number(1500000), "1.5M")
   expect_equal(format_number(500), "500")
@@ -13,8 +20,6 @@ test_that("format_number handles various inputs", {
 })
 
 test_that("format_number handles vectors", {
-  source("../../shiny-app/global.R", local = TRUE)
-
   result <- format_number(c(1000, 2000, 3000))
   expect_equal(length(result), 3)
   expect_equal(result[1], "1K")
@@ -23,8 +28,6 @@ test_that("format_number handles vectors", {
 })
 
 test_that("NULL coalescing operator works", {
-  source("../../shiny-app/global.R", local = TRUE)
-
   expect_equal(NULL %||% "default", "default")
   expect_equal("value" %||% "default", "value")
   expect_equal(NA %||% "default", "default")
@@ -33,8 +36,6 @@ test_that("NULL coalescing operator works", {
 })
 
 test_that("format_title_catalog_style repositions leading articles", {
-  source("../../shiny-app/utils/data_processing.R", local = TRUE)
-
   expect_equal(format_title_catalog_style("A Boy's Town"), "Boy's Town, A")
   expect_equal(
     format_title_catalog_style("The Wings of the Dove"),
@@ -45,8 +46,6 @@ test_that("format_title_catalog_style repositions leading articles", {
 })
 
 test_that("format_title_catalog_style avoids false positives and handles edge cases", {
-  source("../../shiny-app/utils/data_processing.R", local = TRUE)
-
   # Must not treat Ann / Their / Theatricals as articles
   expect_equal(format_title_catalog_style("Ann Boyd"), "Ann Boyd")
   expect_equal(format_title_catalog_style("Theatricals"), "Theatricals")
@@ -78,8 +77,6 @@ test_that("format_title_catalog_style avoids false positives and handles edge ca
 })
 
 test_that("make_title_choices uses catalog labels and original values", {
-  source("../../shiny-app/utils/data_processing.R", local = TRUE)
-
   titles <- c("The Wings of the Dove", "A Boy's Town", "Ann Boyd", "A Boy's Town")
   choices <- make_title_choices(titles)
 
