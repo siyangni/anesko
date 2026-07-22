@@ -18,9 +18,11 @@ create_db_pool <- function() {
     cat("   Database:", db_config$dbname, "\n")
     cat("   User:", db_config$user, "\n")
 
-    # Use RPostgreSQL for reliability (works on shinyapps.io)
-    pool <- pool::dbPool(
-      drv = RPostgreSQL::PostgreSQL(),
+    sslmode <- if (is.null(db_config$sslmode)) "require" else db_config$sslmode
+    use_rpostgres <- requireNamespace("RPostgres", quietly = TRUE)
+
+    pool_args <- list(
+      drv = if (use_rpostgres) RPostgres::Postgres() else RPostgreSQL::PostgreSQL(),
       host = db_config$host,
       dbname = db_config$dbname,
       user = db_config$user,
@@ -30,6 +32,15 @@ create_db_pool <- function() {
       maxSize = POOL_SIZE_MAX,
       idleTimeout = POOL_IDLE_TIMEOUT * 1000
     )
+
+    if (use_rpostgres) {
+      pool_args$sslmode <- sslmode
+    } else {
+      # RPostgreSQL does not expose sslmode; libpq reads PGSSLMODE instead.
+      do.call(Sys.setenv, list(PGSSLMODE = sslmode))
+    }
+
+    pool <- do.call(pool::dbPool, pool_args)
 
     cat("✅ Database connection pool created successfully\n")
     return(pool)

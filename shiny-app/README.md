@@ -97,26 +97,28 @@ Modify `config/app_config.R` to customize:
 
 ### Option 1: Run from R/RStudio
 ```r
-# Navigate to the shiny-app directory
+# From the project root (recommended)
+shiny::runApp("shiny-app/")
+
+# Or from inside shiny-app/
 setwd("path/to/anesko/shiny-app")
-
-# Run the app
 shiny::runApp()
-
-# Or with specific options
-shiny::runApp(port = 3838, host = "0.0.0.0")
 ```
+
+The app always binds to **http://127.0.0.1:3838** (set in `app.R` via
+`shinyApp(options = list(host = "127.0.0.1", port = 3838, ...))`).
+Free that port first if something else is already listening there.
 
 ### Option 2: Command Line
 ```bash
-cd /path/to/anesko/shiny-app
-Rscript app.R
+cd /path/to/anesko
+R -e 'shiny::runApp("shiny-app/")'
 ```
 
-### Option 3: Direct Launch
+### Option 3: Explicit host/port override
 ```r
-# From any R session
-shiny::runApp("path/to/anesko/shiny-app")
+# Override defaults if needed
+shiny::runApp("shiny-app/", host = "0.0.0.0", port = 8080)
 ```
 
 ## Customization
