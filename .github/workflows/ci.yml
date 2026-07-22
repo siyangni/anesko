@@ -72,7 +72,8 @@ jobs:
           install.packages(c(
             "testthat",
             "lintr",
-            "cyclocomp"
+            "cyclocomp",
+            "shiny"
           ))
 
       - name: Parse active R files
