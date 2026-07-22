@@ -651,7 +651,8 @@ authorAnalysisServer <- function(id) {
               },
               if (nrow(book_data) > 0) {
                 best_book <- book_data[which.max(book_data$royalty_income), ]
-                p(paste("Best performing book:", best_book$book_title[1],
+                p(paste("Best performing book:",
+                       format_title_catalog_style(best_book$book_title[1]),
                        "($", format(round(best_book$royalty_income[1], 2), big.mark = ","), ")"))
               }
             )
@@ -692,7 +693,8 @@ authorAnalysisServer <- function(id) {
               p(class = "metric-emphasis", paste("Total sales:", format(total_sales, big.mark = ","), "copies")),
               if (nrow(results) > 0) {
                 best_book <- results[which.max(results$total_sales), ]
-                p(paste("Best seller:", best_book$book_title[1],
+                p(paste("Best seller:",
+                       format_title_catalog_style(best_book$book_title[1]),
                        "(", format(best_book$total_sales[1], big.mark = ","), "copies)"))
               }
             )
@@ -822,6 +824,7 @@ authorAnalysisServer <- function(id) {
           if ("royalty_income" %in% names(results) && nrow(results) > 1) {
             plot_data <- results[results$book_id != "TOTAL", ]
             if (nrow(plot_data) > 0) {
+              plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
               plot_ly(plot_data, x = ~book_title, y = ~royalty_income, type = "bar",
                      text = ~paste("Sales:", total_sales),
                      hovertemplate = "%{text}<br>Royalty: $%{y:,.2f}<extra></extra>") %>%
@@ -848,7 +851,9 @@ authorAnalysisServer <- function(id) {
 
         "author_overview" = {
           if ("total_sales" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~publication_year, y = ~total_sales, type = "scatter", mode = "markers+lines",
+            plot_data <- results
+            plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+            plot_ly(plot_data, x = ~publication_year, y = ~total_sales, type = "scatter", mode = "markers+lines",
                    text = ~book_title, size = ~total_sales,
                    hovertemplate = "%{text}<br>Year: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
               layout(
@@ -945,6 +950,7 @@ authorAnalysisServer <- function(id) {
           if ("book_title" %in% names(results) && "total_sales" %in% names(results) && nrow(results) > 1) {
             plot_data <- results[results$book_id != "TOTAL", ]
             if (nrow(plot_data) > 0) {
+              plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
               plot_ly(plot_data, x = ~total_sales, y = ~royalty_income, type = "scatter", mode = "markers",
                      text = ~book_title, size = ~total_sales,
                      hovertemplate = "%{text}<br>Sales: %{x:,}<br>Royalty: $%{y:,.2f}<extra></extra>") %>%
@@ -971,7 +977,9 @@ authorAnalysisServer <- function(id) {
 
         "author_overview" = {
           if ("genre" %in% names(results) && "total_sales" %in% names(results) && nrow(results) > 0) {
-            plot_ly(results, x = ~genre, y = ~total_sales, type = "bar",
+            plot_data <- results
+            plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+            plot_ly(plot_data, x = ~genre, y = ~total_sales, type = "bar",
                    hovertemplate = "Genre: %{x}<br>Sales: %{y:,}<br>Book: %{customdata}<extra></extra>",
                    customdata = ~book_title) %>%
               layout(

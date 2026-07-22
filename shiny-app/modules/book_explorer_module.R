@@ -191,37 +191,37 @@ bookExplorerServer <- function(id) {
       titles <- safe_query(get_book_titles_with_year, default_value = data.frame())
       authors <- safe_query(get_author_surnames, default_value = data.frame())
 
-      # Show first publication year next to titles
-      title_vec <- if (nrow(titles) > 0) {
+      # Catalog-style labels (articles at end); values stay original stored titles
+      if (nrow(titles) > 0 && "book_title" %in% names(titles)) {
+        catalog_titles <- format_title_catalog_style(titles$book_title)
         if ("first_publication_year" %in% names(titles)) {
-          stats::setNames(titles$book_title, paste0(titles$book_title, " (", titles$first_publication_year, ")"))
+          title_labels <- paste0(catalog_titles, " (", titles$first_publication_year, ")")
         } else {
-          titles$book_title
+          title_labels <- catalog_titles
         }
-      } else character(0)
+        title_values <- titles$book_title
+        cmp_choices <- make_title_choices(title_values, labels = title_labels)
+      } else {
+        title_labels <- character(0)
+        title_values <- character(0)
+        cmp_choices <- character(0)
+      }
       author_vec <- if (nrow(authors) > 0) authors$author_surname else character(0)
 
-      # Combine titles (with year labels) and authors into suggestions
-      # For search_term, show labels (Title (Year)) but value should be the raw string searched against titles/authors.
-      if (is.list(title_vec)) {
-        # When title_vec is named, extract labels
-        title_labels <- unname(names(title_vec))
-        title_values <- unname(unlist(title_vec, use.names = FALSE))
+      # Search suggestions: show catalog labels; values are original titles/authors
+      # so SQL LIKE still matches stored book_title / author_surname.
+      author_choices <- if (length(author_vec) > 0) {
+        stats::setNames(author_vec, author_vec)
       } else {
-        title_labels <- title_vec
-        title_values <- title_vec
+        character(0)
       }
-      suggestions_labels <- sort(unique(c(title_labels, author_vec)))
-      updateSelectizeInput(session, "search_term", choices = suggestions_labels, server = TRUE)
+      search_choices <- c(cmp_choices, author_choices)
+      if (length(search_choices) > 0) {
+        search_choices <- search_choices[order(names(search_choices), unname(search_choices))]
+      }
+      updateSelectizeInput(session, "search_term", choices = search_choices, server = TRUE)
 
-      # Fill comparison title inputs with labels, but values remain the plain title strings
-      # Sort alphabetically by title for easier searching
-      cmp_choices <- if (is.list(title_vec)) {
-        sorted_order <- order(title_values)
-        stats::setNames(title_values[sorted_order], title_labels[sorted_order])
-      } else {
-        sort(unique(title_vec))
-      }
+      # Comparison inputs: labels = catalog form (+ year), values = original titles
       updateSelectizeInput(session, "cmp_book_title_1", choices = cmp_choices, server = TRUE)
       updateSelectizeInput(session, "cmp_book_title_2", choices = cmp_choices, server = TRUE)
 
@@ -375,7 +375,9 @@ bookExplorerServer <- function(id) {
     output$cmp_plot <- renderPlotly({
       results <- cmp_results()
       if (is.null(results) || nrow(results) == 0) return(plotly_empty("No title comparison data available"))
-      plot_ly(results, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
+      plot_data <- results
+      plot_data$book_title <- format_title_catalog_style(plot_data$book_title)
+      plot_ly(plot_data, x = ~book_title, y = ~total_sales, color = ~selection, type = "bar",
         hovertemplate = "Title: %{x}<br>Sales: %{y:,}<extra></extra>") %>%
         layout(title = paste0("Sales Comparison (", input$cmp_binding, ")"),
           xaxis = list(title = "Book Title"), yaxis = list(title = "Total Sales"))
@@ -400,7 +402,7 @@ bookExplorerServer <- function(id) {
         ))
       }
 
-      # Prepare display data
+      # Prepare display data (catalog-style titles: articles at end)
       display_data <- data %>%
         select(
           Author = author_surname,
@@ -416,6 +418,7 @@ bookExplorerServer <- function(id) {
           `Sales Years` = years_with_sales
         ) %>%
         mutate(
+          Title = format_title_catalog_style(Title),
           Genre = clean_genre(Genre),
           Gender = clean_gender(Gender),
           `Retail Price` = ifelse(is.na(`Retail Price`), "N/A",

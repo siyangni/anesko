@@ -29,6 +29,10 @@ shiny-app/
 
 ## Features
 
+### Navigation
+- **Browser Back/Forward**: Left-sidebar page changes update the URL (`?tab=...`) so the browser back/forward buttons move between dashboard sections
+- **Deep links**: Share or bookmark a section directly (e.g. `?tab=sales_trends`, `?tab=authors`, `?tab=about`)
+
 ### Dashboard Overview
 - **Summary Statistics**: Total books, authors, sales, and date range
 - **Sales Trends**: Interactive time series of annual sales
@@ -105,19 +109,27 @@ setwd("path/to/anesko/shiny-app")
 shiny::runApp()
 ```
 
-The app always binds to **http://127.0.0.1:3838** (set in `app.R` via
-`shinyApp(options = list(host = "127.0.0.1", port = 3838, ...))`).
-Free that port first if something else is already listening there.
+**Port selection**
+
+- Prefer **http://127.0.0.1:3838** when free; otherwise use any free port and print the URL.
+- Because this app has `server.R`, `shiny::runApp("shiny-app/")` uses the classic
+  `global.R` / `ui.R` / `server.R` layout and **does not use** `app.R` for launch options.
+  Free-port defaults come from `shiny-app/.Rprofile` (when R starts in that directory)
+  or from Shiny’s own free-port logic when `shiny.port` is unset.
+- Press **Ctrl+C** in the terminal to stop and free the port (avoid `kill -9` unless needed).
+- Do **not** pass `port = 3838` unless you know that port is free; a fixed busy port will fail with `address already in use`.
 
 ### Option 2: Command Line
 ```bash
 cd /path/to/anesko
 R -e 'shiny::runApp("shiny-app/")'
+# or from shiny-app/ (loads .Rprofile free-port defaults):
+cd shiny-app && R -e 'shiny::runApp()'
 ```
 
 ### Option 3: Explicit host/port override
 ```r
-# Override defaults if needed
+# Only when you need a fixed port that is free
 shiny::runApp("shiny-app/", host = "0.0.0.0", port = 8080)
 ```
 

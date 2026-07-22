@@ -41,6 +41,7 @@ source("utils/queries_sales.R")
 source("utils/error_handling.R")
 source("utils/queries_timeseries.R")
 source("utils/queries_royalties.R")
+source("utils/navigation.R")
 
 # Load modules
 source("modules/dashboard_module.R")
@@ -86,6 +87,21 @@ initialize_db_pool <- function() {
 
 # Initialize the pool
 pool <- initialize_db_pool()
+
+# Release DB pool (and allow the OS to free the listen port) when the app stops.
+# Triggered by Ctrl+C / session end / runApp() returning — not by kill -9.
+shiny::onStop(function() {
+  if (exists("pool", envir = .GlobalEnv) && !is.null(get("pool", envir = .GlobalEnv))) {
+    tryCatch({
+      pool::poolClose(get("pool", envir = .GlobalEnv))
+      assign("pool", NULL, envir = .GlobalEnv)
+      cat("\n✅ Database pool closed\n")
+    }, error = function(e) {
+      cat("\n⚠️  Could not close database pool cleanly:", e$message, "\n")
+    })
+  }
+  cat("👋 Shiny app stopped; listen port released.\n")
+})
 
 # NOTE: Data cache (reactiveValues) is created inside server.R
 # because it must be created in a reactive context

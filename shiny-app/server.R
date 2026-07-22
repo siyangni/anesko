@@ -63,19 +63,108 @@ server <- function(input, output, session) {
     })
   })
 
-  # Handle navigation
-  observeEvent(input$main_menu, {
-    tab_name <- input$main_menu
-    if (!is.null(tab_name)) {
-      # Optional: Add analytics or logging here
-      cat("User navigated to:", tab_name, "\n")
+  # ---------------------------------------------------------------------------
+  # Browser history: sync sidebar tabs with ?tab= for Back/Forward + deep links
+  # Client logic lives in www/browser_history.js (pushState / popstate).
+  # ---------------------------------------------------------------------------
+  nav_state <- reactiveValues(
+    # TRUE while applying a tab change that came from the browser (not a click)
+    syncing_from_url = FALSE,
+    last_tab = NULL
+  )
+
+  select_main_tab <- function(tab, from_browser = FALSE) {
+    if (!is_valid_tab(tab)) {
+      tab <- DEFAULT_TAB
     }
-  })
+    if (isTRUE(from_browser)) {
+      nav_state$syncing_from_url <- TRUE
+    }
+    nav_state$last_tab <- tab
+    shinydashboard::updateTabItems(
+      session = session,
+      inputId = "main_menu",
+      selected = tab
+    )
+    if (isTRUE(from_browser)) {
+      session$onFlushed(function() {
+        nav_state$syncing_from_url <- FALSE
+      }, once = TRUE)
+    }
+  }
+
+  # Deep link / Back / Forward → select the matching sidebar tab
+  observeEvent(input$browser_nav_tab, {
+    nav <- input$browser_nav_tab
+    if (is.null(nav)) {
+      return()
+    }
+
+    tab <- if (is.list(nav) || (is.vector(nav) && !is.null(names(nav)))) {
+      nav[["tab"]]
+    } else {
+      nav
+    }
+    if (is.null(tab) || !nzchar(as.character(tab)[1])) {
+      return()
+    }
+    tab <- as.character(tab)[1]
+    if (!is_valid_tab(tab)) {
+      tab <- DEFAULT_TAB
+    }
+
+    current <- isolate(input$main_menu)
+    source <- if (is.list(nav)) nav[["source"]] else NULL
+
+    # Already on this tab — still mark last_tab so click handler can no-op
+    if (!is.null(current) && identical(tab, current)) {
+      nav_state$last_tab <- tab
+      cat("History/nav echo (already on tab):", tab,
+          if (!is.null(source)) paste0(" [", source, "]") else "", "\n")
+      return()
+    }
+
+    select_main_tab(tab, from_browser = TRUE)
+    cat("User navigated to (via URL/history):", tab,
+        if (!is.null(source)) paste0(" [", source, "]") else "", "\n")
+  }, ignoreNULL = TRUE)
+
+  # Sidebar click / programmatic updateTabItems → ask browser to push history
+  observeEvent(input$main_menu, {
+    tab <- input$main_menu
+    if (!is_valid_tab(tab)) {
+      return()
+    }
+
+    # Applied from Back/Forward/deep link — do not push another entry
+    if (isTRUE(isolate(nav_state$syncing_from_url))) {
+      nav_state$last_tab <- tab
+      return()
+    }
+
+    prev <- isolate(nav_state$last_tab)
+    # First paint / echo of the same tab: replace URL, don't grow history
+    mode <- if (is.null(prev)) "replace" else "push"
+
+    if (identical(tab, prev)) {
+      return()
+    }
+
+    nav_state$last_tab <- tab
+    session$sendCustomMessage(
+      "anesko_nav_history",
+      list(tab = tab, mode = mode)
+    )
+    cat("User navigated to:", tab, " (history mode:", mode, ")\n")
+  }, ignoreNULL = TRUE)
 
   observeEvent(input[["dashboard_module-navigate_to"]], {
     target_tab <- input[["dashboard_module-navigate_to"]]
 
     if (is.null(target_tab) || !nzchar(target_tab)) {
+      return()
+    }
+    if (!is_valid_tab(target_tab)) {
       return()
     }
 

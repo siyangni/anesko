@@ -354,7 +354,7 @@ dashboardServer <- function(id) {
           ))
         }
         
-        # Prepare display data with safe operations
+        # Prepare display data with safe operations (catalog-style titles)
         display_data <- data %>%
           select(
             Author = author_surname,
@@ -368,7 +368,11 @@ dashboardServer <- function(id) {
           ) %>%
           mutate(
             Author = ifelse(is.na(Author) | Author == "", "Unknown", as.character(Author)),
-            Title = ifelse(is.na(Title) | Title == "", "Unknown", as.character(Title)),
+            Title = ifelse(
+              is.na(Title) | Title == "",
+              "Unknown",
+              format_title_catalog_style(as.character(Title))
+            ),
             Genre = ifelse(is.na(Genre) | Genre == "", "Other", 
                           case_when(
                             Genre == "F" ~ "Fiction",

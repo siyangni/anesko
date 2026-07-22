@@ -465,3 +465,99 @@ clean_data_for_viz <- function(data) {
       across(where(is.numeric), ~ ifelse(is.na(.x), 0, .x))
     )
 }
+
+# =============================================================================
+# CATALOG-STYLE TITLE FORMATTING
+# Reposition leading articles (A, An, The) to the end for list/table display.
+# Database values stay unchanged; use these helpers only for UI presentation.
+# =============================================================================
+
+#' Format book titles in library catalog style
+#'
+#' Moves a leading English article ("A", "An", "The") to the end of the title:
+#' e.g. "A Boy's Town" -> "Boy's Town, A". Mid-title articles are left alone.
+#' Only matches article + whitespace (so "Ann Boyd" / "Theatricals" are unchanged).
+#'
+#' @param titles Character vector of book titles (may include NA).
+#' @return Character vector of the same length with catalog-style display forms.
+format_title_catalog_style <- function(titles) {
+  if (is.null(titles)) {
+    return(character(0))
+  }
+
+  # Coerce factors etc.; preserve length including NAs
+  titles <- as.character(titles)
+  out <- titles
+
+  # Leading article + at least one non-space character in the remainder
+  article_re <- "^(A|An|The)\\s+(.+)$"
+  matches <- grepl(article_re, titles, ignore.case = TRUE, perl = TRUE)
+
+  if (any(matches, na.rm = TRUE)) {
+    idx <- which(matches)
+    for (i in idx) {
+      m <- regexec(article_re, titles[[i]], ignore.case = TRUE, perl = TRUE)
+      parts <- regmatches(titles[[i]], m)[[1]]
+      if (length(parts) >= 3) {
+        article_raw <- parts[[2]]
+        remainder <- trimws(parts[[3]])
+        if (!nzchar(remainder)) {
+          next
+        }
+        article_norm <- switch(
+          tolower(article_raw),
+          "a" = "A",
+          "an" = "An",
+          "the" = "The",
+          article_raw
+        )
+        out[[i]] <- paste0(remainder, ", ", article_norm)
+      }
+    }
+  }
+
+  out
+}
+
+#' Build named selectize choices for book titles in catalog style
+#'
+#' Labels use catalog form (articles at end) and are sorted alphabetically by
+#' that label. Values remain the original stored titles for database lookups.
+#'
+#' @param titles Character vector of original book titles.
+#' @param labels Optional precomputed display labels (same length as titles).
+#'   If NULL, labels are produced via format_title_catalog_style(titles).
+#'   When provided, empty/NA titles (and their labels) are dropped together
+#'   before deduplication by original title.
+#' @return Named character vector: names = display labels, values = original titles.
+make_title_choices <- function(titles, labels = NULL) {
+  if (is.null(titles) || length(titles) == 0) {
+    return(stats::setNames(character(0), character(0)))
+  }
+
+  titles <- as.character(titles)
+  if (is.null(labels)) {
+    labels <- format_title_catalog_style(titles)
+  } else {
+    labels <- as.character(labels)
+    if (length(labels) != length(titles)) {
+      stop("make_title_choices: labels must be the same length as titles")
+    }
+  }
+
+  keep <- !is.na(titles) & nzchar(trimws(titles))
+  titles <- titles[keep]
+  labels <- labels[keep]
+
+  if (length(titles) == 0) {
+    return(stats::setNames(character(0), character(0)))
+  }
+
+  # Deduplicate by original title, keep first label
+  dedup <- !duplicated(titles)
+  titles <- titles[dedup]
+  labels <- labels[dedup]
+
+  ord <- order(labels, titles, na.last = TRUE)
+  stats::setNames(titles[ord], labels[ord])
+}

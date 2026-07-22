@@ -60,6 +60,7 @@ ui <- dashboardPage(
     # Include custom CSS
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
+      tags$script(src = "browser_history.js"),
       tags$meta(name = 'viewport', content = 'width=device-width, initial-scale=1.0'),
 
       tags$style(HTML("
