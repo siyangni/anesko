@@ -4,7 +4,11 @@ linters: linters_with_defaults(
   assignment_linter = NULL,
   spaces_left_parentheses_linter = NULL,
   commented_code_linter = NULL,
-  cyclocomp_linter = cyclocomp_linter(complexity_limit = 25),
+  cyclocomp_linter = if (requireNamespace("cyclocomp", quietly = TRUE)) {
+    cyclocomp_linter(complexity_limit = 25)
+  } else {
+    NULL
+  },
   object_usage_linter = NULL,
   absolute_path_linter = absolute_path_linter(),
   any_duplicated_linter = any_duplicated_linter(),
