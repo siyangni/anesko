@@ -119,9 +119,24 @@ authorNetworksUI <- function(id) {
 # Server function
 authorNetworksServer <- function(id) {
   moduleServer(id, function(input, output, session) {
-    
-    # Reactive data triggered by the 'Update Network' button (runs on load too)
-    network_data <- eventReactive(input$update_network, {
+
+    # actionButton starts at 0 (not truthy); drive data via a reactiveVal so
+    # first paint + button clicks both work even if outputs were suspended.
+    analysis_tick <- reactiveVal(0L)
+
+    observeEvent(input$update_network, {
+      analysis_tick(isolate(analysis_tick()) + 1L)
+    }, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+    session$onFlushed(function() {
+      if (isolate(analysis_tick()) == 0L) {
+        analysis_tick(1L)
+      }
+    }, once = TRUE)
+
+    network_data <- eventReactive(analysis_tick(), {
+      req(analysis_tick() > 0L)
+
       # Ensure we have valid inputs
       gender_filter <- input$gender_filter
       if (is.null(gender_filter) || length(gender_filter) == 0) {
@@ -199,7 +214,7 @@ authorNetworksServer <- function(id) {
       }
 
       return(network_result)
-    }, ignoreInit = FALSE)
+    }, ignoreNULL = TRUE)
 
     # Network plot with improved error handling
     output$network_plot <- renderPlotly({
@@ -372,5 +387,10 @@ authorNetworksServer <- function(id) {
         )
       })
     })
+
+    # Custom ?tab= nav can leave Shiny thinking this tab is still hidden.
+    for (out_id in c("network_plot", "network_stats", "author_table")) {
+      try(outputOptions(output, out_id, suspendWhenHidden = FALSE), silent = TRUE)
+    }
   })
 }

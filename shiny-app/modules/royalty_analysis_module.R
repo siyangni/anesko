@@ -152,7 +152,11 @@ royaltyAnalysisUI <- function(id) {
 # Server function
 royaltyAnalysisServer <- function(id) {
   moduleServer(id, function(input, output, session) {
-    
+
+    # UI has Update Analysis; previously the button was never read server-side.
+    analysis_tick <- reactiveVal(0L)
+    filters_seeded <- reactiveVal(FALSE)
+
     # Initialize filter choices
     observe({
       # Update publisher choices
@@ -160,11 +164,13 @@ royaltyAnalysisServer <- function(id) {
         "SELECT DISTINCT publisher FROM book_entries 
          WHERE publisher IS NOT NULL ORDER BY publisher"
       )
-      updateSelectInput(
-        session, "publisher_select",
-        choices = setNames(publishers$publisher, publishers$publisher)
-      )
-      
+      if (!is.null(publishers) && nrow(publishers) > 0) {
+        updateSelectInput(
+          session, "publisher_select",
+          choices = setNames(publishers$publisher, publishers$publisher)
+        )
+      }
+
       # Update author choices (top authors with multiple books)
       authors <- safe_db_query(
         "SELECT author_id, author_surname, COUNT(*) as book_count
@@ -175,18 +181,33 @@ royaltyAnalysisServer <- function(id) {
          ORDER BY author_surname
          LIMIT 50"
       )
-      author_choices <- setNames(
-        authors$author_id, 
-        paste(authors$author_surname, "(", authors$book_count, "books)")
-      )
-      updateSelectInput(
-        session, "author_select",
-        choices = author_choices
-      )
+      if (!is.null(authors) && nrow(authors) > 0) {
+        author_choices <- setNames(
+          authors$author_id,
+          paste(authors$author_surname, "(", authors$book_count, "books)")
+        )
+        updateSelectInput(
+          session, "author_select",
+          choices = author_choices
+        )
+      }
+      filters_seeded(TRUE)
     })
-    
-    # Reactive data with improved error handling
-    royalty_data <- reactive({
+
+    observeEvent(filters_seeded(), {
+      if (isTRUE(filters_seeded()) && isolate(analysis_tick()) == 0L) {
+        analysis_tick(1L)
+      }
+    }, ignoreInit = FALSE)
+
+    observeEvent(input$update_analysis, {
+      analysis_tick(isolate(analysis_tick()) + 1L)
+    }, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+    # Data loads on Update click and once after filters seed
+    royalty_data <- eventReactive(analysis_tick(), {
+      req(analysis_tick() > 0L)
+
       # Validate inputs
       year_range <- input$year_range
       if (is.null(year_range) || length(year_range) != 2) {
@@ -242,7 +263,7 @@ royaltyAnalysisServer <- function(id) {
         warning("Error in royalty data query: ", e$message)
         return(data.frame())
       })
-    })
+    }, ignoreNULL = TRUE)
     
     # Main plot
     output$main_plot <- renderPlotly({
@@ -470,5 +491,9 @@ royaltyAnalysisServer <- function(id) {
         rownames = FALSE
       )
     })
+
+    for (out_id in c("main_plot", "summary_stats", "tier_table", "book_table")) {
+      try(outputOptions(output, out_id, suspendWhenHidden = FALSE), silent = TRUE)
+    }
   })
 }

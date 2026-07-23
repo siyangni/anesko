@@ -467,5 +467,12 @@ bookExplorerServer <- function(id) {
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
     })
 
+    # Custom ?tab= nav can leave outputs suspended (empty table / dead Compare).
+    for (out_id in c(
+      "results_summary", "books_table", "cmp_plot", "cmp_table"
+    )) {
+      try(outputOptions(output, out_id, suspendWhenHidden = FALSE), silent = TRUE)
+    }
+
   })
 }

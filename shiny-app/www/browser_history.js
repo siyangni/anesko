@@ -65,17 +65,119 @@
   }
 
   /**
+   * Refresh bootstrap-select widgets that mis-measure in display:none panes.
+   */
+  function refreshPaneWidgets(pane) {
+    if (!pane || !window.jQuery) return;
+    var $ = window.jQuery;
+    $(pane)
+      .find("select")
+      .each(function () {
+        var $el = $(this);
+        if (
+          $el.data("selectpicker") ||
+          $el.parent().hasClass("bootstrap-select") ||
+          $el.hasClass("selectpicker")
+        ) {
+          try {
+            $el.selectpicker("refresh");
+          } catch (e) {
+            /* ignore */
+          }
+        }
+      });
+  }
+
+  /**
+   * Tell Shiny which outputs are visible after a *manual* tab switch.
+   *
+   * Custom navigation only toggles CSS classes and does NOT fire Bootstrap's
+   * shown.bs.tab. Shiny then keeps `.clientdata_output_*_hidden = true` and
+   * suspends renderers — so Update / Compare / filter tables appear dead
+   * until another control forces a visibility recount.
+   * Posit Cloud often avoids this (different load order / no custom nav path).
+   */
+  function syncShinyOutputVisibility() {
+    if (
+      !(
+        window.jQuery &&
+        window.Shiny &&
+        typeof window.Shiny.setInputValue === "function"
+      )
+    ) {
+      return;
+    }
+    var $ = window.jQuery;
+
+    $(".tab-pane").each(function () {
+      var paneActive = $(this).hasClass("active");
+      $(this)
+        .find(
+          ".shiny-bound-output, .shiny-html-output, .html-widget-output, .shiny-plot-output, .datatables, .shiny-html-output"
+        )
+        .each(function () {
+          var id = this.id;
+          if (!id) return;
+          var hidden = !paneActive || $(this).is(":hidden");
+          Shiny.setInputValue(
+            ".clientdata_output_" + id + "_hidden",
+            hidden,
+            { priority: "event" }
+          );
+          if (!hidden) {
+            var w = $(this).width();
+            var h = $(this).height();
+            if (typeof w === "number" && w > 0) {
+              Shiny.setInputValue(
+                ".clientdata_output_" + id + "_width",
+                Math.round(w),
+                { priority: "event" }
+              );
+            }
+            if (typeof h === "number" && h > 0) {
+              Shiny.setInputValue(
+                ".clientdata_output_" + id + "_height",
+                Math.round(h),
+                { priority: "event" }
+              );
+            }
+          }
+        });
+    });
+
+    try {
+      $(window).trigger("resize");
+    } catch (e2) {
+      /* ignore */
+    }
+  }
+
+  function afterTabShown(pane) {
+    refreshPaneWidgets(pane);
+    syncShinyOutputVisibility();
+    if (window.jQuery && pane) {
+      try {
+        window.jQuery(pane).trigger("shown.bs.tab");
+      } catch (e3) {
+        /* ignore */
+      }
+    }
+  }
+
+  /**
    * Show a shinydashboard tab pane and mark the sidebar item active.
    */
   function showTab(tab) {
     if (!VALID[tab]) return;
 
     var paneId = "shiny-tab-" + tab;
+    var pane = document.getElementById(paneId);
 
     if (window.jQuery) {
       var $ = window.jQuery;
-      $(".tab-pane").removeClass("active");
-      $("#" + paneId).addClass("active");
+      // Bootstrap 3 fade tabs need both "active" and "in"
+      $(".tab-pane").removeClass("active in");
+      $("#" + paneId).addClass("active in");
 
       var $menu = $(".sidebar-menu");
       $menu.find("li").removeClass("active");
@@ -89,13 +191,24 @@
         $link.parents("li.treeview").addClass("active menu-open");
         $link.parents("ul.treeview-menu").css("display", "block");
       }
+
+      afterTabShown(pane);
+      setTimeout(function () {
+        afterTabShown(pane);
+      }, 50);
+      setTimeout(function () {
+        afterTabShown(pane);
+      }, 250);
     } else {
       var panes = document.querySelectorAll(".tab-pane");
       for (var i = 0; i < panes.length; i++) {
         panes[i].classList.remove("active");
+        panes[i].classList.remove("in");
       }
-      var pane = document.getElementById(paneId);
-      if (pane) pane.classList.add("active");
+      if (pane) {
+        pane.classList.add("active");
+        pane.classList.add("in");
+      }
     }
   }
 
@@ -250,6 +363,12 @@
     if (window.jQuery) {
       $(document).on("shiny:connected", doInit);
       $(document).on("shiny:sessioninitialized", doInit);
+      // Insurance: after each reactive cycle, resync active-pane visibility
+      $(document).on("shiny:idle", function () {
+        if (document.querySelector(".tab-pane.active")) {
+          syncShinyOutputVisibility();
+        }
+      });
     }
 
     var tries = 0;

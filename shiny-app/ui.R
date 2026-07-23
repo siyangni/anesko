@@ -60,7 +60,11 @@ ui <- dashboardPage(
     # Include custom CSS
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
-      tags$script(src = "browser_history.js"),
+      # Cache-bust so local browsers pick up navigation/visibility fixes
+      tags$script(src = paste0(
+        "browser_history.js?v=",
+        tryCatch(as.integer(file.mtime("www/browser_history.js")), error = function(e) 2L)
+      )),
       tags$meta(name = 'viewport', content = 'width=device-width, initial-scale=1.0'),
 
       tags$style(HTML("

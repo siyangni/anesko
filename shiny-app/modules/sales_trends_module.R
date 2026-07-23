@@ -415,6 +415,12 @@ salesTrendsServer <- function(id) {
         if (!is.null(df) && nrow(df) > 0) utils::write.csv(df, file, row.names = FALSE)
       }
     )
+
+    for (out_id in c(
+      "timeseries_plot", "totals_plot", "summary_table", "detail_table"
+    )) {
+      try(outputOptions(output, out_id, suspendWhenHidden = FALSE), silent = TRUE)
+    }
   })
 }
 
