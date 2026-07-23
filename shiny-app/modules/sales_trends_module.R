@@ -241,7 +241,7 @@ salesTrendsServer <- function(id) {
       waiter$show()
       on.exit(waiter$hide(), add = TRUE)
 
-      safe_query(function() {
+      df <- safe_query(function() {
         get_sales_timeseries_filtered(
           start_year = f$years[1], end_year = f$years[2],
           group_by = f$group_dim,
@@ -251,6 +251,13 @@ salesTrendsServer <- function(id) {
           genders = f$genders
         )
       }, default_value = data.frame())
+
+      # Defensive: RPostgres BIGINT can arrive as integer64; scales::comma fails on it.
+      if (!is.null(df) && nrow(df) > 0) {
+        if ("total_sales" %in% names(df)) df$total_sales <- as.numeric(df$total_sales)
+        if ("book_count" %in% names(df)) df$book_count <- as.numeric(df$book_count)
+      }
+      df
     })
 
     # Derived data for totals

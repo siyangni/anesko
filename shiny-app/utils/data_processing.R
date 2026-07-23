@@ -15,6 +15,11 @@ format_number <- function(x, suffix = "") {
     return(sapply(x, format_number, suffix = suffix))
   }
 
+  # bit64::integer64 from RPostgres BIGINT — coerce before is.numeric checks
+  if (inherits(x, "integer64")) {
+    x <- as.numeric(x)
+  }
+
   if (is.na(x) || !is.numeric(x)) return("N/A")
 
   x <- as.numeric(x)

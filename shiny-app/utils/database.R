@@ -51,6 +51,24 @@ create_db_pool <- function() {
   })
 }
 
+# RPostgres maps PostgreSQL BIGINT / COUNT / SUM to bit64::integer64.
+# scales::comma() → round_any() has no integer64 method, which crashes
+# Sales Trends plotly hover text (and similar formatters).
+# RPostgreSQL often returns plain numeric instead — why Posit Cloud can work
+# with the same app code while a local RPostgres install fails.
+# Normalize integer64 → double as soon as rows leave the DB.
+normalize_db_result <- function(result) {
+  if (is.null(result) || !is.data.frame(result) || ncol(result) == 0) {
+    return(result)
+  }
+  for (col in names(result)) {
+    if (inherits(result[[col]], "integer64")) {
+      result[[col]] <- as.numeric(result[[col]])
+    }
+  }
+  result
+}
+
 # Safe database query with error handling using connection pool
 # FIXED: Now properly uses the pool for performance and reliability
 safe_db_query <- function(query, params = NULL) {
@@ -77,7 +95,7 @@ safe_db_query <- function(query, params = NULL) {
     } else {
       pool::dbGetQuery(pool, query, params = params)
     }
-    return(result)
+    return(normalize_db_result(result))
   }, error = function(e) {
     warning("Database query failed: ", e$message)
     # Don't return empty data frame immediately - might be transient error
@@ -90,7 +108,7 @@ safe_db_query <- function(query, params = NULL) {
       } else {
         pool::dbGetQuery(pool, query, params = params)
       }
-      return(result)
+      return(normalize_db_result(result))
     }, error = function(e2) {
       warning("Query failed after reconnection: ", e2$message)
       return(data.frame())
