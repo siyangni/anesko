@@ -80,11 +80,15 @@ bookExplorerUI <- function(id) {
                              ),
                              selected = c("Male", "Female", "Unknown")),
 
-            # Year range
+            # Publication year (catalog metadata for the books list)
             sliderInput(ns("year_range"), "Publication Year Range:",
                        min = MIN_YEAR, max = MAX_YEAR,
                        value = DEFAULT_YEAR_RANGE, step = 1,
                        sep = ""),
+            helpText(
+              "Filters the books list by when titles were published.",
+              style = "font-size: 13px; margin-top: -6px;"
+            ),
 
             # Publisher filter (with searchable multi-select)
             shinyWidgets::pickerInput(ns("publisher_filter"), "Publisher:",
@@ -120,7 +124,19 @@ bookExplorerUI <- function(id) {
               fluidRow(
                 column(12,
                   div(class = "alert alert-secondary", style = "margin-bottom: 10px;",
-                    HTML("<strong>Tip:</strong> The <em>Publication Year Range</em> slider in Filters applies to both the Books list and the Comparisons below."))
+                    HTML(paste0(
+                      "<strong>Tip:</strong> The Filters slider uses <em>publication year</em> (when a book was published). ",
+                      "Comparisons below use a separate <em>sales year</em> range (years when copies were sold)."
+                    )))
+                )
+              ),
+              fluidRow(
+                column(12,
+                  sliderInput(
+                    ns("cmp_sales_year_range"), "Sales Year Range (for comparison):",
+                    min = MIN_YEAR, max = MAX_YEAR,
+                    value = DEFAULT_YEAR_RANGE, step = 1, sep = ""
+                  )
                 )
               ),
               fluidRow(
@@ -243,11 +259,12 @@ bookExplorerServer <- function(id) {
     # Reactive filtered data
     filtered_books <- reactive({
       safe_query(function() {
+        pub_years <- resolve_year_range(input$year_range, default = DEFAULT_YEAR_RANGE)
         search_books(
           search_term = input$search_term %||% "",
           genre_filter = input$genre_filter,
           gender_filter = input$gender_filter,
-          year_range = input$year_range %||% c(MIN_YEAR, MAX_YEAR),
+          publication_year_range = c(pub_years$start, pub_years$end),
           publisher_filter = input$publisher_filter
         )
       },
@@ -285,20 +302,29 @@ bookExplorerServer <- function(id) {
         return(data.frame())
       }
       
-      # Get year range
-      years <- input$year_range %||% c(MIN_YEAR, MAX_YEAR)
-      start_year <- years[1]
-      end_year <- years[2]
+      # Sales years for comparison (not publication years)
+      sales_years <- resolve_year_range(
+        input$cmp_sales_year_range,
+        default = DEFAULT_YEAR_RANGE
+      )
 
       # Query data with error handling
       res_a <- safe_query(
-        function() get_book_sales_by_title_binding(t1, b, start_year, end_year),
+        function() get_book_sales_by_title_binding(
+          t1, b,
+          sales_start_year = sales_years$start,
+          sales_end_year = sales_years$end
+        ),
         default_value = data.frame(),
         error_message = paste0("Error retrieving data for '", as.character(t1)[1], "'")
       )
       
       res_b <- safe_query(
-        function() get_book_sales_by_title_binding(t2, b, start_year, end_year),
+        function() get_book_sales_by_title_binding(
+          t2, b,
+          sales_start_year = sales_years$start,
+          sales_end_year = sales_years$end
+        ),
         default_value = data.frame(),
         error_message = paste0("Error retrieving data for '", as.character(t2)[1], "'")
       )
@@ -327,10 +353,14 @@ bookExplorerServer <- function(id) {
       has_a <- nrow(a) > 0
       has_b <- nrow(b) > 0
       
+      sales_label <- format_year_range_label(
+        sales_years$start, sales_years$end, concept = YEAR_CONCEPT_SALES
+      )
+
       if (!has_a && !has_b) {
         msg <- paste0(
-          "No sales data found for either book in the selected year range (", 
-          start_year, "-", end_year, ") with ", as.character(b)[1], " binding."
+          "No sales data found for either book in the selected ", sales_label,
+          " with ", as.character(b)[1], " binding."
         )
         showNotification(msg, type = "warning", duration = 7)
         return(data.frame())
@@ -338,8 +368,8 @@ bookExplorerServer <- function(id) {
       
       if (!has_a) {
         msg <- paste0(
-          "No sales data found for '", as.character(t1)[1], "' (", 
-          as.character(b)[1], " binding) in ", start_year, "-", end_year, 
+          "No sales data found for '", as.character(t1)[1], "' (",
+          as.character(b)[1], " binding) in ", sales_label,
           ". Showing results for '", as.character(t2)[1], "' only."
         )
         showNotification(msg, type = "message", duration = 7)
@@ -347,8 +377,8 @@ bookExplorerServer <- function(id) {
       
       if (!has_b) {
         msg <- paste0(
-          "No sales data found for '", as.character(t2)[1], "' (", 
-          as.character(b)[1], " binding) in ", start_year, "-", end_year, 
+          "No sales data found for '", as.character(t2)[1], "' (",
+          as.character(b)[1], " binding) in ", sales_label,
           ". Showing results for '", as.character(t1)[1], "' only."
         )
         showNotification(msg, type = "message", duration = 7)
@@ -469,6 +499,7 @@ bookExplorerServer <- function(id) {
       updateCheckboxGroupInput(session, "gender_filter",
                                selected = c("Male", "Female", "Unknown"))
       updateSliderInput(session, "year_range", value = DEFAULT_YEAR_RANGE)
+      updateSliderInput(session, "cmp_sales_year_range", value = DEFAULT_YEAR_RANGE)
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
     })
 

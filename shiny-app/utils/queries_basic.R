@@ -33,9 +33,19 @@ get_books_summary <- function() {
 }
 
 # Search books
+# Search books.
+# year_range / publication_year_range filters book_entries.publication_year
+# (when the book was published), NOT sales years.
 search_books <- function(search_term = "", genre_filter = NULL,
                         gender_filter = c("Male", "Female", "Unknown"),
-                        year_range = c(1860, 1920), publisher_filter = NULL) {
+                        publication_year_range = NULL,
+                        year_range = NULL,
+                        publisher_filter = NULL) {
+  # Prefer explicit publication_year_range; year_range kept as legacy alias
+  pub_range <- resolve_year_range(
+    publication_year_range %||% year_range,
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
 
   where_conditions <- c("1=1")  # Base condition
   params <- list()
@@ -50,15 +60,16 @@ search_books <- function(search_term = "", genre_filter = NULL,
     param_counter <- param_counter + 2
   }
 
-  # Add genre filter
-  if (!is.null(genre_filter) && length(genre_filter) > 0) {
-    genre_placeholders <- paste0("$", param_counter:(param_counter + length(genre_filter) - 1), collapse = ",")
-    where_conditions <- c(where_conditions, paste0("be.genre IN (", genre_placeholders, ")"))
-    params <- c(params, as.list(genre_filter))
-    param_counter <- param_counter + length(genre_filter)
-  }
+  # Optional multi filters: empty / blank / whitespace = no restriction (all)
+  genre_appended <- append_optional_text_filter(
+    genre_filter, "be.genre", where_conditions, params, param_counter,
+    mode = "multi", match = "in"
+  )
+  where_conditions <- genre_appended$where_conditions
+  params <- genre_appended$params
+  param_counter <- genre_appended$next_param
 
-  # Add gender filter (multi-select: empty = no matches, not silent "all")
+  # Gender filter (multi-select: empty = no matches, not silent "all")
   gender_sel <- normalize_gender_filter(gender_filter, mode = "multi")
   if (gender_sel$apply) {
     gender_sql <- build_gender_sql_filter(
@@ -73,18 +84,20 @@ search_books <- function(search_term = "", genre_filter = NULL,
     }
   }
 
-  # Add year range filter
+  # Publication-year filter (catalog metadata — not sales years)
   where_conditions <- c(where_conditions,
                        paste0("be.publication_year BETWEEN $", param_counter, " AND $", param_counter + 1))
-  params <- c(params, year_range[1], year_range[2])
+  params <- c(params, pub_range$start, pub_range$end)
   param_counter <- param_counter + 2
 
-  # Add publisher filter
-  if (!is.null(publisher_filter) && length(publisher_filter) > 0) {
-    pub_placeholders <- paste0("$", param_counter:(param_counter + length(publisher_filter) - 1), collapse = ",")
-    where_conditions <- c(where_conditions, paste0("be.publisher IN (", pub_placeholders, ")"))
-    params <- c(params, as.list(publisher_filter))
-  }
+  # Optional multi publisher filter: empty / blank / whitespace = all
+  pub_appended <- append_optional_text_filter(
+    publisher_filter, "be.publisher", where_conditions, params, param_counter,
+    mode = "multi", match = "in"
+  )
+  where_conditions <- pub_appended$where_conditions
+  params <- pub_appended$params
+  param_counter <- pub_appended$next_param
 
   where_clause <- paste(where_conditions, collapse = " AND ")
 

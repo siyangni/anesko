@@ -16,10 +16,14 @@ genreContentAnalysisUI <- function(id) {
 
         fluidRow(
           column(3,
-            dateRangeInput(ns("date_range"), "Date Range:",
+            dateRangeInput(ns("date_range"), "Sales Year Range:",
                           start = "1860-01-01", end = "1920-12-31",
                           min = "1860-01-01", max = "1920-12-31",
-                          format = "yyyy")
+                          format = "yyyy"),
+            helpText(
+              "Years when copies were sold (not publication year).",
+              style = "font-size: 13px; margin-top: -6px;"
+            )
           ),
           column(3,
             selectInput(ns("analysis_type"), "Analysis Type:",
@@ -104,13 +108,13 @@ genreContentAnalysisUI <- function(id) {
             condition = "input.analysis_type == 'cross_period_avg'",
             ns = ns,
             column(6,
-              dateRangeInput(ns("date_range_p1"), "Period 1:",
+              dateRangeInput(ns("date_range_p1"), "Period 1 (Sales Years):",
                              start = "1860-01-01", end = "1900-12-31",
                              min = "1860-01-01", max = "1920-12-31",
                              format = "yyyy")
             ),
             column(6,
-              dateRangeInput(ns("date_range_p2"), "Period 2:",
+              dateRangeInput(ns("date_range_p2"), "Period 2 (Sales Years):",
                              start = "1901-01-01", end = "1920-12-31",
                              min = "1860-01-01", max = "1920-12-31",
                              format = "yyyy")
@@ -218,35 +222,19 @@ genreContentAnalysisServer <- function(id) {
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
 
-    # Convert date range to years
+    # Sales years from date range control
     year_range <- reactive({
-      dates <- input$date_range
-      if (is.null(dates) || length(dates) != 2) {
-        return(c(1860, 1920))
+      resolved <- resolve_year_range(input$date_range, default = c(MIN_YEAR, MAX_YEAR))
+      c(resolved$start, resolved$end)
+    })
 
-
-
-
-	    # Initialize book title choices for comparison UI (catalog-style labels)
-	    observe({
-	      titles_df <- safe_query(get_book_titles,
-	                              default_value = data.frame(book_title = character(0)))
-	      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
-	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
-	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
-	    })
-
-
-	    # Initialize book title choices used by title comparison analysis
-	    observe({
-	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
-	      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
-	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
-	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
-	    })
-
-      }
-      c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
+    # Initialize book title choices for comparison UI (catalog-style labels)
+    observe({
+      titles_df <- safe_query(get_book_titles,
+                              default_value = data.frame(book_title = character(0)))
+      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
+      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
+      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
     })
 
     # Navigation handlers
@@ -262,8 +250,11 @@ genreContentAnalysisServer <- function(id) {
     # Run analysis when button is clicked
     observeEvent(input$run_analysis, {
       years <- year_range()
-      start_year <- years[1]
-      end_year <- years[2]
+      # These analyses aggregate sales by sales year (book_sales.year)
+      sales_start_year <- years[1]
+      sales_end_year <- years[2]
+      start_year <- sales_start_year
+      end_year <- sales_end_year
 
       withProgress(message = "Running genre analysis...", value = 0, {
 
@@ -272,17 +263,19 @@ genreContentAnalysisServer <- function(id) {
             incProgress(0.3, detail = "Analyzing genre performance...")
             if (input$metric_type == "average") {
               get_average_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
+                optional_filter_or_null(input$binding_filter),
+                optional_filter_or_null(input$genre_filter),
+                optional_filter_or_null(input$gender_filter),
+                sales_start_year = sales_start_year,
+                sales_end_year = sales_end_year
               )
             } else {
               get_total_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
+                optional_filter_or_null(input$binding_filter),
+                optional_filter_or_null(input$genre_filter),
+                optional_filter_or_null(input$gender_filter),
+                sales_start_year = sales_start_year,
+                sales_end_year = sales_end_year
               )
             }
           },
@@ -290,10 +283,11 @@ genreContentAnalysisServer <- function(id) {
           "market_share" = {
             incProgress(0.3, detail = "Calculating market share...")
             result <- get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
+              optional_filter_or_null(input$binding_filter),
+              optional_filter_or_null(input$genre_filter),
+              optional_filter_or_null(input$gender_filter),
+              sales_start_year = sales_start_year,
+              sales_end_year = sales_end_year
             )
 
             # Calculate market share percentages
@@ -308,20 +302,22 @@ genreContentAnalysisServer <- function(id) {
           "genre_gender" = {
             incProgress(0.3, detail = "Analyzing genre by gender...")
             get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
+              optional_filter_or_null(input$binding_filter),
+              optional_filter_or_null(input$genre_filter),
+              optional_filter_or_null(input$gender_filter),
+              sales_start_year = sales_start_year,
+              sales_end_year = sales_end_year
             )
           },
 
           "binding_analysis" = {
             incProgress(0.3, detail = "Analyzing binding formats...")
             get_total_sales_by_binding_genre_gender(
-              input$binding_filter %||% NULL,
-              input$genre_filter %||% NULL,
-              input$gender_filter %||% NULL,
-              start_year, end_year
+              optional_filter_or_null(input$binding_filter),
+              optional_filter_or_null(input$genre_filter),
+              optional_filter_or_null(input$gender_filter),
+              sales_start_year = sales_start_year,
+              sales_end_year = sales_end_year
             )
           },
 
@@ -331,17 +327,26 @@ genreContentAnalysisServer <- function(id) {
                 is.null(input$book_title_2) || input$book_title_2 == "") {
               showNotification("Please select two book titles to compare.", type = "warning", duration = 5)
               data.frame(Error = "Select two book titles to compare")
-            } else if (is.null(input$binding_filter) || input$binding_filter == "") {
+            } else if (is_optional_filter_empty(input$binding_filter, mode = "single")) {
               showNotification("Please select a binding type.", type = "warning", duration = 5)
               data.frame(Error = "Select a binding type")
             } else {
+              binding_val <- optional_filter_or_null(input$binding_filter)
               res_a <- safe_query(function() {
-                get_book_sales_by_title_binding(input$book_title_1, input$binding_filter, start_year, end_year)
+                get_book_sales_by_title_binding(
+                  input$book_title_1, binding_val,
+                  sales_start_year = sales_start_year,
+                  sales_end_year = sales_end_year
+                )
               }, default_value = data.frame(),
               error_message = paste0("Error retrieving data for '", as.character(input$book_title_1)[1], "'"))
               
               res_b <- safe_query(function() {
-                get_book_sales_by_title_binding(input$book_title_2, input$binding_filter, start_year, end_year)
+                get_book_sales_by_title_binding(
+                  input$book_title_2, binding_val,
+                  sales_start_year = sales_start_year,
+                  sales_end_year = sales_end_year
+                )
               }, default_value = data.frame(),
               error_message = paste0("Error retrieving data for '", as.character(input$book_title_2)[1], "'"))
 
@@ -415,22 +420,26 @@ genreContentAnalysisServer <- function(id) {
           "gender_binding" = {
             incProgress(0.3, detail = "Comparing gender totals...")
             # Require a specific genre and binding for this comparison
-            if (is.null(input$genre_filter) || input$genre_filter == "" ||
-                is.null(input$binding_filter) || input$binding_filter == "") {
+            if (is_optional_filter_empty(input$genre_filter, mode = "single") ||
+                is_optional_filter_empty(input$binding_filter, mode = "single")) {
               showNotification("Please select both a Genre and a Binding type.", type = "warning")
               data.frame(Error = "Select a specific genre and binding")
             } else {
+              genre_val <- optional_filter_or_null(input$genre_filter)
+              binding_val <- optional_filter_or_null(input$binding_filter)
               res <- safe_query(function() {
                 get_total_sales_by_binding_genre_gender(
-                  input$binding_filter, input$genre_filter, NULL, start_year, end_year
+                  binding_val, genre_val, NULL,
+                  sales_start_year = sales_start_year,
+                  sales_end_year = sales_end_year
                 )
               }, default_value = data.frame())
               # Aggregate by normalized gender (Male / Female / Unknown)
               if (nrow(res) > 0) {
                 res$gender <- clean_gender(res$gender)
                 out <- aggregate(total_sales ~ gender, res, sum)
-                out$genre <- input$genre_filter
-                out$binding <- input$binding_filter
+                out$genre <- genre_val
+                out$binding <- binding_val
                 out <- out[, c("genre", "binding", "gender", "total_sales")]
                 out
               } else {
@@ -441,9 +450,9 @@ genreContentAnalysisServer <- function(id) {
 
           "cross_period_avg" = {
             incProgress(0.3, detail = "Computing cross-period averages...")
-            # Need genre and binding
-            if (is.null(input$genre_filter) || input$genre_filter == "" ||
-                is.null(input$binding_filter) || input$binding_filter == "") {
+            # Need genre and binding (blank/whitespace count as empty)
+            if (is_optional_filter_empty(input$genre_filter, mode = "single") ||
+                is_optional_filter_empty(input$binding_filter, mode = "single")) {
               showNotification("Please select both a Genre and a Binding type.", type = "warning")
               data.frame(Error = "Select a specific genre and binding")
             } else {
@@ -454,13 +463,24 @@ genreContentAnalysisServer <- function(id) {
               } else {
                 p1_years <- c(as.numeric(format(p1[1], "%Y")), as.numeric(format(p1[2], "%Y")))
                 p2_years <- c(as.numeric(format(p2[1], "%Y")), as.numeric(format(p2[2], "%Y")))
+                genre_val <- optional_filter_or_null(input$genre_filter)
+                binding_val <- optional_filter_or_null(input$binding_filter)
 
                 # Use per-book totals for each period to enable significance testing
+                # Period ranges are sales years for cross-period sales averages
                 books_p1 <- safe_query(function() {
-                  get_total_sales_per_book_by_genre_binding(input$binding_filter, input$genre_filter, p1_years[1], p1_years[2])
+                  get_total_sales_per_book_by_genre_binding(
+                    binding_val, genre_val,
+                    sales_start_year = p1_years[1],
+                    sales_end_year = p1_years[2]
+                  )
                 }, default_value = data.frame())
                 books_p2 <- safe_query(function() {
-                  get_total_sales_per_book_by_genre_binding(input$binding_filter, input$genre_filter, p2_years[1], p2_years[2])
+                  get_total_sales_per_book_by_genre_binding(
+                    binding_val, genre_val,
+                    sales_start_year = p2_years[1],
+                    sales_end_year = p2_years[2]
+                  )
                 }, default_value = data.frame())
 
                 avg1 <- if (nrow(books_p1) > 0) mean(books_p1$total_sales, na.rm = TRUE) else NA_real_
@@ -479,8 +499,8 @@ genreContentAnalysisServer <- function(id) {
                 }
 
                 data.frame(
-                  genre = input$genre_filter,
-                  binding = input$binding_filter,
+                  genre = genre_val,
+                  binding = binding_val,
                   period = c("Period 1", "Period 2"),
                   start_year = c(p1_years[1], p2_years[1]),
                   end_year = c(p1_years[2], p2_years[2]),

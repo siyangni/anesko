@@ -31,10 +31,14 @@ genreAnalysisUI <- function(id) {
         fluidRow(
           column(3,
             tags$div(class = "control-group",
-              dateRangeInput(ns("date_range"), "Date Range:",
+              dateRangeInput(ns("date_range"), "Sales Year Range:",
                             start = "1860-01-01", end = "1920-12-31",
                             min = "1860-01-01", max = "1920-12-31",
-                            format = "yyyy")
+                            format = "yyyy"),
+              helpText(
+                "Years when copies were sold (not publication year).",
+                style = "font-size: 13px; margin-top: -6px;"
+              )
             )
           ),
           column(3,
@@ -162,13 +166,13 @@ genreAnalysisUI <- function(id) {
             condition = "input.analysis_type == 'period_comparison'",
             ns = ns,
             column(6,
-              dateRangeInput(ns("date_range_p1"), "Period 1:",
+              dateRangeInput(ns("date_range_p1"), "Period 1 (Sales Years):",
                              start = "1860-01-01", end = "1900-12-31",
                              min = "1860-01-01", max = "1920-12-31",
                              format = "yyyy")
             ),
             column(6,
-              dateRangeInput(ns("date_range_p2"), "Period 2:",
+              dateRangeInput(ns("date_range_p2"), "Period 2 (Sales Years):",
                              start = "1901-01-01", end = "1920-12-31",
                              min = "1860-01-01", max = "1920-12-31",
                              format = "yyyy")
@@ -537,22 +541,10 @@ genreAnalysisServer <- function(id) {
 
 
 
-    # Convert date range to years
+    # Sales years from date range control
     year_range <- reactive({
-      dates <- input$date_range
-      if (is.null(dates) || length(dates) != 2) {
-        return(c(1860, 1920))
-
-
-
-
-
-
-
-
-
-      }
-      c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
+      resolved <- resolve_year_range(input$date_range, default = c(MIN_YEAR, MAX_YEAR))
+      c(resolved$start, resolved$end)
     })
 
     # Navigation handlers
@@ -568,16 +560,19 @@ genreAnalysisServer <- function(id) {
     # Run analysis when button is clicked
     observeEvent(input$run_analysis, {
       years <- year_range()
-      start_year <- years[1]
-      end_year <- years[2]
+      # Genre analyses filter sales years (book_sales.year)
+      sales_start_year <- years[1]
+      sales_end_year <- years[2]
+      start_year <- sales_start_year
+      end_year <- sales_end_year
 
       # Validate parameters before running analysis
       validation <- validate_analysis_params(
         input$genre_filter,
         input$binding_filter,
         input$gender_filter,
-        start_year,
-        end_year,
+        sales_start_year,
+        sales_end_year,
         legacy_type()
       )
 
@@ -658,17 +653,19 @@ genreAnalysisServer <- function(id) {
             base <- safe_query_enhanced(function() {
               if (input$metric_type == "average") {
                 get_average_sales_by_binding_genre_gender(
-                  input$binding_filter %||% NULL,
-                  input$genre_filter %||% NULL,
-                  input$gender_filter %||% NULL,
-                  start_year, end_year
+                  optional_filter_or_null(input$binding_filter),
+                  optional_filter_or_null(input$genre_filter),
+                  optional_filter_or_null(input$gender_filter),
+                  sales_start_year = sales_start_year,
+                  sales_end_year = sales_end_year
                 )
               } else {
                 get_total_sales_by_binding_genre_gender(
-                  input$binding_filter %||% NULL,
-                  input$genre_filter %||% NULL,
-                  input$gender_filter %||% NULL,
-                  start_year, end_year
+                  optional_filter_or_null(input$binding_filter),
+                  optional_filter_or_null(input$genre_filter),
+                  optional_filter_or_null(input$gender_filter),
+                  sales_start_year = sales_start_year,
+                  sales_end_year = sales_end_year
                 )
               }
             },
@@ -717,9 +714,9 @@ genreAnalysisServer <- function(id) {
 
           "cross_period_avg" = {
             incProgress(0.3, detail = "Computing cross-period averages...")
-            # Need genre and binding
-            if (is.null(input$genre_filter) || input$genre_filter == "" ||
-                is.null(input$binding_filter) || input$binding_filter == "") {
+            # Need genre and binding (blank/whitespace count as empty)
+            if (is_optional_filter_empty(input$genre_filter, mode = "single") ||
+                is_optional_filter_empty(input$binding_filter, mode = "single")) {
               showNotification("Please select both a Genre and a Binding type.", type = "warning")
               data.frame(Error = "Select a specific genre and binding")
             } else {
@@ -730,13 +727,24 @@ genreAnalysisServer <- function(id) {
               } else {
                 p1_years <- c(as.numeric(format(p1[1], "%Y")), as.numeric(format(p1[2], "%Y")))
                 p2_years <- c(as.numeric(format(p2[1], "%Y")), as.numeric(format(p2[2], "%Y")))
+                genre_val <- optional_filter_or_null(input$genre_filter)
+                binding_val <- optional_filter_or_null(input$binding_filter)
 
                 # Use per-book totals for each period to enable significance testing
+                # Period ranges are sales years for cross-period sales averages
                 books_p1 <- safe_query(function() {
-                  get_total_sales_per_book_by_genre_binding(input$binding_filter, input$genre_filter, p1_years[1], p1_years[2])
+                  get_total_sales_per_book_by_genre_binding(
+                    binding_val, genre_val,
+                    sales_start_year = p1_years[1],
+                    sales_end_year = p1_years[2]
+                  )
                 }, default_value = data.frame())
                 books_p2 <- safe_query(function() {
-                  get_total_sales_per_book_by_genre_binding(input$binding_filter, input$genre_filter, p2_years[1], p2_years[2])
+                  get_total_sales_per_book_by_genre_binding(
+                    binding_val, genre_val,
+                    sales_start_year = p2_years[1],
+                    sales_end_year = p2_years[2]
+                  )
                 }, default_value = data.frame())
 
                 avg1 <- if (nrow(books_p1) > 0) mean(books_p1$total_sales, na.rm = TRUE) else NA_real_
@@ -755,8 +763,8 @@ genreAnalysisServer <- function(id) {
                 }
 
                 data.frame(
-                  genre = input$genre_filter,
-                  binding = input$binding_filter,
+                  genre = genre_val,
+                  binding = binding_val,
                   period = c("Period 1", "Period 2"),
                   start_year = c(p1_years[1], p2_years[1]),
                   end_year = c(p1_years[2], p2_years[2]),

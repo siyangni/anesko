@@ -75,41 +75,46 @@ validate_analysis_params <- function(genre_filter, binding_filter, gender_filter
   ))
 }
 
-# Function to check data availability for given parameters
+# Function to check data availability for given parameters.
+# start_year / end_year are sales years (book_sales.year), not publication years.
 check_data_availability <- function(genre_filter, binding_filter, gender_filter, 
                                   start_year, end_year) {
   tryCatch({
-    # Quick count query to check if any data exists
+    sales_range <- resolve_year_range(c(start_year, end_year), default = c(MIN_YEAR, MAX_YEAR))
+    # Quick count query against sales years
     where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
-    params <- list(start_year, end_year)
+    params <- list(sales_range$start, sales_range$end)
     param_count <- 2
     
-    if (!is.null(binding_filter) && binding_filter != "") {
-      param_count <- param_count + 1
-      where_conditions <- c(where_conditions, 
-                           paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
-      params <- c(params, list(paste0("%", binding_filter, "%")))
-    }
-    
-    if (!is.null(genre_filter) && genre_filter != "") {
-      param_count <- param_count + 1
-      where_conditions <- c(where_conditions, 
-                           paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
-      params <- c(params, list(paste0("%", genre_filter, "%")))
-    }
-    
+    # Optional single-select: empty / blank / whitespace = no restriction
+    next_param <- param_count + 1L
+    binding_appended <- append_optional_text_filter(
+      binding_filter, "be.binding", where_conditions, params, next_param,
+      mode = "single", match = "like"
+    )
+    where_conditions <- binding_appended$where_conditions
+    params <- binding_appended$params
+    next_param <- binding_appended$next_param
+
+    genre_appended <- append_optional_text_filter(
+      genre_filter, "be.genre", where_conditions, params, next_param,
+      mode = "single", match = "like"
+    )
+    where_conditions <- genre_appended$where_conditions
+    params <- genre_appended$params
+    next_param <- genre_appended$next_param
+
     # Single-select gender filter; Unknown maps to NULL/blank rows
     gender_sel <- normalize_gender_filter(gender_filter, mode = "single")
     if (gender_sel$apply) {
       gender_sql <- build_gender_sql_filter(
         gender_sel$genders,
         column = "be.gender",
-        param_start = param_count + 1L
+        param_start = next_param
       )
       if (!is.null(gender_sql$clause)) {
         where_conditions <- c(where_conditions, gender_sql$clause)
         params <- c(params, gender_sql$params)
-        param_count <- gender_sql$next_param - 1L
       }
     }
     
@@ -139,18 +144,21 @@ generate_data_suggestions <- function(genre_filter, binding_filter, gender_filte
                                     start_year, end_year) {
   suggestions <- character(0)
   
-  if (!is.null(genre_filter) && genre_filter != "") {
-    suggestions <- c(suggestions, 
+  genre_sel <- normalize_optional_filter(genre_filter, mode = "single")
+  if (genre_sel$apply) {
+    suggestions <- c(suggestions,
                     "Try selecting 'All Genres' or a different genre")
   }
-  
-  if (!is.null(binding_filter) && binding_filter != "") {
-    suggestions <- c(suggestions, 
+
+  binding_sel <- normalize_optional_filter(binding_filter, mode = "single")
+  if (binding_sel$apply) {
+    suggestions <- c(suggestions,
                     "Try selecting 'All Binding Types' or a different binding")
   }
-  
-  if (!is.null(gender_filter) && gender_filter != "") {
-    suggestions <- c(suggestions, 
+
+  gender_sel <- normalize_gender_filter(gender_filter, mode = "single")
+  if (gender_sel$apply) {
+    suggestions <- c(suggestions,
                     "Try selecting 'All Authors' or a different gender")
   }
   
@@ -168,20 +176,26 @@ create_context_string <- function(genre_filter, binding_filter, gender_filter,
                                 start_year, end_year) {
   context_parts <- character(0)
   
-  if (!is.null(genre_filter) && genre_filter != "") {
-    context_parts <- c(context_parts, paste("genre:", genre_filter))
+  genre_sel <- normalize_optional_filter(genre_filter, mode = "single")
+  if (genre_sel$apply) {
+    context_parts <- c(context_parts, paste("genre:", genre_sel$values))
   }
-  
-  if (!is.null(binding_filter) && binding_filter != "") {
-    context_parts <- c(context_parts, paste("binding:", binding_filter))
+
+  binding_sel <- normalize_optional_filter(binding_filter, mode = "single")
+  if (binding_sel$apply) {
+    context_parts <- c(context_parts, paste("binding:", binding_sel$values))
   }
-  
-  if (!is.null(gender_filter) && gender_filter != "") {
-    context_parts <- c(context_parts, paste("gender:", gender_filter))
+
+  gender_sel <- normalize_gender_filter(gender_filter, mode = "single")
+  if (gender_sel$apply) {
+    context_parts <- c(context_parts, paste("gender:", paste(gender_sel$genders, collapse = ", ")))
   }
   
   if (!is.null(start_year) && !is.null(end_year)) {
-    context_parts <- c(context_parts, paste("years:", start_year, "-", end_year))
+    context_parts <- c(
+      context_parts,
+      paste("sales years:", start_year, "-", end_year)
+    )
   }
   
   return(paste(context_parts, collapse = ", "))
@@ -192,19 +206,19 @@ create_empty_plot_message <- function(base_message, genre_filter, binding_filter
                                     gender_filter, start_year, end_year) {
   message_parts <- c(base_message)
   
-  # Add context-specific suggestions
-  if (!is.null(genre_filter) && genre_filter != "") {
-    message_parts <- c(message_parts, 
+  # Add context-specific suggestions (blank/whitespace count as empty)
+  if (normalize_optional_filter(genre_filter, mode = "single")$apply) {
+    message_parts <- c(message_parts,
                       "Try selecting 'All Genres' or a different genre")
   }
-  
-  if (!is.null(binding_filter) && binding_filter != "") {
-    message_parts <- c(message_parts, 
+
+  if (normalize_optional_filter(binding_filter, mode = "single")$apply) {
+    message_parts <- c(message_parts,
                       "Try selecting 'All Binding Types' or a different binding")
   }
-  
-  if (!is.null(gender_filter) && gender_filter != "") {
-    message_parts <- c(message_parts, 
+
+  if (normalize_gender_filter(gender_filter, mode = "single")$apply) {
+    message_parts <- c(message_parts,
                       "Try selecting 'All Authors' or a different gender")
   }
   

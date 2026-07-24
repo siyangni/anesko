@@ -58,31 +58,17 @@ get_royalty_income_by_book_binding <- function(book_title, binding_state, start_
   result
 }
 
-# Flexible royalty income by book (binding optional)
+# Flexible royalty income by book (binding optional).
+# start_year / end_year are sales years (book_sales.year), not publication years.
+# Empty / NULL / blank binding_state → all bindings.
 get_royalty_income_by_book_binding_flexible <- function(book_title, binding_state = NULL, start_year, end_year) {
-  if (is.null(binding_state)) {
-    query <- "
-      SELECT
-        be.book_id,
-        be.book_title,
-        be.author_surname,
-        be.binding,
-        SUM(bs.sales_count) as total_sales,
-        COUNT(bs.year) as years_with_sales,
-        MIN(bs.year) as first_sale_year,
-        MAX(bs.year) as last_sale_year
-      FROM book_entries be
-      JOIN book_sales bs ON be.book_id = bs.book_id
-      WHERE LOWER(be.book_title) LIKE LOWER($1)
-        AND bs.year BETWEEN $2 AND $3
-        AND bs.sales_count IS NOT NULL
-      GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
-      ORDER BY total_sales DESC
-    "
-    sales_data <- safe_db_query(query, params = list(paste0("%", book_title, "%"), start_year, end_year))
-  } else {
-    sales_data <- get_book_sales_by_title_binding(book_title, binding_state, start_year, end_year)
-  }
+  binding_sel <- normalize_optional_filter(binding_state, mode = "single")
+  sales_data <- get_book_sales_by_title_binding(
+    book_title,
+    if (binding_sel$apply) binding_sel$values else NULL,
+    sales_start_year = start_year,
+    sales_end_year = end_year
+  )
   if (is.null(sales_data) || nrow(sales_data) == 0) return(data.frame())
 
   result <- data.frame()

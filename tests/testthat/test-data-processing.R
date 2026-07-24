@@ -188,3 +188,134 @@ test_that("gender_display_sql normalizes NULL and blank", {
   expect_true(grepl("BTRIM", expr, fixed = TRUE))
   expect_true(grepl("Unknown", expr, fixed = TRUE))
 })
+
+test_that("sanitize_filter_values trims and drops blanks", {
+  expect_equal(sanitize_filter_values(NULL), character(0))
+  expect_equal(sanitize_filter_values(character(0)), character(0))
+  expect_equal(sanitize_filter_values(c("", "  ", NA_character_)), character(0))
+  expect_equal(sanitize_filter_values(c(" Novel ", "Poetry", "Novel")), c("Novel", "Poetry"))
+  expect_equal(sanitize_filter_values(c("Cloth", "  ")), "Cloth")
+})
+
+test_that("normalize_optional_filter treats empty as no restriction (all)", {
+  multi_empty <- normalize_optional_filter(NULL, mode = "multi")
+  expect_false(multi_empty$apply)
+  expect_true(multi_empty$empty)
+  expect_equal(multi_empty$values, character(0))
+
+  multi_blank <- normalize_optional_filter(c("", "  "), mode = "multi")
+  expect_false(multi_blank$apply)
+  expect_true(multi_blank$empty)
+
+  multi_vals <- normalize_optional_filter(c("Novel", " Poetry "), mode = "multi")
+  expect_true(multi_vals$apply)
+  expect_false(multi_vals$empty)
+  expect_equal(multi_vals$values, c("Novel", "Poetry"))
+
+  single_all <- normalize_optional_filter("", mode = "single")
+  expect_false(single_all$apply)
+  expect_true(single_all$empty)
+
+  single_ws <- normalize_optional_filter("   ", mode = "single")
+  expect_false(single_ws$apply)
+
+  single_val <- normalize_optional_filter("Cloth", mode = "single")
+  expect_true(single_val$apply)
+  expect_equal(single_val$values, "Cloth")
+})
+
+test_that("optional_filter_or_null and is_optional_filter_empty agree", {
+  expect_true(is_optional_filter_empty(NULL, mode = "single"))
+  expect_true(is_optional_filter_empty("", mode = "single"))
+  expect_true(is_optional_filter_empty("  ", mode = "single"))
+  expect_false(is_optional_filter_empty("Novel", mode = "single"))
+  expect_null(optional_filter_or_null(""))
+  expect_null(optional_filter_or_null("  "))
+  expect_equal(optional_filter_or_null(" Scribner's "), "Scribner's")
+})
+
+test_that("build_text_in_sql_filter is case-insensitive and handles empty", {
+  empty_sql <- build_text_in_sql_filter(character(0), "be.genre", 1L)
+  expect_equal(empty_sql$clause, "FALSE")
+
+  sql <- build_text_in_sql_filter(c("Novel", "Poetry"), "be.genre", 3L)
+  expect_equal(sql$clause, "LOWER(be.genre) IN ($3,$4)")
+  expect_equal(sql$params, list("novel", "poetry"))
+  expect_equal(sql$next_param, 5L)
+
+  exact <- build_text_in_sql_filter("id-1", "be.book_id", 1L, case_insensitive = FALSE)
+  expect_equal(exact$clause, "be.book_id IN ($1)")
+  expect_equal(exact$params, list("id-1"))
+})
+
+test_that("append_optional_text_filter skips empty and applies non-empty", {
+  base_where <- c("1=1")
+  base_params <- list()
+
+  skipped <- append_optional_text_filter(
+    c("", "  "), "be.publisher", base_where, base_params, 1L,
+    mode = "multi", match = "in"
+  )
+  expect_equal(skipped$where_conditions, base_where)
+  expect_equal(skipped$params, base_params)
+  expect_equal(skipped$next_param, 1L)
+
+  applied <- append_optional_text_filter(
+    c("Harper", " Scribner's "), "be.publisher", base_where, base_params, 2L,
+    mode = "multi", match = "in"
+  )
+  expect_equal(length(applied$where_conditions), 2L)
+  expect_true(grepl("LOWER\\(be.publisher\\) IN", applied$where_conditions[2]))
+  expect_equal(applied$params, list("harper", "scribner's"))
+  expect_equal(applied$next_param, 4L)
+
+  like_applied <- append_optional_text_filter(
+    "Cloth", "be.binding", base_where, base_params, 1L,
+    mode = "single", match = "like"
+  )
+  expect_true(grepl("LIKE LOWER\\(\\$1\\)", like_applied$where_conditions[2]))
+  expect_equal(like_applied$params, list("%Cloth%"))
+  expect_equal(like_applied$next_param, 2L)
+})
+
+test_that("clean_genre and clean_binding/publisher normalize blanks", {
+  expect_equal(clean_genre(NULL), character(0))
+  expect_equal(clean_genre(c(NA, "", "  ", "Novel")), c("Other", "Other", "Other", "Novel"))
+  expect_equal(clean_binding(c(NA, "Cloth", " ")), c("Unknown", "Cloth", "Unknown"))
+  expect_equal(clean_publisher(c("", "Harper")), c("Unknown", "Harper"))
+})
+
+test_that("resolve_year_range normalizes sliders, dates, and inverted bounds", {
+  list2env(list(MIN_YEAR = 1860L, MAX_YEAR = 1920L, DEFAULT_YEAR_RANGE = c(1880L, 1910L)),
+           envir = environment())
+
+  defaulted <- resolve_year_range(NULL, default = c(1860L, 1920L))
+  expect_equal(defaulted$start, 1860L)
+  expect_equal(defaulted$end, 1920L)
+
+  slider <- resolve_year_range(c(1880, 1900), default = c(1860L, 1920L))
+  expect_equal(slider$start, 1880L)
+  expect_equal(slider$end, 1900L)
+
+  inverted <- resolve_year_range(c(1910, 1880), default = c(1860L, 1920L))
+  expect_equal(inverted$start, 1880L)
+  expect_equal(inverted$end, 1910L)
+
+  dates <- resolve_year_range(
+    as.Date(c("1885-01-01", "1895-12-31")),
+    default = c(1860L, 1920L)
+  )
+  expect_equal(dates$start, 1885L)
+  expect_equal(dates$end, 1895L)
+})
+
+test_that("format_year_range_label distinguishes publication vs sales", {
+  expect_equal(
+    format_year_range_label(1880, 1900, concept = YEAR_CONCEPT_SALES),
+    "sales years 1880–1900"
+  )
+  expect_equal(
+    format_year_range_label(1860, 1920, concept = YEAR_CONCEPT_PUBLICATION),
+    "publication years 1860–1920"
+  )
+})

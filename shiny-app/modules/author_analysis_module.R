@@ -19,10 +19,11 @@ authorAnalysisUI <- function(id) {
         fluidRow(
           column(3,
             tags$div(class = "control-group",
-              dateRangeInput(ns("date_range"), "Date Range:",
+              dateRangeInput(ns("date_range"), "Year Range:",
                             start = "1860-01-01", end = "1920-12-31",
                             min = "1860-01-01", max = "1920-12-31",
-                            format = "yyyy")
+                            format = "yyyy"),
+              uiOutput(ns("year_range_help"))
             )
           ),
           column(3,
@@ -186,6 +187,30 @@ authorAnalysisUI <- function(id) {
 authorAnalysisServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
+    # Clarify year concept based on analysis type (same control, different meaning)
+    output$year_range_help <- renderUI({
+      if (identical(input$analysis_type, "author_overview")) {
+        helpText(
+          "Publication years: filters books by when they were published.",
+          style = "font-size: 13px; margin-top: -6px;"
+        )
+      } else {
+        helpText(
+          "Sales years: years when copies were sold (not publication year).",
+          style = "font-size: 13px; margin-top: -6px;"
+        )
+      }
+    })
+
+    observe({
+      label <- if (identical(input$analysis_type, "author_overview")) {
+        "Publication Year Range:"
+      } else {
+        "Sales Year Range:"
+      }
+      updateDateRangeInput(session, "date_range", label = label)
+    })
+
     # Initialize genre choices and binding states
     observe({
       # Genre choices
@@ -312,13 +337,10 @@ authorAnalysisServer <- function(id) {
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
 
-    # Convert date range to years
+    # Convert date range to years (concept depends on analysis type)
     year_range <- reactive({
-      dates <- input$date_range
-      if (is.null(dates) || length(dates) != 2) {
-        return(c(1860, 1920))
-      }
-      c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
+      resolved <- resolve_year_range(input$date_range, default = c(MIN_YEAR, MAX_YEAR))
+      c(resolved$start, resolved$end)
     })
 
     # Run analysis when button is clicked
@@ -353,6 +375,12 @@ authorAnalysisServer <- function(id) {
 
     observeEvent(input$run_analysis, {
       years <- year_range()
+      # Gender/genre analyses filter sales years; author overview uses publication years
+      sales_start_year <- years[1]
+      sales_end_year <- years[2]
+      publication_start_year <- years[1]
+      publication_end_year <- years[2]
+      # Keep legacy names for call sites that still expect start_year/end_year
       start_year <- years[1]
       end_year <- years[2]
 
@@ -363,17 +391,19 @@ authorAnalysisServer <- function(id) {
             incProgress(0.3, detail = "Analyzing gender performance...")
             if (input$metric_type == "average") {
               get_average_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
+                optional_filter_or_null(input$binding_filter),
+                optional_filter_or_null(input$genre_filter),
+                optional_filter_or_null(input$gender_filter),
+                sales_start_year = sales_start_year,
+                sales_end_year = sales_end_year
               )
             } else {
               get_total_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
+                optional_filter_or_null(input$binding_filter),
+                optional_filter_or_null(input$genre_filter),
+                optional_filter_or_null(input$gender_filter),
+                sales_start_year = sales_start_year,
+                sales_end_year = sales_end_year
               )
             }
           },
@@ -396,17 +426,19 @@ authorAnalysisServer <- function(id) {
             metric <- input$metric_type %||% "total"
             if (identical(metric, "average")) {
               get_average_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
+                optional_filter_or_null(input$binding_filter),
+                optional_filter_or_null(input$genre_filter),
+                optional_filter_or_null(input$gender_filter),
+                sales_start_year = sales_start_year,
+                sales_end_year = sales_end_year
               )
             } else {
               get_total_sales_by_binding_genre_gender(
-                input$binding_filter %||% NULL,
-                input$genre_filter %||% NULL,
-                input$gender_filter %||% NULL,
-                start_year, end_year
+                optional_filter_or_null(input$binding_filter),
+                optional_filter_or_null(input$genre_filter),
+                optional_filter_or_null(input$gender_filter),
+                sales_start_year = sales_start_year,
+                sales_end_year = sales_end_year
               )
             }
           },
@@ -416,7 +448,7 @@ authorAnalysisServer <- function(id) {
             if (is.null(input$author_name) || input$author_name == "") {
               data.frame(Error = "Please enter an author surname")
             } else {
-              # Get comprehensive author data
+              # Career overview filters by publication year (catalog metadata)
               author_id_param <- if (is.null(input$author_id) || input$author_id == "") "" else input$author_id
               author_name_param <- paste0("%", input$author_name, "%")
 
@@ -447,7 +479,8 @@ authorAnalysisServer <- function(id) {
               safe_db_query(query, params = list(
                 author_id_param,
                 author_name_param,
-                start_year, end_year
+                publication_start_year,
+                publication_end_year
               ))
             }
           },

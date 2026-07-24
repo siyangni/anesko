@@ -7,6 +7,80 @@
   if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) y else x
 }
 
+# -----------------------------------------------------------------------------
+# Year concepts
+#
+# Two distinct year dimensions exist in this database and must not be mixed:
+#
+#   publication year  → book_entries.publication_year
+#                       When the book was published (metadata / catalog filters)
+#
+#   sales year        → book_sales.year
+#                       The calendar year in which copies were sold
+#                       (time-series, royalties, sales aggregations)
+#
+# UI labels and query parameters must name which concept they use.
+# -----------------------------------------------------------------------------
+
+YEAR_CONCEPT_PUBLICATION <- "publication"
+YEAR_CONCEPT_SALES <- "sales"
+
+#' Normalize a year-range control value to integer start/end.
+#'
+#' Accepts slider values (numeric length 2) or dateRangeInput Dates.
+#' Does not interpret the *concept* (publication vs sales) — callers must.
+#'
+#' @param years Length-2 year vector (numeric) or Date range
+#' @param default Fallback c(start, end), defaults to DEFAULT_YEAR_RANGE / MIN-MAX
+#' @return list(start = integer, end = integer)
+resolve_year_range <- function(years, default = NULL) {
+  if (is.null(default)) {
+    default <- if (exists("DEFAULT_YEAR_RANGE")) {
+      DEFAULT_YEAR_RANGE
+    } else if (exists("MIN_YEAR") && exists("MAX_YEAR")) {
+      c(MIN_YEAR, MAX_YEAR)
+    } else {
+      c(1860L, 1920L)
+    }
+  }
+  default <- as.integer(default)
+
+  if (is.null(years) || length(years) < 2) {
+    return(list(start = default[[1]], end = default[[2]]))
+  }
+
+  # dateRangeInput → extract calendar year
+  if (inherits(years, "Date") || inherits(years[[1]], "Date")) {
+    years <- as.integer(format(as.Date(years), "%Y"))
+  } else {
+    years <- suppressWarnings(as.integer(years))
+  }
+
+  start <- years[[1]]
+  end <- years[[2]]
+  if (is.na(start) || is.na(end)) {
+    return(list(start = default[[1]], end = default[[2]]))
+  }
+  if (start > end) {
+    tmp <- start
+    start <- end
+    end <- tmp
+  }
+  list(start = start, end = end)
+}
+
+#' Build a labeled year-range description for UI / notifications.
+#' @param concept YEAR_CONCEPT_PUBLICATION or YEAR_CONCEPT_SALES
+format_year_range_label <- function(start, end, concept = YEAR_CONCEPT_SALES) {
+  concept_label <- switch(
+    concept,
+    publication = "publication years",
+    sales = "sales years",
+    "years"
+  )
+  paste0(concept_label, " ", start, "–", end)
+}
+
 # Format numeric values for compact display
 format_number <- function(x, suffix = "") {
   if (is.null(x) || length(x) == 0) return("N/A")
@@ -38,12 +112,177 @@ format_number <- function(x, suffix = "") {
 # Clean and standardize genre codes (updated for new database values)
 clean_genre <- function(genre) {
   # Handle vectors properly
-  if (is.null(genre)) return("Other")
+  if (is.null(genre)) return(character(0))
 
-  # New database already has cleaned genre values:
-  # Novel, Poetry, Drama, Essay/Other Non-Fiction, etc.
-  # Just handle NULLs and return as-is
-  ifelse(is.na(genre) | is.null(genre), "Other", genre)
+  g <- as.character(genre)
+  trimmed <- trimws(g)
+  # Blank / whitespace-only / NA → "Other" (display convention for missing genre)
+  ifelse(is.na(trimmed) | !nzchar(trimmed), "Other", trimmed)
+}
+
+# Clean binding / publisher labels for display (blank → Unknown)
+clean_binding <- function(binding) {
+  if (is.null(binding)) return(character(0))
+  b <- trimws(as.character(binding))
+  ifelse(is.na(b) | !nzchar(b), "Unknown", b)
+}
+
+clean_publisher <- function(publisher) {
+  if (is.null(publisher)) return(character(0))
+  p <- trimws(as.character(publisher))
+  ifelse(is.na(p) | !nzchar(p), "Unknown", p)
+}
+
+#' Sanitize optional text filter values (genre, publisher, binding, author, …).
+#' Trims whitespace, drops NA/blank, returns unique non-empty character vector.
+sanitize_filter_values <- function(values) {
+  if (is.null(values) || length(values) == 0) {
+    return(character(0))
+  }
+  cleaned <- unique(trimws(as.character(values)))
+  cleaned[!is.na(cleaned) & nzchar(cleaned)]
+}
+
+#' TRUE when an optional filter selection is empty / blank / whitespace-only.
+is_optional_filter_empty <- function(values, mode = c("multi", "single")) {
+  normalize_optional_filter(values, mode = mode)$empty
+}
+
+#' Resolve an optional single-select filter to a value or NULL (meaning all).
+#' Whitespace-only and "" both become NULL so callers never pass blank strings.
+optional_filter_or_null <- function(values) {
+  sel <- normalize_optional_filter(values, mode = "single")
+  if (sel$apply) sel$values else NULL
+}
+
+#' Normalize an optional categorical filter (genre / publisher / binding / author).
+#'
+#' These filters are optional: empty means "no restriction" (all values),
+#' unlike multi-select gender where empty means "no matches".
+#'
+#' Single mode (selectInput with "" = "All …"):
+#'   NULL / "" / whitespace → apply = FALSE (all)
+#'   non-empty → apply = TRUE with one trimmed value
+#'
+#' Multi mode (pickerInput / checkbox-style multi):
+#'   NULL / character(0) / all-blank → apply = FALSE (all)
+#'   one or more real values → apply = TRUE with trimmed unique values
+#'
+#' @param values Raw UI or API filter value(s)
+#' @param mode "multi" or "single"
+#' @return list(apply, values, empty)
+#'   apply: TRUE if a WHERE restriction should be added
+#'   values: character vector of non-empty trimmed values (length 1 in single mode)
+#'   empty: TRUE when the selection was empty / all-blank
+normalize_optional_filter <- function(values, mode = c("multi", "single")) {
+  mode <- match.arg(mode)
+  cleaned <- sanitize_filter_values(values)
+
+  if (length(cleaned) == 0) {
+    return(list(apply = FALSE, values = character(0), empty = TRUE))
+  }
+
+  if (mode == "single") {
+    return(list(apply = TRUE, values = cleaned[[1]], empty = FALSE))
+  }
+
+  list(apply = TRUE, values = cleaned, empty = FALSE)
+}
+
+#' Build a case-insensitive IN (...) SQL fragment for optional text filters.
+#'
+#' @param values Non-empty character vector (already sanitized)
+#' @param column SQL column reference (e.g. "be.genre")
+#' @param param_start Next $n parameter index
+#' @param case_insensitive Match with LOWER(column) (default TRUE)
+#' @return list(clause, params, next_param); empty values → clause "FALSE"
+build_text_in_sql_filter <- function(values,
+                                     column,
+                                     param_start = 1L,
+                                     case_insensitive = TRUE) {
+  param_start <- as.integer(param_start)
+  values <- sanitize_filter_values(values)
+
+  if (length(values) == 0) {
+    return(list(clause = "FALSE", params = list(), next_param = param_start))
+  }
+
+  n <- length(values)
+  placeholders <- paste0("$", param_start:(param_start + n - 1L), collapse = ",")
+  if (isTRUE(case_insensitive)) {
+    clause <- paste0("LOWER(", column, ") IN (", placeholders, ")")
+    params <- as.list(tolower(values))
+  } else {
+    clause <- paste0(column, " IN (", placeholders, ")")
+    params <- as.list(values)
+  }
+
+  list(
+    clause = clause,
+    params = params,
+    next_param = param_start + n
+  )
+}
+
+#' Append an optional text filter to WHERE/params if selection is non-empty.
+#'
+#' Empty / blank / whitespace-only selections never add a clause
+#' (optional filter semantics = all values).
+#'
+#' @param values Raw filter values
+#' @param column SQL column
+#' @param where_conditions Character vector of clauses
+#' @param params Parameter list
+#' @param param_start Next free $n index (1-based)
+#' @param mode "multi" or "single"
+#' @param match "in" (case-insensitive equality) or "like" (substring, single)
+#' @return list(where_conditions, params, next_param)
+append_optional_text_filter <- function(values,
+                                        column,
+                                        where_conditions,
+                                        params,
+                                        param_start,
+                                        mode = c("multi", "single"),
+                                        match = c("in", "like")) {
+  mode <- match.arg(mode)
+  match <- match.arg(match)
+  param_start <- as.integer(param_start)
+  sel <- normalize_optional_filter(values, mode = mode)
+
+  if (!sel$apply) {
+    return(list(
+      where_conditions = where_conditions,
+      params = params,
+      next_param = param_start
+    ))
+  }
+
+  if (match == "like") {
+    # Single-value substring match (legacy analysis queries)
+    val <- if (length(sel$values) == 1L) sel$values else sel$values[[1]]
+    where_conditions <- c(
+      where_conditions,
+      paste0("LOWER(", column, ") LIKE LOWER($", param_start, ")")
+    )
+    params <- c(params, list(paste0("%", val, "%")))
+    next_param <- param_start + 1L
+  } else {
+    sql <- build_text_in_sql_filter(
+      sel$values,
+      column = column,
+      param_start = param_start,
+      case_insensitive = TRUE
+    )
+    where_conditions <- c(where_conditions, sql$clause)
+    params <- c(params, sql$params)
+    next_param <- sql$next_param
+  }
+
+  list(
+    where_conditions = where_conditions,
+    params = params,
+    next_param = next_param
+  )
 }
 
 # Canonical gender labels used in UI filters and display

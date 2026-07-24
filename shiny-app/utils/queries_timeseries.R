@@ -32,10 +32,14 @@ get_decade_summary <- function() {
 }
 
 # Consolidated time-series with flexible grouping and filters
-# Returns columns: year, group_label, total_sales, book_count
+# Returns columns: year (sales year), group_label, total_sales, book_count
+#
+# sales_start_year / sales_end_year filter book_sales.year (when copies sold).
+# Legacy start_year / end_year are aliases for the same sales-year bounds.
+# Do NOT pass publication years here.
 get_sales_timeseries_filtered <- function(
-  start_year = MIN_YEAR,
-  end_year = MAX_YEAR,
+  sales_start_year = NULL,
+  sales_end_year = NULL,
   group_by = "gender",
   authors = character(0),
   publishers = character(0),
@@ -43,8 +47,19 @@ get_sales_timeseries_filtered <- function(
   bindings = character(0),
   books = character(0),
   include_unknown_gender = TRUE,
-  genders = c("Male", "Female", "Unknown")
+  genders = c("Male", "Female", "Unknown"),
+  start_year = NULL,
+  end_year = NULL
 ) {
+  sales_range <- resolve_year_range(
+    c(
+      sales_start_year %||% start_year %||% MIN_YEAR,
+      sales_end_year %||% end_year %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
+  sales_start_year <- sales_range$start
+  sales_end_year <- sales_range$end
   group_expr <- switch(group_by,
     "gender" = "be.gender",
     "author" = "be.author_surname",
@@ -61,11 +76,12 @@ get_sales_timeseries_filtered <- function(
     paste0("COALESCE(", group_expr, ", 'Unknown')")
   }
 
+  # Sales-year filter (book_sales.year — when copies were sold)
   where_clauses <- c(
     "bs.sales_count IS NOT NULL",
     "bs.year BETWEEN $1 AND $2"
   )
-  params <- list(start_year, end_year)
+  params <- list(sales_start_year, sales_end_year)
   next_idx <- 3L
 
   # Multi-select genders: empty must not silently mean "all"
@@ -85,42 +101,44 @@ get_sales_timeseries_filtered <- function(
     }
   }
 
-  add_in_filter <- function(field, values, case_insensitive = TRUE) {
-    non_empty <- values[!is.na(values) & nzchar(values)]
-    if (length(non_empty) == 0) return(NULL)
-    n <- length(non_empty)
-    placeholders <- paste0("$", next_idx:(next_idx + n - 1), collapse = ",")
-    if (case_insensitive) {
-      clause <- paste0("LOWER(", field, ") IN (", placeholders, ")")
-      params <<- c(params, tolower(non_empty))
-    } else {
-      clause <- paste0(field, " IN (", placeholders, ")")
-      params <<- c(params, non_empty)
-    }
-    next_idx <<- next_idx + n
-    where_clauses <<- c(where_clauses, clause)
-    NULL
+  # Optional multi filters: empty / blank / whitespace = no restriction
+  add_optional_in <- function(field, values, case_insensitive = TRUE) {
+    sel <- normalize_optional_filter(values, mode = "multi")
+    if (!sel$apply) return()
+    sql <- build_text_in_sql_filter(
+      sel$values,
+      column = field,
+      param_start = next_idx,
+      case_insensitive = case_insensitive
+    )
+    where_clauses <<- c(where_clauses, sql$clause)
+    params <<- c(params, sql$params)
+    next_idx <<- sql$next_param
   }
 
-  add_in_filter("be.author_surname", authors, TRUE)
-  add_in_filter("be.publisher", publishers, TRUE)
-  add_in_filter("be.genre", genres, TRUE)
-  add_in_filter("be.binding", bindings, TRUE)
-  if (length(books) > 0) {
-    non_empty <- books[!is.na(books) & nzchar(books)]
-    if (length(non_empty) > 0) {
-      n <- length(non_empty)
-      placeholders <- paste0("$", next_idx:(next_idx + n - 1), collapse = ",")
-      where_clauses <- c(where_clauses, paste0("be.book_id IN (", placeholders, ")"))
-      params <- c(params, non_empty)
-      next_idx <- next_idx + n
-    }
+  add_optional_in("be.author_surname", authors, TRUE)
+  add_optional_in("be.publisher", publishers, TRUE)
+  add_optional_in("be.genre", genres, TRUE)
+  add_optional_in("be.binding", bindings, TRUE)
+  # Book IDs: exact match, optional multi
+  book_sel <- normalize_optional_filter(books, mode = "multi")
+  if (book_sel$apply) {
+    sql <- build_text_in_sql_filter(
+      book_sel$values,
+      column = "be.book_id",
+      param_start = next_idx,
+      case_insensitive = FALSE
+    )
+    where_clauses <- c(where_clauses, sql$clause)
+    params <- c(params, sql$params)
+    next_idx <- sql$next_param
   }
 
   where_sql <- paste(where_clauses, collapse = " AND ")
   query <- paste0(
     "SELECT\n",
-    "  bs.year,\n",
+    "  bs.year AS sales_year,\n",
+    "  bs.year,\n",  # keep `year` for existing plot consumers
     "  ", label_expr, " AS group_label,\n",
     "  SUM(bs.sales_count) AS total_sales,\n",
     "  COUNT(DISTINCT be.book_id) AS book_count\n",
@@ -134,20 +152,33 @@ get_sales_timeseries_filtered <- function(
 }
 
 # Time series for selected values of a given dimension (compare mode)
+# sales_start_year / sales_end_year filter book_sales.year (not publication year).
 get_sales_timeseries_for_dimension <- function(
   dimension,
   values,
-  start_year = MIN_YEAR,
-  end_year = MAX_YEAR,
+  sales_start_year = NULL,
+  sales_end_year = NULL,
   authors = character(0),
   publishers = character(0),
   genres = character(0),
   bindings = character(0),
   books = character(0),
   include_unknown_gender = TRUE,
-  genders = c("Male","Female","Unknown")
+  genders = c("Male", "Female", "Unknown"),
+  start_year = NULL,
+  end_year = NULL
 ) {
   if (is.null(values) || length(values) == 0) return(data.frame())
+
+  sales_range <- resolve_year_range(
+    c(
+      sales_start_year %||% start_year %||% MIN_YEAR,
+      sales_end_year %||% end_year %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
+  sales_start_year <- sales_range$start
+  sales_end_year <- sales_range$end
 
   field <- switch(dimension,
     "gender" = "be.gender",
@@ -166,11 +197,12 @@ get_sales_timeseries_for_dimension <- function(
     paste0("COALESCE(", field, ", 'Unknown')")
   }
 
+  # Sales-year filter (book_sales.year)
   where_clauses <- c(
     "bs.sales_count IS NOT NULL",
     "bs.year BETWEEN $1 AND $2"
   )
-  params <- list(start_year, end_year)
+  params <- list(sales_start_year, sales_end_year)
   next_idx <- 3L
 
   # Multi-select genders: empty must not silently mean "all"
@@ -190,32 +222,34 @@ get_sales_timeseries_for_dimension <- function(
     }
   }
 
-  add_in <- function(fld, vals, ci = TRUE) {
-    vv <- vals[!is.na(vals) & nzchar(vals)]
-    if (length(vv) == 0) return()
-    n <- length(vv)
-    placeholders <- paste0("$", next_idx:(next_idx + n - 1), collapse = ",")
-    if (ci) {
-      where_clauses <<- c(where_clauses, paste0("LOWER(", fld, ") IN (", placeholders, ")"))
-      params <<- c(params, tolower(vv))
-    } else {
-      where_clauses <<- c(where_clauses, paste0(fld, " IN (", placeholders, ")"))
-      params <<- c(params, vv)
-    }
-    next_idx <<- next_idx + n
+  # Optional multi filters: empty / blank / whitespace = no restriction
+  add_optional_in <- function(fld, vals, ci = TRUE) {
+    sel <- normalize_optional_filter(vals, mode = "multi")
+    if (!sel$apply) return()
+    sql <- build_text_in_sql_filter(
+      sel$values,
+      column = fld,
+      param_start = next_idx,
+      case_insensitive = ci
+    )
+    where_clauses <<- c(where_clauses, sql$clause)
+    params <<- c(params, sql$params)
+    next_idx <<- sql$next_param
   }
 
-  add_in("be.author_surname", authors, TRUE)
-  add_in("be.publisher", publishers, TRUE)
-  add_in("be.genre", genres, TRUE)
-  add_in("be.binding", bindings, TRUE)
-  add_in("be.book_id", books, FALSE)
+  add_optional_in("be.author_surname", authors, TRUE)
+  add_optional_in("be.publisher", publishers, TRUE)
+  add_optional_in("be.genre", genres, TRUE)
+  add_optional_in("be.binding", bindings, TRUE)
+  add_optional_in("be.book_id", books, FALSE)
 
-  vv <- values[!is.na(values) & nzchar(values)]
-  n <- length(vv)
-  placeholders <- paste0("$", next_idx:(next_idx + n - 1), collapse = ",")
+  # Dimension comparison values (required — already guarded above for empty)
+  dim_vals <- sanitize_filter_values(values)
+  if (length(dim_vals) == 0) return(data.frame())
+  n <- length(dim_vals)
+  placeholders <- paste0("$", next_idx:(next_idx + n - 1L), collapse = ",")
   where_clauses <- c(where_clauses, paste0(field, " IN (", placeholders, ")"))
-  params <- c(params, vv)
+  params <- c(params, as.list(dim_vals))
 
   where_sql <- paste(where_clauses, collapse = " AND ")
   query <- paste0(

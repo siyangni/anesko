@@ -1,7 +1,19 @@
 # Unit Tests for Error Handling Functions
 
+list2env(
+  list(
+    MIN_YEAR = 1860L,
+    MAX_YEAR = 1920L,
+    DEFAULT_YEAR_RANGE = c(1880L, 1910L),
+    FORMAT_MILLION_THRESHOLD = 1000000,
+    FORMAT_THOUSAND_THRESHOLD = 1000
+  ),
+  envir = environment()
+)
+source("../../shiny-app/utils/data_processing.R", local = TRUE)
+source("../../shiny-app/utils/error_handling.R", local = TRUE)
+
 test_that("validate_analysis_params detects invalid date ranges", {
-  source("../../shiny-app/utils/error_handling.R", local = TRUE)
 
   result <- validate_analysis_params(
     genre_filter = NULL,
@@ -17,8 +29,6 @@ test_that("validate_analysis_params detects invalid date ranges", {
 })
 
 test_that("validate_analysis_params accepts valid parameters", {
-  source("../../shiny-app/utils/error_handling.R", local = TRUE)
-
   result <- validate_analysis_params(
     genre_filter = "Fiction",
     binding_filter = "Cloth",
@@ -32,8 +42,6 @@ test_that("validate_analysis_params accepts valid parameters", {
 })
 
 test_that("validate_analysis_params warns about narrow date ranges", {
-  source("../../shiny-app/utils/error_handling.R", local = TRUE)
-
   result <- validate_analysis_params(
     genre_filter = NULL,
     binding_filter = NULL,
@@ -47,8 +55,6 @@ test_that("validate_analysis_params warns about narrow date ranges", {
 })
 
 test_that("create_context_string builds correct context", {
-  source("../../shiny-app/utils/error_handling.R", local = TRUE)
-
   context <- create_context_string(
     genre_filter = "Fiction",
     binding_filter = "Cloth",
@@ -62,4 +68,5 @@ test_that("create_context_string builds correct context", {
   expect_true(grepl("Male", context))
   expect_true(grepl("1880", context))
   expect_true(grepl("1920", context))
+  expect_true(grepl("sales years", context))
 })

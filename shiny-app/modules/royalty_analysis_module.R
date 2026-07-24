@@ -63,9 +63,13 @@ royaltyAnalysisUI <- function(id) {
             sliderInput(
               ns("year_range"),
               "Publication Year Range:",
-              min = 1860, max = 1920, 
+              min = 1860, max = 1920,
               value = c(1860, 1920),
               step = 1, sep = ""
+            ),
+            helpText(
+              "Filters royalty tier rows by when the book was published (not sales years).",
+              style = "font-size: 13px; margin-top: -6px;"
             ),
             
             tags$div(style = "font-size: 17px;",
@@ -208,11 +212,8 @@ royaltyAnalysisServer <- function(id) {
     royalty_data <- eventReactive(analysis_tick(), {
       req(analysis_tick() > 0L)
 
-      # Validate inputs
-      year_range <- input$year_range
-      if (is.null(year_range) || length(year_range) != 2) {
-        year_range <- c(1860, 1920)
-      }
+      # Publication years (catalog metadata for which books to include)
+      pub_years <- resolve_year_range(input$year_range, default = c(MIN_YEAR, MAX_YEAR))
 
       base_query <- "
         SELECT
@@ -231,7 +232,7 @@ royaltyAnalysisServer <- function(id) {
         WHERE be.publication_year BETWEEN $1 AND $2
       "
 
-      params <- list(year_range[1], year_range[2])
+      params <- list(pub_years$start, pub_years$end)
 
       # Add sliding scale filter
       if (!is.null(input$sliding_scale_only) && input$sliding_scale_only) {

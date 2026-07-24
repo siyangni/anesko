@@ -29,9 +29,13 @@ salesTrendsUI <- function(id) {
           column(3,
             tags$div(class = "control-group-large",
               sliderInput(
-                ns("year_range"), "Publication Year Range:",
+                ns("year_range"), "Sales Year Range:",
                 min = MIN_YEAR, max = MAX_YEAR, value = DEFAULT_YEAR_RANGE,
                 step = 1, sep = ""
+              ),
+              helpText(
+                "Filters annual sales by the year copies were sold (book_sales.year), not publication year.",
+                style = "font-size: 13px; margin-top: -6px;"
               ),
               tags$div(class = "control-group-large",
                 radioButtons(
@@ -222,14 +226,17 @@ salesTrendsServer <- function(id) {
 
     # Build filters reactive
     filters <- reactive({
+      sales_years <- resolve_year_range(input$year_range, default = DEFAULT_YEAR_RANGE)
       list(
-        years = input$year_range %||% c(MIN_YEAR, MAX_YEAR),
+        sales_start_year = sales_years$start,
+        sales_end_year = sales_years$end,
         group_dim = input$group_dim %||% "gender",
-        authors = input$author_filter %||% character(0),
-        publishers = input$publisher_filter %||% character(0),
-        genres = input$genre_filter %||% character(0),
-        bindings = input$binding_filter %||% character(0),
-        books = input$book_filter %||% character(0),
+        # Optional multi filters: sanitize blanks; empty = no restriction (all)
+        authors = sanitize_filter_values(input$author_filter),
+        publishers = sanitize_filter_values(input$publisher_filter),
+        genres = sanitize_filter_values(input$genre_filter),
+        bindings = sanitize_filter_values(input$binding_filter),
+        books = sanitize_filter_values(input$book_filter),
         # Multi-select: do not expand empty selection to "all" via %||%
         genders = {
           g <- input$gender_filter
@@ -249,7 +256,8 @@ salesTrendsServer <- function(id) {
 
       df <- safe_query(function() {
         get_sales_timeseries_filtered(
-          start_year = f$years[1], end_year = f$years[2],
+          sales_start_year = f$sales_start_year,
+          sales_end_year = f$sales_end_year,
           group_by = f$group_dim,
           authors = f$authors, publishers = f$publishers, genres = f$genres,
           bindings = f$bindings, books = f$books,

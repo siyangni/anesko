@@ -53,11 +53,13 @@ royaltyQueryUI <- function(id) {
         fluidRow(
           column(3,
             sliderInput(
-              ns("royalty_year_range"), "Date Range:",
+              ns("royalty_year_range"), "Sales Year Range:",
               min = MIN_YEAR, max = MAX_YEAR, value = DEFAULT_YEAR_RANGE,
               step = 1, sep = ""
             ),
-            helpText("Select the date range for sales data to include in the royalty calculation.")
+            helpText(
+              "Years when copies were sold (book_sales.year). Royalty totals sum sales in this window only."
+            )
           ),
 
           # Book-specific inputs (conditional)
@@ -317,11 +319,15 @@ royaltyQueryServer <- function(id) {
         waiter$show()
         on.exit(waiter$hide(), add = TRUE)
 
+        sales_years <- resolve_year_range(
+          input$royalty_year_range,
+          default = DEFAULT_YEAR_RANGE
+        )
         safe_query(function() {
           get_total_royalty_income_by_author(
             author_surname = input$royalty_author_name %||% "",
-            start_year = input$royalty_year_range[1],
-            end_year = input$royalty_year_range[2],
+            start_year = sales_years$start,
+            end_year = sales_years$end,
             author_id = (if (is.null(input$royalty_author_id) || input$royalty_author_id == "") NULL else input$royalty_author_id)
           )
         }, default_value = data.frame())
@@ -337,19 +343,22 @@ royaltyQueryServer <- function(id) {
         waiter$show()
         on.exit(waiter$hide(), add = TRUE)
 
+        sales_years <- resolve_year_range(
+          input$royalty_year_range,
+          default = DEFAULT_YEAR_RANGE
+        )
         safe_query(function() {
-          # If no binding state selected (empty string), pass NULL to get all bindings
-          binding_filter <- if (is.null(input$royalty_binding_state) || input$royalty_binding_state == "") {
-            NULL
-          } else {
-            input$royalty_binding_state
-          }
+          # Optional binding: empty / blank / whitespace → all bindings
+          binding_sel <- normalize_optional_filter(
+            input$royalty_binding_state,
+            mode = "single"
+          )
 
           get_royalty_income_by_book_binding_flexible(
             book_title = input$royalty_book_title,
-            binding_state = binding_filter,
-            start_year = input$royalty_year_range[1],
-            end_year = input$royalty_year_range[2]
+            binding_state = if (binding_sel$apply) binding_sel$values else NULL,
+            start_year = sales_years$start,
+            end_year = sales_years$end
           )
         }, default_value = data.frame())
       }

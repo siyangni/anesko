@@ -44,36 +44,18 @@ calculate_royalty_income <- function(book_id, total_sales, retail_price, royalty
   return(total_income)
 }
 
-# Get royalty income from sales of a book title in a date range.
-# If binding_state is NULL, return rows for all bindings; otherwise filter to that binding.
+# Get royalty income from sales of a book title within sales-year bounds.
+# start_year / end_year are sales years (book_sales.year), not publication years.
+# Empty / NULL / blank binding_state → all bindings (optional filter semantics).
 get_royalty_income_by_book_binding_flexible <- function(book_title, binding_state = NULL, start_year, end_year) {
-  # When binding_state is NULL, fetch all bindings for the title
-  if (is.null(binding_state)) {
-    query <- "
-      SELECT
-        be.book_id,
-        be.book_title,
-        be.author_surname,
-        be.binding,
-        SUM(bs.sales_count) as total_sales,
-        COUNT(bs.year) as years_with_sales,
-        MIN(bs.year) as first_sale_year,
-        MAX(bs.year) as last_sale_year
-      FROM book_entries be
-      JOIN book_sales bs ON be.book_id = bs.book_id
-      WHERE LOWER(be.book_title) LIKE LOWER($1)
-        AND bs.year BETWEEN $2 AND $3
-        AND bs.sales_count IS NOT NULL
-      GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
-      ORDER BY total_sales DESC
-    "
-    sales_data <- safe_db_query(query, params = list(
-      paste0("%", book_title, "%"), start_year, end_year
-    ))
-  } else {
-    # Use existing utility for specific binding
-    sales_data <- get_book_sales_by_title_binding(book_title, binding_state, start_year, end_year)
-  }
+  binding_sel <- normalize_optional_filter(binding_state, mode = "single")
+  # Delegate to shared title+binding query (handles empty binding as all)
+  sales_data <- get_book_sales_by_title_binding(
+    book_title,
+    if (binding_sel$apply) binding_sel$values else NULL,
+    sales_start_year = start_year,
+    sales_end_year = end_year
+  )
 
   if (is.null(sales_data) || nrow(sales_data) == 0) {
     return(data.frame())
@@ -116,7 +98,8 @@ get_royalty_income_by_book_binding_flexible <- function(book_title, binding_stat
   do.call(rbind, out)
 }
 
-# Compute total royalty income for an author in a date range.
+# Compute total royalty income for an author within sales-year bounds.
+# start_year / end_year filter book_sales.year (not publication year).
 # Optionally restrict to a specific author_id when provided.
 get_total_royalty_income_by_author <- function(author_surname, start_year, end_year, author_id = NULL) {
   if (!is.null(author_id) && nzchar(author_id)) {

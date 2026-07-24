@@ -54,9 +54,13 @@ authorNetworksUI <- function(id) {
             sliderInput(
               ns("year_range"),
               "Publication Year Range:",
-              min = 1860, max = 1920, 
+              min = 1860, max = 1920,
               value = c(1860, 1920),
               step = 1, sep = ""
+            ),
+            helpText(
+              "Includes books published in this range (catalog year, not sales year).",
+              style = "font-size: 13px; margin-top: -6px;"
             ),
             
             checkboxGroupInput(
@@ -151,10 +155,9 @@ authorNetworksServer <- function(id) {
         ))
       }
 
-      year_range <- input$year_range
-      if (is.null(year_range) || length(year_range) != 2) {
-        year_range <- c(1860, 1920)  # Default range
-      }
+      # Publication years for network membership (catalog metadata)
+      pub_years <- resolve_year_range(input$year_range, default = c(MIN_YEAR, MAX_YEAR))
+      year_range <- c(pub_years$start, pub_years$end)
 
       min_books <- input$min_books
       if (is.null(min_books) || !is.numeric(min_books)) {

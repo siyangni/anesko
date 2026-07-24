@@ -1,10 +1,20 @@
 # Sales Analysis Database Query Functions
 # Functions for sales performance analysis, publisher data, and top books
 
-# Get sales data by year and genre
-get_sales_by_year_genre <- function(year_start = 1860, year_end = 1920) {
+# Get sales data by sales year and genre.
+# year_start/year_end (and sales_*) filter book_sales.year, not publication year.
+get_sales_by_year_genre <- function(sales_start_year = NULL, sales_end_year = NULL,
+                                    year_start = NULL, year_end = NULL) {
+  sales_range <- resolve_year_range(
+    c(
+      sales_start_year %||% year_start %||% MIN_YEAR,
+      sales_end_year %||% year_end %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
   query <- "
     SELECT
+      bs.year AS sales_year,
       bs.year,
       be.genre,
       SUM(bs.sales_count) as total_sales,
@@ -18,7 +28,7 @@ get_sales_by_year_genre <- function(year_start = 1860, year_end = 1920) {
     GROUP BY bs.year, be.genre
     ORDER BY bs.year, be.genre
   "
-  safe_db_query(query, params = list(year_start, year_end))
+  safe_db_query(query, params = list(sales_range$start, sales_range$end))
 }
 
 # Get publisher performance
@@ -41,8 +51,19 @@ get_publisher_performance <- function(min_books = 5) {
   safe_db_query(query, params = list(min_books))
 }
 
-# Get top selling books
-get_top_books <- function(limit = 20, min_year = MIN_YEAR, max_year = MAX_YEAR) {
+# Get top selling books filtered by publication year (catalog metadata).
+get_top_books <- function(limit = 20,
+                          publication_start_year = NULL,
+                          publication_end_year = NULL,
+                          min_year = NULL,
+                          max_year = NULL) {
+  pub_range <- resolve_year_range(
+    c(
+      publication_start_year %||% min_year %||% MIN_YEAR,
+      publication_end_year %||% max_year %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
   query <- "
     SELECT
       be.book_id,
@@ -63,12 +84,46 @@ get_top_books <- function(limit = 20, min_year = MIN_YEAR, max_year = MAX_YEAR) 
     ORDER BY bs.total_sales DESC
     LIMIT $3
   "
-  safe_db_query(query, params = list(min_year, max_year, limit))
+  safe_db_query(query, params = list(pub_range$start, pub_range$end, limit))
 }
 
-# Get sales of binding state edition of book title in date range
-get_book_sales_by_title_binding <- function(book_title, binding_state, start_year, end_year) {
-  query <- "
+# Get sales of binding state edition of book title within sales years.
+# Empty / blank binding_state means all bindings (optional filter).
+# sales_start_year / sales_end_year filter book_sales.year (not publication year).
+# start_year / end_year are legacy aliases for sales years.
+get_book_sales_by_title_binding <- function(book_title,
+                                            binding_state = NULL,
+                                            sales_start_year = NULL,
+                                            sales_end_year = NULL,
+                                            start_year = NULL,
+                                            end_year = NULL) {
+  sales_range <- resolve_year_range(
+    c(
+      sales_start_year %||% start_year %||% MIN_YEAR,
+      sales_end_year %||% end_year %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
+  where_conditions <- c(
+    "LOWER(be.book_title) LIKE LOWER($1)",
+    "bs.year BETWEEN $2 AND $3",
+    "bs.sales_count IS NOT NULL"
+  )
+  params <- list(
+    paste0("%", book_title %||% "", "%"),
+    sales_range$start,
+    sales_range$end
+  )
+  next_param <- 4L
+
+  binding_appended <- append_optional_text_filter(
+    binding_state, "be.binding", where_conditions, params, next_param,
+    mode = "single", match = "like"
+  )
+  where_conditions <- binding_appended$where_conditions
+  params <- binding_appended$params
+
+  query <- paste0("
     SELECT
       be.book_id,
       be.book_title,
@@ -80,55 +135,84 @@ get_book_sales_by_title_binding <- function(book_title, binding_state, start_yea
       MAX(bs.year) as last_sale_year
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
-    WHERE LOWER(be.book_title) LIKE LOWER($1)
-      AND LOWER(be.binding) LIKE LOWER($2)
-      AND bs.year BETWEEN $3 AND $4
-      AND bs.sales_count IS NOT NULL
+    WHERE ", paste(where_conditions, collapse = " AND "), "
     GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
     ORDER BY total_sales DESC
-  "
-  safe_db_query(query, params = list(
-    paste0("%", book_title, "%"),
-    paste0("%", binding_state, "%"),
-    start_year,
-    end_year
-  ))
+  ")
+  safe_db_query(query, params = params)
 }
 
-# Get average sales by binding state/genre and gender in date range
-get_average_sales_by_binding_genre_gender <- function(binding_state = NULL, genre = NULL, gender = NULL, start_year, end_year) {
+# Shared WHERE builder for genre / binding / gender analysis queries.
+# Year bounds are sales years (book_sales.year), never publication years.
+.build_genre_binding_gender_where <- function(binding_state = NULL,
+                                             genre = NULL,
+                                             gender = NULL,
+                                             sales_start_year = NULL,
+                                             sales_end_year = NULL,
+                                             start_year = NULL,
+                                             end_year = NULL) {
+  sales_range <- resolve_year_range(
+    c(
+      sales_start_year %||% start_year %||% MIN_YEAR,
+      sales_end_year %||% end_year %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
   where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
-  params <- list(start_year, end_year)
-  param_count <- 2
+  params <- list(sales_range$start, sales_range$end)
+  next_param <- 3L
 
-  if (!is.null(binding_state) && binding_state != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
-    params <- c(params, list(paste0("%", binding_state, "%")))
-  }
+  # Optional single-select: "" / NULL / whitespace = all
+  binding_appended <- append_optional_text_filter(
+    binding_state, "be.binding", where_conditions, params, next_param,
+    mode = "single", match = "like"
+  )
+  where_conditions <- binding_appended$where_conditions
+  params <- binding_appended$params
+  next_param <- binding_appended$next_param
 
-  if (!is.null(genre) && genre != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
-    params <- c(params, list(paste0("%", genre, "%")))
-  }
+  genre_appended <- append_optional_text_filter(
+    genre, "be.genre", where_conditions, params, next_param,
+    mode = "single", match = "like"
+  )
+  where_conditions <- genre_appended$where_conditions
+  params <- genre_appended$params
+  next_param <- genre_appended$next_param
 
-  # Single-select: "" / NULL = all; "Unknown" maps to NULL/blank rows
   gender_sel <- normalize_gender_filter(gender, mode = "single")
   if (gender_sel$apply) {
     gender_sql <- build_gender_sql_filter(
       gender_sel$genders,
       column = "be.gender",
-      param_start = param_count + 1L
+      param_start = next_param
     )
     if (!is.null(gender_sql$clause)) {
       where_conditions <- c(where_conditions, gender_sql$clause)
       params <- c(params, gender_sql$params)
-      param_count <- gender_sql$next_param - 1L
+      next_param <- gender_sql$next_param
     }
   }
 
-  where_clause <- paste(where_conditions, collapse = " AND ")
+  list(
+    where_clause = paste(where_conditions, collapse = " AND "),
+    params = params,
+    next_param = next_param
+  )
+}
+
+# Get average sales by binding/genre/gender within sales-year range
+get_average_sales_by_binding_genre_gender <- function(binding_state = NULL,
+                                                     genre = NULL,
+                                                     gender = NULL,
+                                                     start_year = NULL,
+                                                     end_year = NULL,
+                                                     sales_start_year = NULL,
+                                                     sales_end_year = NULL) {
+  built <- .build_genre_binding_gender_where(
+    binding_state, genre, gender,
+    sales_start_year = sales_start_year %||% start_year,
+    sales_end_year = sales_end_year %||% end_year
+  )
   gender_expr <- gender_display_sql("be.gender")
 
   query <- paste0("
@@ -141,48 +225,27 @@ get_average_sales_by_binding_genre_gender <- function(binding_state = NULL, genr
       SUM(bs.sales_count) / COUNT(DISTINCT be.book_id) as avg_total_sales_per_book
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
-    WHERE ", where_clause, "
+    WHERE ", built$where_clause, "
     GROUP BY be.binding, be.genre, ", gender_expr, "
     ORDER BY avg_total_sales_per_book DESC
   ")
 
-  safe_db_query(query, params = params)
+  safe_db_query(query, params = built$params)
 }
 
-# Get total sales by binding state/genre and gender in date range
-get_total_sales_by_binding_genre_gender <- function(binding_state = NULL, genre = NULL, gender = NULL, start_year, end_year) {
-  where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
-  params <- list(start_year, end_year)
-  param_count <- 2
-
-  if (!is.null(binding_state) && binding_state != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
-    params <- c(params, list(paste0("%", binding_state, "%")))
-  }
-
-  if (!is.null(genre) && genre != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
-    params <- c(params, list(paste0("%", genre, "%")))
-  }
-
-  # Single-select: "" / NULL = all; "Unknown" maps to NULL/blank rows
-  gender_sel <- normalize_gender_filter(gender, mode = "single")
-  if (gender_sel$apply) {
-    gender_sql <- build_gender_sql_filter(
-      gender_sel$genders,
-      column = "be.gender",
-      param_start = param_count + 1L
-    )
-    if (!is.null(gender_sql$clause)) {
-      where_conditions <- c(where_conditions, gender_sql$clause)
-      params <- c(params, gender_sql$params)
-      param_count <- gender_sql$next_param - 1L
-    }
-  }
-
-  where_clause <- paste(where_conditions, collapse = " AND ")
+# Get total sales by binding/genre/gender within sales-year range
+get_total_sales_by_binding_genre_gender <- function(binding_state = NULL,
+                                                   genre = NULL,
+                                                   gender = NULL,
+                                                   start_year = NULL,
+                                                   end_year = NULL,
+                                                   sales_start_year = NULL,
+                                                   sales_end_year = NULL) {
+  built <- .build_genre_binding_gender_where(
+    binding_state, genre, gender,
+    sales_start_year = sales_start_year %||% start_year,
+    sales_end_year = sales_end_year %||% end_year
+  )
   gender_expr <- gender_display_sql("be.gender")
 
   query <- paste0("
@@ -194,33 +257,26 @@ get_total_sales_by_binding_genre_gender <- function(binding_state = NULL, genre 
       SUM(bs.sales_count) as total_sales
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
-    WHERE ", where_clause, "
+    WHERE ", built$where_clause, "
     GROUP BY be.binding, be.genre, ", gender_expr, "
     ORDER BY total_sales DESC
   ")
 
-  safe_db_query(query, params = params)
+  safe_db_query(query, params = built$params)
 }
 
-# Get per-book total sales for a given genre/binding in a date range (for significance tests)
-get_total_sales_per_book_by_genre_binding <- function(binding_state = NULL, genre = NULL, start_year, end_year) {
-  where_conditions <- c("bs.year BETWEEN $1 AND $2", "bs.sales_count IS NOT NULL")
-  params <- list(start_year, end_year)
-  param_count <- 2
-
-  if (!is.null(binding_state) && binding_state != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("LOWER(be.binding) LIKE LOWER($", param_count, ")"))
-    params <- c(params, list(paste0("%", binding_state, "%")))
-  }
-
-  if (!is.null(genre) && genre != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("LOWER(be.genre) LIKE LOWER($", param_count, ")"))
-    params <- c(params, list(paste0("%", genre, "%")))
-  }
-
-  where_clause <- paste(where_conditions, collapse = " AND ")
+# Get per-book total sales for a genre/binding within sales-year range
+get_total_sales_per_book_by_genre_binding <- function(binding_state = NULL,
+                                                     genre = NULL,
+                                                     start_year = NULL,
+                                                     end_year = NULL,
+                                                     sales_start_year = NULL,
+                                                     sales_end_year = NULL) {
+  built <- .build_genre_binding_gender_where(
+    binding_state, genre, gender = NULL,
+    sales_start_year = sales_start_year %||% start_year,
+    sales_end_year = sales_end_year %||% end_year
+  )
 
   query <- paste0("
     SELECT
@@ -229,17 +285,49 @@ get_total_sales_per_book_by_genre_binding <- function(binding_state = NULL, genr
       SUM(bs.sales_count) AS total_sales
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
-    WHERE ", where_clause, "
+    WHERE ", built$where_clause, "
     GROUP BY be.book_id, be.book_title
     ORDER BY total_sales DESC
   ")
 
-  safe_db_query(query, params = params)
+  safe_db_query(query, params = built$params)
 }
 
-# Get average sales by book title and binding state in date range
-get_average_sales_by_book_binding <- function(book_title, binding_state, start_year, end_year) {
-  query <- "
+# Get average sales by book title and binding within sales-year range.
+# Empty / blank binding_state means all bindings.
+get_average_sales_by_book_binding <- function(book_title,
+                                              binding_state = NULL,
+                                              sales_start_year = NULL,
+                                              sales_end_year = NULL,
+                                              start_year = NULL,
+                                              end_year = NULL) {
+  sales_range <- resolve_year_range(
+    c(
+      sales_start_year %||% start_year %||% MIN_YEAR,
+      sales_end_year %||% end_year %||% MAX_YEAR
+    ),
+    default = c(MIN_YEAR, MAX_YEAR)
+  )
+  where_conditions <- c(
+    "LOWER(be.book_title) LIKE LOWER($1)",
+    "bs.year BETWEEN $2 AND $3",
+    "bs.sales_count IS NOT NULL"
+  )
+  params <- list(
+    paste0("%", book_title %||% "", "%"),
+    sales_range$start,
+    sales_range$end
+  )
+  next_param <- 4L
+
+  binding_appended <- append_optional_text_filter(
+    binding_state, "be.binding", where_conditions, params, next_param,
+    mode = "single", match = "like"
+  )
+  where_conditions <- binding_appended$where_conditions
+  params <- binding_appended$params
+
+  query <- paste0("
     SELECT
       be.book_id,
       be.book_title,
@@ -252,17 +340,9 @@ get_average_sales_by_book_binding <- function(book_title, binding_state, start_y
       MAX(bs.year) as last_sale_year
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
-    WHERE LOWER(be.book_title) LIKE LOWER($1)
-      AND LOWER(be.binding) LIKE LOWER($2)
-      AND bs.year BETWEEN $3 AND $4
-      AND bs.sales_count IS NOT NULL
+    WHERE ", paste(where_conditions, collapse = " AND "), "
     GROUP BY be.book_id, be.book_title, be.author_surname, be.binding
     ORDER BY avg_sales_per_year DESC
-  "
-  safe_db_query(query, params = list(
-    paste0("%", book_title, "%"),
-    paste0("%", binding_state, "%"),
-    start_year,
-    end_year
-  ))
+  ")
+  safe_db_query(query, params = params)
 }
