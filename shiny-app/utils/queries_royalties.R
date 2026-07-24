@@ -208,7 +208,14 @@ get_total_royalty_income_by_author <- function(author_surname, start_year, end_y
   if (!is.null(out) && nrow(out) > 0) {
     out <- rbind(out, data.frame(
       book_id = "TOTAL",
-      book_title = paste("TOTAL FOR", ifelse(is.null(author_id) || !nzchar(author_id), author_surname, author_id)),
+      book_title = paste(
+        "TOTAL FOR",
+        if (is.null(author_id) || !nzchar(as.character(author_id)[1])) {
+          clean_author_surname(author_surname)
+        } else {
+          format_author_label(author_id, author_surname)
+        }
+      ),
       author_surname = author_surname,
       total_sales = sum(out$total_sales, na.rm = TRUE),
       retail_price = NA,

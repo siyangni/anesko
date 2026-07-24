@@ -35,6 +35,46 @@ test_that("NULL coalescing operator works", {
   expect_equal(0 %||% "default", 0)  # 0 is not NULL
 })
 
+test_that("clean_author_id never labels missing as NA string", {
+  expect_equal(clean_author_id(NULL), character(0))
+  expect_equal(clean_author_id(NA_character_), "Unknown")
+  expect_equal(clean_author_id("NA"), "Unknown")
+  expect_equal(clean_author_id("na"), "Unknown")
+  expect_equal(clean_author_id("  "), "Unknown")
+  expect_equal(clean_author_id(""), "Unknown")
+  expect_equal(clean_author_id("GA"), "GA")
+  expect_equal(clean_author_id(c(NA, "GA", "NA", "  ")), c("Unknown", "GA", "Unknown", "Unknown"))
+})
+
+test_that("format_author_label uses Unknown | surname not NA | surname", {
+  expect_equal(format_author_label(NA_character_, "Twain"), "Unknown | Twain")
+  expect_equal(format_author_label("NA", "Twain"), "Unknown | Twain")
+  expect_equal(format_author_label("GA", "Twain"), "GA | Twain")
+  expect_equal(
+    format_author_label(c(NA, "GA"), c("Twain", "Howells")),
+    c("Unknown | Twain", "GA | Howells")
+  )
+  # Never produce the R-default "NA | ..." form
+  labels <- format_author_label(c(NA_character_, NA), c("A", "B"))
+  expect_false(any(grepl("^NA \\|", labels)))
+  expect_true(all(grepl("^Unknown \\|", labels)))
+})
+
+test_that("clean_data_for_viz rewrites author_id NA string", {
+  skip_if_not_installed("dplyr")
+  df <- data.frame(
+    author_id = c(NA_character_, "NA", "GA"),
+    author_surname = c("A", "B", "C"),
+    sales = c(1, NA, 3),
+    stringsAsFactors = FALSE
+  )
+  # clean_data_for_viz uses dplyr::mutate/across
+  suppressPackageStartupMessages(library(dplyr))
+  out <- clean_data_for_viz(df)
+  expect_equal(out$author_id, c("Unknown", "Unknown", "GA"))
+  expect_equal(out$sales, c(1, 0, 3))
+})
+
 test_that("format_title_catalog_style repositions leading articles", {
   expect_equal(format_title_catalog_style("A Boy's Town"), "Boy's Town, A")
   expect_equal(

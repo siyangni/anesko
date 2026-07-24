@@ -271,8 +271,7 @@ authorNetworksServer <- function(id) {
             color = ~gender,
             colors = c("Male" = "#1f77b4", "Female" = "#ff7f0e"),
             text = ~paste(
-              "Author:", author_surname,
-              "<br>ID:", author_id,
+              "Author:", format_author_label(author_id, author_surname),
               "<br>Gender:", gender,
               "<br>Books:", book_count,
               "<br>Total Sales:", scales::comma(total_sales)
@@ -380,9 +379,15 @@ authorNetworksServer <- function(id) {
 
       tryCatch({
         formatted_nodes <- nodes %>%
+          mutate(
+            author_id = clean_author_id(author_id),
+            author_surname = clean_author_surname(author_surname),
+            author_label = format_author_label(author_id, author_surname)
+          ) %>%
           select(
             `Author ID` = author_id,
             `Author Name` = author_surname,
+            `Author Label` = author_label,
             Gender = gender,
             `Book Count` = book_count,
             `Total Sales` = total_sales,

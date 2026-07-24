@@ -188,8 +188,11 @@ royaltyAnalysisServer <- function(id) {
       )
       if (!is.null(authors) && nrow(authors) > 0) {
         author_choices <- setNames(
-          authors$author_id,
-          paste(authors$author_surname, "(", authors$book_count, "books)")
+          clean_author_id(authors$author_id),
+          paste0(
+            format_author_label(authors$author_id, authors$author_surname),
+            " (", authors$book_count, " books)"
+          )
         )
         updateSelectInput(
           session, "author_select",

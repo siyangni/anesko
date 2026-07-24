@@ -740,6 +740,82 @@ aggregate_by_period <- function(data, period = "year", date_col = "year") {
 # NEW FUNCTIONS FOR ENHANCED DATABASE FEATURES
 # =============================================================================
 
+# =============================================================================
+# AUTHOR ID / LABEL HELPERS
+# Missing author_id must display as "Unknown", never the R string "NA".
+# Composite display form: "{author_id} | {surname}"
+# =============================================================================
+
+#' Normalize author_id for display and composite keys.
+#'
+#' Treats NULL, NA, blank/whitespace, and the literal strings "NA" / "N/A" /
+#' "NULL" as missing → "Unknown". Keeps real IDs trimmed as-is.
+clean_author_id <- function(author_id) {
+  if (is.null(author_id)) {
+    return(character(0))
+  }
+  id <- as.character(author_id)
+  trimmed <- trimws(id)
+  missing <- is.na(trimmed) |
+    !nzchar(trimmed) |
+    toupper(trimmed) %in% c("NA", "N/A", "NULL", "UNKNOWN")
+  out <- trimmed
+  out[missing] <- "Unknown"
+  # Canonical casing for the missing token
+  out[toupper(out) == "UNKNOWN"] <- "Unknown"
+  out
+}
+
+#' Normalize author surname for display (missing → "Unknown").
+clean_author_surname <- function(author_surname) {
+  if (is.null(author_surname)) {
+    return(character(0))
+  }
+  s <- as.character(author_surname)
+  trimmed <- trimws(s)
+  missing <- is.na(trimmed) |
+    !nzchar(trimmed) |
+    toupper(trimmed) %in% c("NA", "N/A", "NULL")
+  out <- trimmed
+  out[missing] <- "Unknown"
+  out
+}
+
+#' Composite author label: "{author_id} | {surname}".
+#'
+#' Always uses clean_author_id() so missing IDs are "Unknown | Smith",
+#' never "NA | Smith".
+#'
+#' @param author_id Character vector of author IDs (may be NA/NULL)
+#' @param author_surname Character vector of surnames
+#' @param sep Separator between id and surname (default " | ")
+format_author_label <- function(author_id, author_surname, sep = " | ") {
+  ids <- clean_author_id(author_id)
+  names_ <- clean_author_surname(author_surname)
+
+  if (length(ids) == 0 && length(names_) == 0) {
+    return(character(0))
+  }
+
+  n <- max(length(ids), length(names_), 1L)
+  if (length(ids) == 0) {
+    ids <- rep("Unknown", n)
+  } else if (length(ids) == 1L && n > 1L) {
+    ids <- rep(ids, n)
+  }
+  if (length(names_) == 0) {
+    names_ <- rep("Unknown", n)
+  } else if (length(names_) == 1L && n > 1L) {
+    names_ <- rep(names_, n)
+  }
+
+  if (length(ids) != length(names_)) {
+    stop("author_id and author_surname must be the same length (or length 1)")
+  }
+
+  paste0(ids, sep, names_)
+}
+
 # Process author data using new author_id field
 process_author_data <- function(author_data) {
   if (nrow(author_data) == 0) return(data.frame())
@@ -789,7 +865,11 @@ create_author_network <- function(book_data) {
   # Create nodes (authors) with error handling
   tryCatch({
     nodes <- book_data %>%
-      mutate(gender = clean_gender(gender)) %>%
+      mutate(
+        gender = clean_gender(gender),
+        author_id = clean_author_id(author_id),
+        author_surname = clean_author_surname(author_surname)
+      ) %>%
       group_by(author_id, author_surname, gender) %>%
       summarise(
         book_count = n(),
@@ -805,7 +885,8 @@ create_author_network <- function(book_data) {
           gender == "Female" ~ "#ff7f0e",
           gender == "Unknown" ~ "#7f7f7f",
           TRUE ~ "#2ca02c"
-        )
+        ),
+        author_label = format_author_label(author_id, author_surname)
       )
 
     # Handle case where no nodes were created
@@ -946,11 +1027,19 @@ calculate_market_share <- function(data, group_by_col) {
 
 # Handle NULL values in data for visualization
 clean_data_for_viz <- function(data) {
-  data %>%
+  out <- data %>%
     mutate(
       across(where(is.character), ~ ifelse(is.na(.x), "Unknown", .x)),
       across(where(is.numeric), ~ ifelse(is.na(.x), 0, .x))
     )
+  # author_id: also rewrite the literal "NA" string that as.character(NA) produces
+  if ("author_id" %in% names(out)) {
+    out$author_id <- clean_author_id(out$author_id)
+  }
+  if ("author_surname" %in% names(out)) {
+    out$author_surname <- clean_author_surname(out$author_surname)
+  }
+  out
 }
 
 # =============================================================================

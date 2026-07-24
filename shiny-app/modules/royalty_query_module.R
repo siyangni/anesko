@@ -293,9 +293,12 @@ royaltyQueryServer <- function(id) {
           safe_db_query(q, params = list(surname))
         }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
         if (!is.null(id_df) && nrow(id_df) > 0) {
-          labels <- paste0(id_df$author_id, " (", id_df$author_surname, ", ", id_df$book_count,
-                           ifelse(id_df$book_count == 1, " book)", " books)"))
-          choices <- stats::setNames(id_df$author_id, labels)
+          labels <- paste0(
+            format_author_label(id_df$author_id, id_df$author_surname),
+            " (", id_df$book_count,
+            ifelse(id_df$book_count == 1, " book)", " books)")
+          )
+          choices <- stats::setNames(clean_author_id(id_df$author_id), labels)
           updateSelectizeInput(session, "royalty_author_id", choices = choices, selected = NULL, server = TRUE)
         } else {
           updateSelectizeInput(session, "royalty_author_id", choices = character(0), selected = NULL, server = TRUE)
