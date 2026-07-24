@@ -366,9 +366,15 @@ test_that("format_year_range_label distinguishes publication vs sales", {
 })
 
 test_that("sales year helpers and date arg builders work offline", {
-  # Superassign so sales_filter_limits() can find bounds via inherits
-  DEFAULT_YEAR_RANGE <<- c(1880L, 1910L)
-  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1858, 1920, buffer = 2L)
+  # Inject config into the helpers' defining env (exists(..., inherits = TRUE)
+  # walks the function enclosure, not the test_that frame).
+  list2env(
+    list(
+      DEFAULT_YEAR_RANGE = c(1880L, 1910L),
+      SALES_YEAR_BOUNDS = compute_sales_year_bounds(1858, 1920, buffer = 2L)
+    ),
+    envir = environment(sales_filter_limits)
+  )
 
   expect_equal(sales_slider_min(), 1856L)
   expect_equal(sales_slider_max(), 1922L)

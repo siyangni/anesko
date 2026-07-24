@@ -156,8 +156,13 @@ test_that("compute_publication_year_bounds covers observed span plus buffer", {
 })
 
 test_that("publication filter helpers expose slider limits and default range", {
-  # Assign into this test env so publication_filter_limits() finds them via inherits
-  PUBLICATION_YEAR_BOUNDS <<- compute_publication_year_bounds(1858, 1919, buffer = 5L)
+  # Inject into helpers' defining env (exists(..., inherits = TRUE) walks enclosure)
+  list2env(
+    list(
+      PUBLICATION_YEAR_BOUNDS = compute_publication_year_bounds(1858, 1919, buffer = 5L)
+    ),
+    envir = environment(publication_filter_limits)
+  )
 
   expect_equal(publication_slider_min(), 1853L)
   expect_equal(publication_slider_max(), 1924L)
@@ -210,7 +215,9 @@ test_that("filter_min/max always include full observed span with buffer headroom
     c(1875, 1910, 1)
   )
   for (case in cases) {
-    a <- case[[1]]; b <- case[[2]]; k <- case[[3]]
+    a <- case[[1]]
+    b <- case[[2]]
+    k <- case[[3]]
     res <- compute_publication_year_bounds(a, b, buffer = k)
     expect_lte(res$filter_min, res$observed_min)
     expect_gte(res$filter_max, res$observed_max)
@@ -235,7 +242,11 @@ test_that("compute_sales_year_bounds uses SALES_YEAR_BUFFER by default", {
 })
 
 test_that("sales filter helpers expose slider limits, full range, and preset", {
-  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1858, 1919, buffer = 2L)
+  helper_env <- environment(sales_filter_limits)
+  list2env(
+    list(SALES_YEAR_BOUNDS = compute_sales_year_bounds(1858, 1919, buffer = 2L)),
+    envir = helper_env
+  )
 
   expect_equal(sales_slider_min(), 1856L)
   expect_equal(sales_slider_max(), 1921L)
@@ -245,7 +256,10 @@ test_that("sales filter helpers expose slider limits, full range, and preset", {
   expect_equal(sales_preset_range(), c(1880L, 1910L))
 
   # When preset falls outside available span, clamp or fall back
-  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1890, 1905, buffer = 0L)
+  list2env(
+    list(SALES_YEAR_BOUNDS = compute_sales_year_bounds(1890, 1905, buffer = 0L)),
+    envir = helper_env
+  )
   preset <- sales_preset_range()
   expect_equal(preset[[1]], 1890L)  # clamped up from 1880
   expect_equal(preset[[2]], 1905L)  # clamped down from 1910
@@ -261,7 +275,10 @@ test_that("year_to_date_string and date range arg builders are consistent", {
   expect_equal(args$min, "1858-01-01")
   expect_equal(args$max, "1922-12-31")
 
-  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1858, 1920, buffer = 2L)
+  list2env(
+    list(SALES_YEAR_BOUNDS = compute_sales_year_bounds(1858, 1920, buffer = 2L)),
+    envir = environment(sales_filter_limits)
+  )
   sales_args <- sales_date_range_args(use_preset = FALSE)
   expect_equal(sales_args$start, "1858-01-01")
   expect_equal(sales_args$end, "1920-12-31")
