@@ -63,12 +63,13 @@ royaltyAnalysisUI <- function(id) {
             sliderInput(
               ns("year_range"),
               "Publication Year Range:",
-              min = 1860, max = 1920,
-              value = c(1860, 1920),
+              min = publication_slider_min(),
+              max = publication_slider_max(),
+              value = publication_default_range(),
               step = 1, sep = ""
             ),
             helpText(
-              "Filters royalty tier rows by when the book was published (not sales years).",
+              "Filters by publication year (not sales years). Covers full observed range plus buffer for new data.",
               style = "font-size: 13px; margin-top: -6px;"
             ),
             
@@ -213,7 +214,10 @@ royaltyAnalysisServer <- function(id) {
       req(analysis_tick() > 0L)
 
       # Publication years (catalog metadata for which books to include)
-      pub_years <- resolve_year_range(input$year_range, default = c(MIN_YEAR, MAX_YEAR))
+      pub_years <- resolve_year_range(
+        input$year_range,
+        default = publication_default_range()
+      )
 
       base_query <- "
         SELECT

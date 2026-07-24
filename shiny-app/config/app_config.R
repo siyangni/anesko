@@ -31,10 +31,15 @@ DEFAULT_PAGE_SIZE <- 25
 DEFAULT_PLOT_HEIGHT <- 400
 DEFAULT_PLOT_WIDTH <- 800
 
-# Date ranges
+# Date ranges (nominal project era; used as fallbacks and for sales-year defaults)
 MIN_YEAR <- 1860
 MAX_YEAR <- 1920
 DEFAULT_YEAR_RANGE <- c(1880, 1910)
+
+# Publication-year filters: UI/query bounds = observed min/max in book_entries
+# plus this many years of headroom on each side so newly imported books just
+# outside the previous span remain selectable without a redeploy.
+PUBLICATION_YEAR_BUFFER <- 5L
 
 # UI settings
 SIDEBAR_WIDTH <- 300

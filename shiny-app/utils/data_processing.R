@@ -81,6 +81,94 @@ format_year_range_label <- function(start, end, concept = YEAR_CONCEPT_SALES) {
   paste0(concept_label, " ", start, "–", end)
 }
 
+#' Compute publication-year filter bounds from observed data span + buffer.
+#'
+#' Filter limits are [observed_min - buffer, observed_max + buffer] so the UI
+#' covers every known publication year and a few extra years for new imports.
+#'
+#' @param observed_min Minimum publication_year in the data (or NA)
+#' @param observed_max Maximum publication_year in the data (or NA)
+#' @param buffer Years of headroom on each side (default PUBLICATION_YEAR_BUFFER)
+#' @param fallback_min Used when observed_min is missing
+#' @param fallback_max Used when observed_max is missing
+#' @return list(observed_min, observed_max, filter_min, filter_max, buffer,
+#'   default_range) where default_range is the full observed span (or fallback)
+compute_publication_year_bounds <- function(observed_min,
+                                            observed_max,
+                                            buffer = NULL,
+                                            fallback_min = NULL,
+                                            fallback_max = NULL) {
+  if (is.null(buffer)) {
+    buffer <- if (exists("PUBLICATION_YEAR_BUFFER")) {
+      as.integer(PUBLICATION_YEAR_BUFFER)
+    } else {
+      5L
+    }
+  } else {
+    buffer <- as.integer(buffer)
+  }
+  if (is.null(fallback_min)) {
+    fallback_min <- if (exists("MIN_YEAR")) as.integer(MIN_YEAR) else 1860L
+  } else {
+    fallback_min <- as.integer(fallback_min)
+  }
+  if (is.null(fallback_max)) {
+    fallback_max <- if (exists("MAX_YEAR")) as.integer(MAX_YEAR) else 1920L
+  } else {
+    fallback_max <- as.integer(fallback_max)
+  }
+
+  obs_min <- suppressWarnings(as.integer(observed_min))
+  obs_max <- suppressWarnings(as.integer(observed_max))
+  if (length(obs_min) == 0 || is.na(obs_min)) obs_min <- fallback_min
+  if (length(obs_max) == 0 || is.na(obs_max)) obs_max <- fallback_max
+  if (obs_min > obs_max) {
+    tmp <- obs_min
+    obs_min <- obs_max
+    obs_max <- tmp
+  }
+
+  filter_min <- obs_min - buffer
+  filter_max <- obs_max + buffer
+
+  list(
+    observed_min = obs_min,
+    observed_max = obs_max,
+    filter_min = filter_min,
+    filter_max = filter_max,
+    buffer = buffer,
+    # Default selection: full observed catalog span (not the buffer wings)
+    default_range = c(obs_min, obs_max)
+  )
+}
+
+#' Access current publication-year filter limits (global cache or fallback).
+#'
+#' Prefer bounds initialized at app startup from the database. If unavailable,
+#' fall back to MIN_YEAR/MAX_YEAR ± buffer.
+publication_filter_limits <- function() {
+  if (exists("PUBLICATION_YEAR_BOUNDS", inherits = TRUE)) {
+    bounds <- get("PUBLICATION_YEAR_BOUNDS", inherits = TRUE)
+    if (is.list(bounds) &&
+        all(c("filter_min", "filter_max", "default_range") %in% names(bounds))) {
+      return(bounds)
+    }
+  }
+  compute_publication_year_bounds(
+    observed_min = if (exists("MIN_YEAR")) MIN_YEAR else 1860L,
+    observed_max = if (exists("MAX_YEAR")) MAX_YEAR else 1920L
+  )
+}
+
+#' Default publication year range for UI (full observed span when known).
+publication_default_range <- function() {
+  publication_filter_limits()$default_range
+}
+
+#' Min/max for publication-year sliders and date inputs (observed + buffer).
+publication_slider_min <- function() publication_filter_limits()$filter_min
+publication_slider_max <- function() publication_filter_limits()$filter_max
+
 # Format numeric values for compact display
 format_number <- function(x, suffix = "") {
   if (is.null(x) || length(x) == 0) return("N/A")

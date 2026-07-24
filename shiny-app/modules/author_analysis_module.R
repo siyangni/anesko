@@ -19,10 +19,17 @@ authorAnalysisUI <- function(id) {
         fluidRow(
           column(3,
             tags$div(class = "control-group",
-              dateRangeInput(ns("date_range"), "Year Range:",
-                            start = "1860-01-01", end = "1920-12-31",
-                            min = "1860-01-01", max = "1920-12-31",
-                            format = "yyyy"),
+              # Shared control: bounds use publication filter limits (observed + buffer)
+              # so overview mode can cover the full catalog; sales mode still uses
+              # the selected years as sales years.
+              dateRangeInput(
+                ns("date_range"), "Year Range:",
+                start = paste0(publication_default_range()[1], "-01-01"),
+                end = paste0(publication_default_range()[2], "-12-31"),
+                min = paste0(publication_slider_min(), "-01-01"),
+                max = paste0(publication_slider_max(), "-12-31"),
+                format = "yyyy"
+              ),
               uiOutput(ns("year_range_help"))
             )
           ),
@@ -339,7 +346,10 @@ authorAnalysisServer <- function(id) {
 
     # Convert date range to years (concept depends on analysis type)
     year_range <- reactive({
-      resolved <- resolve_year_range(input$date_range, default = c(MIN_YEAR, MAX_YEAR))
+      resolved <- resolve_year_range(
+        input$date_range,
+        default = publication_default_range()
+      )
       c(resolved$start, resolved$end)
     })
 

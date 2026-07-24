@@ -54,12 +54,13 @@ authorNetworksUI <- function(id) {
             sliderInput(
               ns("year_range"),
               "Publication Year Range:",
-              min = 1860, max = 1920,
-              value = c(1860, 1920),
+              min = publication_slider_min(),
+              max = publication_slider_max(),
+              value = publication_default_range(),
               step = 1, sep = ""
             ),
             helpText(
-              "Includes books published in this range (catalog year, not sales year).",
+              "Includes books by publication year (catalog, not sales year). Covers full observed range plus buffer for new data.",
               style = "font-size: 13px; margin-top: -6px;"
             ),
             
@@ -156,7 +157,10 @@ authorNetworksServer <- function(id) {
       }
 
       # Publication years for network membership (catalog metadata)
-      pub_years <- resolve_year_range(input$year_range, default = c(MIN_YEAR, MAX_YEAR))
+      pub_years <- resolve_year_range(
+        input$year_range,
+        default = publication_default_range()
+      )
       year_range <- c(pub_years$start, pub_years$end)
 
       min_books <- input$min_books

@@ -61,10 +61,18 @@ validate_year <- function(year, param_name = "year") {
     stop(sprintf("%s must be between %d and %d", param_name, INPUT_MIN_YEAR, INPUT_MAX_YEAR))
   }
 
-  # Warn if outside dataset range but allow it
-  if (year < MIN_YEAR || year > MAX_YEAR) {
-    warning(sprintf("%s (%d) is outside dataset range (%d-%d)",
-                    param_name, year, MIN_YEAR, MAX_YEAR))
+  # Soft warning if outside nominal project era (MIN/MAX_YEAR)
+  if (exists("MIN_YEAR") && exists("MAX_YEAR") &&
+      (year < MIN_YEAR || year > MAX_YEAR)) {
+    # Publication filters intentionally allow observed ± buffer; only warn if
+    # outside those expanded limits when available.
+    pub_limits <- tryCatch(publication_filter_limits(), error = function(e) NULL)
+    outside_pub_filter <- is.null(pub_limits) ||
+      year < pub_limits$filter_min || year > pub_limits$filter_max
+    if (outside_pub_filter) {
+      warning(sprintf("%s (%d) is outside expected year range (%d-%d)",
+                      param_name, year, MIN_YEAR, MAX_YEAR))
+    }
   }
 
   year

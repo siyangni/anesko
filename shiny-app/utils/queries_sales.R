@@ -57,12 +57,17 @@ get_top_books <- function(limit = 20,
                           publication_end_year = NULL,
                           min_year = NULL,
                           max_year = NULL) {
+  # Default to full observed publication span (catalog), not a narrow sales window
+  pub_default <- tryCatch(
+    publication_default_range(),
+    error = function(e) c(MIN_YEAR, MAX_YEAR)
+  )
   pub_range <- resolve_year_range(
     c(
-      publication_start_year %||% min_year %||% MIN_YEAR,
-      publication_end_year %||% max_year %||% MAX_YEAR
+      publication_start_year %||% min_year %||% pub_default[[1]],
+      publication_end_year %||% max_year %||% pub_default[[2]]
     ),
-    default = c(MIN_YEAR, MAX_YEAR)
+    default = pub_default
   )
   query <- "
     SELECT

@@ -16,6 +16,56 @@ get_summary_stats <- function() {
   safe_db_query(query)
 }
 
+#' Observed publication-year span from the database, plus filter buffer.
+#'
+#' @param buffer Years of headroom beyond observed min/max (default config)
+#' @return list from compute_publication_year_bounds()
+get_publication_year_bounds <- function(buffer = NULL) {
+  if (is.null(buffer)) {
+    buffer <- if (exists("PUBLICATION_YEAR_BUFFER")) {
+      as.integer(PUBLICATION_YEAR_BUFFER)
+    } else {
+      5L
+    }
+  }
+
+  res <- tryCatch(
+    safe_db_query(
+      "SELECT MIN(publication_year) AS min_year,
+              MAX(publication_year) AS max_year
+       FROM book_entries
+       WHERE publication_year IS NOT NULL"
+    ),
+    error = function(e) data.frame(min_year = NA_integer_, max_year = NA_integer_)
+  )
+
+  obs_min <- if (!is.null(res) && nrow(res) > 0) res$min_year[1] else NA_integer_
+  obs_max <- if (!is.null(res) && nrow(res) > 0) res$max_year[1] else NA_integer_
+
+  compute_publication_year_bounds(
+    observed_min = obs_min,
+    observed_max = obs_max,
+    buffer = buffer
+  )
+}
+
+#' Refresh global PUBLICATION_YEAR_BOUNDS (call after DB pool is ready).
+refresh_publication_year_bounds <- function(buffer = NULL) {
+  bounds <- tryCatch(
+    get_publication_year_bounds(buffer = buffer),
+    error = function(e) {
+      warning("Could not load publication year bounds from DB: ", e$message)
+      compute_publication_year_bounds(
+        observed_min = if (exists("MIN_YEAR")) MIN_YEAR else 1860L,
+        observed_max = if (exists("MAX_YEAR")) MAX_YEAR else 1920L,
+        buffer = buffer
+      )
+    }
+  )
+  assign("PUBLICATION_YEAR_BOUNDS", bounds, envir = .GlobalEnv)
+  invisible(bounds)
+}
+
 # Get books with sales summary
 get_books_summary <- function() {
   query <- "
@@ -41,10 +91,15 @@ search_books <- function(search_term = "", genre_filter = NULL,
                         publication_year_range = NULL,
                         year_range = NULL,
                         publisher_filter = NULL) {
-  # Prefer explicit publication_year_range; year_range kept as legacy alias
+  # Prefer explicit publication_year_range; year_range kept as legacy alias.
+  # Default to full observed publication span (not sales-year constants).
+  pub_default <- tryCatch(
+    publication_default_range(),
+    error = function(e) c(MIN_YEAR, MAX_YEAR)
+  )
   pub_range <- resolve_year_range(
     publication_year_range %||% year_range,
-    default = c(MIN_YEAR, MAX_YEAR)
+    default = pub_default
   )
 
   where_conditions <- c("1=1")  # Base condition

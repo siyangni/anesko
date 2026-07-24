@@ -80,13 +80,15 @@ bookExplorerUI <- function(id) {
                              ),
                              selected = c("Male", "Female", "Unknown")),
 
-            # Publication year (catalog metadata for the books list)
+            # Publication year: full observed catalog span ± buffer (see app_config)
             sliderInput(ns("year_range"), "Publication Year Range:",
-                       min = MIN_YEAR, max = MAX_YEAR,
-                       value = DEFAULT_YEAR_RANGE, step = 1,
+                       min = publication_slider_min(),
+                       max = publication_slider_max(),
+                       value = publication_default_range(),
+                       step = 1,
                        sep = ""),
             helpText(
-              "Filters the books list by when titles were published.",
+              "Filters the books list by publication year (catalog). Slider covers the full observed range plus a small buffer for new data.",
               style = "font-size: 13px; margin-top: -6px;"
             ),
 
@@ -259,7 +261,10 @@ bookExplorerServer <- function(id) {
     # Reactive filtered data
     filtered_books <- reactive({
       safe_query(function() {
-        pub_years <- resolve_year_range(input$year_range, default = DEFAULT_YEAR_RANGE)
+        pub_years <- resolve_year_range(
+          input$year_range,
+          default = publication_default_range()
+        )
         search_books(
           search_term = input$search_term %||% "",
           genre_filter = input$genre_filter,
@@ -498,7 +503,12 @@ bookExplorerServer <- function(id) {
       shinyWidgets::updatePickerInput(session, "genre_filter", selected = character(0))
       updateCheckboxGroupInput(session, "gender_filter",
                                selected = c("Male", "Female", "Unknown"))
-      updateSliderInput(session, "year_range", value = DEFAULT_YEAR_RANGE)
+      updateSliderInput(
+        session, "year_range",
+        min = publication_slider_min(),
+        max = publication_slider_max(),
+        value = publication_default_range()
+      )
       updateSliderInput(session, "cmp_sales_year_range", value = DEFAULT_YEAR_RANGE)
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
     })

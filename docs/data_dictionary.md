@@ -29,4 +29,7 @@ This document describes the structure and contents of the American Authorship Da
 | Publication year | `book_entries.publication_year` | Publication Year Range |
 | Sales year | `book_sales.year` | Sales Year Range |
 
+**Publication filter bounds:** UI min/max = observed `MIN/MAX(publication_year)` from `book_entries`, plus `PUBLICATION_YEAR_BUFFER` years (default 5) on each side. Default selected range is the full observed span. This keeps all catalog years selectable and leaves headroom for newly imported books without redeploying hardcoded 1860–1920 limits.
+
+
 [Add more detailed descriptions on the go]

@@ -88,6 +88,19 @@ initialize_db_pool <- function() {
 # Initialize the pool
 pool <- initialize_db_pool()
 
+# Publication-year filter limits = observed catalog min/max + buffer.
+# Falls back to MIN_YEAR/MAX_YEAR ± buffer if the DB is unavailable.
+PUBLICATION_YEAR_BOUNDS <- tryCatch({
+  if (!is.null(pool)) {
+    refresh_publication_year_bounds()
+  } else {
+    compute_publication_year_bounds(MIN_YEAR, MAX_YEAR)
+  }
+}, error = function(e) {
+  warning("Publication year bounds init failed: ", e$message)
+  compute_publication_year_bounds(MIN_YEAR, MAX_YEAR)
+})
+
 # Release DB pool (and allow the OS to free the listen port) when the app stops.
 # Triggered by Ctrl+C / session end / runApp() returning — not by kill -9.
 shiny::onStop(function() {
