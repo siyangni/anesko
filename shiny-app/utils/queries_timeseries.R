@@ -43,7 +43,7 @@ get_sales_timeseries_filtered <- function(
   bindings = character(0),
   books = character(0),
   include_unknown_gender = TRUE,
-  genders = c("Male","Female","Unknown")
+  genders = c("Male", "Female", "Unknown")
 ) {
   group_expr <- switch(group_by,
     "gender" = "be.gender",
@@ -54,25 +54,35 @@ get_sales_timeseries_filtered <- function(
     "binding" = "be.binding",
     "be.gender"
   )
-  label_expr <- paste0("COALESCE(", group_expr, ", 'Unknown')")
+  # Gender groups normalize NULL/blank → Unknown; other dims keep COALESCE
+  label_expr <- if (identical(group_by, "gender")) {
+    gender_display_sql(group_expr)
+  } else {
+    paste0("COALESCE(", group_expr, ", 'Unknown')")
+  }
 
   where_clauses <- c(
     "bs.sales_count IS NOT NULL",
     "bs.year BETWEEN $1 AND $2"
   )
   params <- list(start_year, end_year)
-  next_idx <- 3
+  next_idx <- 3L
 
-  if (!is.null(genders) && length(genders) > 0) {
-    gvals <- genders[!is.na(genders) & nzchar(genders)]
-    if (length(gvals) > 0 && length(gvals) < 3) {
-      placeholders <- paste0("$", next_idx:(next_idx + length(gvals) - 1), collapse = ",")
-      where_clauses <- c(where_clauses, paste0("be.gender IN (", placeholders, ")"))
-      params <- c(params, gvals)
-      next_idx <- next_idx + length(gvals)
+  # Multi-select genders: empty must not silently mean "all"
+  gender_sel <- normalize_gender_filter(genders, mode = "multi")
+  gvals <- gender_sel$genders
+  if (!isTRUE(include_unknown_gender)) {
+    gvals <- setdiff(gvals, "Unknown")
+  }
+  if (gender_sel$empty || (length(gvals) == 0 && gender_sel$apply)) {
+    where_clauses <- c(where_clauses, "FALSE")
+  } else {
+    gender_sql <- build_gender_sql_filter(gvals, column = "be.gender", param_start = next_idx)
+    if (!is.null(gender_sql$clause)) {
+      where_clauses <- c(where_clauses, gender_sql$clause)
+      params <- c(params, gender_sql$params)
+      next_idx <- gender_sql$next_param
     }
-  } else if (!include_unknown_gender) {
-    where_clauses <- c(where_clauses, "(be.gender = 'Male' OR be.gender = 'Female')")
   }
 
   add_in_filter <- function(field, values, case_insensitive = TRUE) {
@@ -148,25 +158,36 @@ get_sales_timeseries_for_dimension <- function(
     "binding" = "be.binding",
     stop("Unsupported dimension: ", dimension)
   )
-  label_expr <- if (dimension == "book") "COALESCE(be.book_title, 'Unknown')" else paste0("COALESCE(", field, ", 'Unknown')")
+  label_expr <- if (dimension == "book") {
+    "COALESCE(be.book_title, 'Unknown')"
+  } else if (dimension == "gender") {
+    gender_display_sql(field)
+  } else {
+    paste0("COALESCE(", field, ", 'Unknown')")
+  }
 
   where_clauses <- c(
     "bs.sales_count IS NOT NULL",
     "bs.year BETWEEN $1 AND $2"
   )
   params <- list(start_year, end_year)
-  next_idx <- 3
+  next_idx <- 3L
 
-  if (!is.null(genders) && length(genders) > 0) {
-    gvals <- genders[!is.na(genders) & nzchar(genders)]
-    if (length(gvals) > 0 && length(gvals) < 3) {
-      placeholders <- paste0("$", next_idx:(next_idx + length(gvals) - 1), collapse = ",")
-      where_clauses <- c(where_clauses, paste0("be.gender IN (", placeholders, ")"))
-      params <- c(params, gvals)
-      next_idx <- next_idx + length(gvals)
+  # Multi-select genders: empty must not silently mean "all"
+  gender_sel <- normalize_gender_filter(genders, mode = "multi")
+  gvals <- gender_sel$genders
+  if (!isTRUE(include_unknown_gender)) {
+    gvals <- setdiff(gvals, "Unknown")
+  }
+  if (gender_sel$empty || (length(gvals) == 0 && gender_sel$apply)) {
+    where_clauses <- c(where_clauses, "FALSE")
+  } else {
+    gender_sql <- build_gender_sql_filter(gvals, column = "be.gender", param_start = next_idx)
+    if (!is.null(gender_sql$clause)) {
+      where_clauses <- c(where_clauses, gender_sql$clause)
+      params <- c(params, gender_sql$params)
+      next_idx <- gender_sql$next_param
     }
-  } else if (!include_unknown_gender) {
-    where_clauses <- c(where_clauses, "(be.gender = 'Male' OR be.gender = 'Female')")
   }
 
   add_in <- function(fld, vals, ci = TRUE) {

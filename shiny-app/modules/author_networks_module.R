@@ -62,8 +62,12 @@ authorNetworksUI <- function(id) {
             checkboxGroupInput(
               ns("gender_filter"),
               "Include Genders:",
-              choices = list("Male" = "Male", "Female" = "Female"),
-              selected = c("Male", "Female")
+              choices = list(
+                "Male" = "Male",
+                "Female" = "Female",
+                "Unknown" = "Unknown"
+              ),
+              selected = c("Male", "Female", "Unknown")
             ),
             
             actionButton(
@@ -137,10 +141,14 @@ authorNetworksServer <- function(id) {
     network_data <- eventReactive(analysis_tick(), {
       req(analysis_tick() > 0L)
 
-      # Ensure we have valid inputs
-      gender_filter <- input$gender_filter
-      if (is.null(gender_filter) || length(gender_filter) == 0) {
-        gender_filter <- c("Male", "Female")  # Default to both genders
+      # Multi-select: empty must not silently expand to all genders
+      gender_sel <- normalize_gender_filter(input$gender_filter, mode = "multi")
+      if (gender_sel$empty || length(gender_sel$genders) == 0) {
+        return(list(
+          nodes = data.frame(),
+          edges = data.frame(),
+          message = "Select at least one author gender to build the network."
+        ))
       }
 
       year_range <- input$year_range
@@ -153,14 +161,20 @@ authorNetworksServer <- function(id) {
         min_books <- 2  # Default minimum
       }
 
-      # Get author data with filters
-      # Create gender filter clause
-      gender_placeholders <- paste0("$", 3:(2 + length(gender_filter)), collapse = ",")
+      # Gender filter (Unknown → NULL/blank in DB)
+      gender_sql <- build_gender_sql_filter(
+        gender_sel$genders,
+        column = "be.gender",
+        param_start = 3L
+      )
+      gender_clause <- if (is.null(gender_sql$clause)) "TRUE" else gender_sql$clause
+      gender_expr <- gender_display_sql("be.gender")
+
       author_query <- paste0("
         SELECT
           be.author_id,
           be.author_surname,
-          be.gender,
+          ", gender_expr, " AS gender,
           be.publisher,
           be.genre,
           be.publication_year,
@@ -168,12 +182,11 @@ authorNetworksServer <- function(id) {
         FROM book_entries be
         LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
         WHERE be.author_id IS NOT NULL
-          AND be.gender IN (", gender_placeholders, ")
+          AND ", gender_clause, "
           AND be.publication_year BETWEEN $1 AND $2
       ")
 
-      # Create parameter list with year range first, then gender values
-      params <- c(list(year_range[1], year_range[2]), as.list(gender_filter))
+      params <- c(list(year_range[1], year_range[2]), gender_sql$params)
 
       book_data <- safe_db_query(author_query, params = params)
 
@@ -302,19 +315,22 @@ authorNetworksServer <- function(id) {
       }
 
       tryCatch({
+        gender_norm <- clean_gender(nodes$gender)
         data.frame(
           Metric = c(
             "Total Authors",
             "Male Authors",
             "Female Authors",
+            "Unknown Gender",
             "Connections",
             "Avg Books per Author",
             "Total Sales"
           ),
           Value = c(
             nrow(nodes),
-            sum(nodes$gender == "Male", na.rm = TRUE),
-            sum(nodes$gender == "Female", na.rm = TRUE),
+            sum(gender_norm == "Male", na.rm = TRUE),
+            sum(gender_norm == "Female", na.rm = TRUE),
+            sum(gender_norm == "Unknown", na.rm = TRUE),
             if (!is.null(edges)) nrow(edges) else 0,
             round(mean(nodes$book_count, na.rm = TRUE), 1),
             scales::comma(sum(nodes$total_sales, na.rm = TRUE))

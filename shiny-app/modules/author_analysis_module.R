@@ -67,7 +67,12 @@ authorAnalysisUI <- function(id) {
               ns = ns,
               tags$div(class = "control-group",
                 selectInput(ns("gender_filter"), "Focus on Gender:",
-                           choices = list("Compare Both" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
+                           choices = list(
+                             "All Genders" = "",
+                             "Male Authors" = "Male",
+                             "Female Authors" = "Female",
+                             "Unknown Gender" = "Unknown"
+                           ),
                            selected = "")
               )
             )

@@ -143,6 +143,51 @@ validate_dimension <- function(dimension) {
   dimension
 }
 
+#' Validate gender filter values against canonical labels
+#'
+#' Accepts Male/Female/Unknown (case-insensitive codes M/F/U).
+#' Blank/whitespace-only values are treated as Unknown when non-empty
+#' input is provided. Empty input returns character(0) when allow_empty
+#' is TRUE — callers must not treat that as "all genders".
+#'
+#' Depends on clean_gender() from data_processing.R in the running app.
+#'
+#' @param values Character vector of gender filter values
+#' @param allow_empty If TRUE, empty input is valid and returns character(0)
+#' @return Canonical gender character vector
+validate_gender <- function(values, allow_empty = TRUE) {
+  if (is.null(values) || length(values) == 0) {
+    if (isTRUE(allow_empty)) {
+      return(character(0))
+    }
+    stop("Gender filter must include at least one value")
+  }
+
+  # Single explicit "all" sentinel used by selectInput choices ("")
+  if (length(values) == 1L) {
+    raw <- trimws(as.character(values[[1]]))
+    if (is.na(raw) || !nzchar(raw)) {
+      if (isTRUE(allow_empty)) {
+        return(character(0))
+      }
+      stop("Gender filter must include at least one value")
+    }
+  }
+
+  if (!exists("clean_gender", mode = "function")) {
+    stop("clean_gender() is required; source data_processing.R first")
+  }
+
+  cleaned <- unique(clean_gender(values))
+  cleaned <- cleaned[cleaned %in% c("Male", "Female", "Unknown")]
+
+  if (length(cleaned) == 0 && !isTRUE(allow_empty)) {
+    stop("Gender filter must be one of: Male, Female, Unknown")
+  }
+
+  cleaned
+}
+
 #' Validate and sanitize filter values
 #'
 #' Ensures filter values are safe for use in parameterized queries

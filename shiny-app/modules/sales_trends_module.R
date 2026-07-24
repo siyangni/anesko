@@ -215,6 +215,8 @@ salesTrendsServer <- function(id) {
       shinyWidgets::updatePickerInput(session, "genre_filter", selected = character(0))
       shinyWidgets::updatePickerInput(session, "binding_filter", selected = character(0))
       shinyWidgets::updatePickerInput(session, "book_filter", selected = character(0))
+      updateCheckboxGroupInput(session, "gender_filter",
+                              selected = c("Male", "Female", "Unknown"))
       updateCheckboxGroupInput(session, "secondary_options", selected = c("include_unknown_gender"))
     })
 
@@ -228,7 +230,11 @@ salesTrendsServer <- function(id) {
         genres = input$genre_filter %||% character(0),
         bindings = input$binding_filter %||% character(0),
         books = input$book_filter %||% character(0),
-        genders = input$gender_filter %||% c("Male","Female","Unknown"),
+        # Multi-select: do not expand empty selection to "all" via %||%
+        genders = {
+          g <- input$gender_filter
+          if (is.null(g)) character(0) else as.character(g)
+        },
         include_unknown_gender = ("include_unknown_gender" %in% (input$secondary_options %||% character(0))),
         smooth = ("smooth" %in% (input$secondary_options %||% character(0)))
       )

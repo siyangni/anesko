@@ -56,7 +56,12 @@ genreAnalysisUI <- function(id) {
           column(3,
             tags$div(class = "control-group",
               selectInput(ns("gender_filter"), "Author Gender:",
-                         choices = list("All Authors" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
+                         choices = list(
+                           "All Authors" = "",
+                           "Male Authors" = "Male",
+                           "Female Authors" = "Female",
+                           "Unknown Gender" = "Unknown"
+                         ),
                          selected = "")
             )
           )

@@ -46,10 +46,135 @@ clean_genre <- function(genre) {
   ifelse(is.na(genre) | is.null(genre), "Other", genre)
 }
 
-# Clean and standardize gender (updated for new database values)
+# Canonical gender labels used in UI filters and display
+CANONICAL_GENDERS <- c("Male", "Female", "Unknown")
+KNOWN_GENDERS <- c("Male", "Female")
+
+# Clean and standardize gender for display / in-memory use.
+# Blank, whitespace-only, NA, and unrecognized codes become "Unknown".
+# DB stores unknown as NULL; UI/display uses the string "Unknown".
 clean_gender <- function(gender) {
-  # New database already has "Male"/"Female" values, just handle NULLs
-  ifelse(is.na(gender) | is.null(gender), "Unknown", gender)
+  if (is.null(gender)) {
+    return(character(0))
+  }
+
+  g <- as.character(gender)
+  trimmed <- trimws(g)
+  blank <- is.na(trimmed) | !nzchar(trimmed)
+
+  out <- rep("Unknown", length(trimmed))
+  if (all(blank)) {
+    return(out)
+  }
+
+  # Case-insensitive match against known labels / single-letter codes
+  lower <- tolower(trimmed)
+  out[!blank & lower %in% c("m", "male")] <- "Male"
+  out[!blank & lower %in% c("f", "female")] <- "Female"
+  out[!blank & lower %in% c("u", "unknown", "other", "n/a", "na", "none")] <- "Unknown"
+  # Any other non-blank unrecognized value stays Unknown (already set)
+
+  out
+}
+
+#' Normalize a UI gender filter into a query-ready selection.
+#'
+#' Single-select mode (selectInput with "" = "All Authors"):
+#'   NULL / "" / whitespace → no filter (all genders), empty = FALSE
+#' Multi-select mode (checkboxGroupInput):
+#'   NULL / character(0) → empty selection (no rows), NOT silently "all"
+#'
+#' @param gender_filter Raw UI value (character vector, NULL, or "")
+#' @param mode "multi" (checkboxes) or "single" (dropdown)
+#' @return list(apply, genders, empty)
+#'   apply: TRUE if a gender WHERE clause should be applied
+#'   genders: canonical values when apply is TRUE (may be empty)
+#'   empty: TRUE when multi-select has nothing checked
+normalize_gender_filter <- function(gender_filter, mode = c("multi", "single")) {
+  mode <- match.arg(mode)
+
+  if (mode == "single") {
+    if (is.null(gender_filter) || length(gender_filter) == 0) {
+      return(list(apply = FALSE, genders = character(0), empty = FALSE))
+    }
+    raw <- trimws(as.character(gender_filter[[1]]))
+    if (is.na(raw) || !nzchar(raw)) {
+      # Explicit "All Authors" / "Compare Both" choice
+      return(list(apply = FALSE, genders = character(0), empty = FALSE))
+    }
+    g <- unique(clean_gender(raw))
+    g <- g[g %in% CANONICAL_GENDERS]
+    if (length(g) == 0) {
+      return(list(apply = FALSE, genders = character(0), empty = FALSE))
+    }
+    return(list(apply = TRUE, genders = g, empty = FALSE))
+  }
+
+  # multi: empty must not mean "all"
+  if (is.null(gender_filter) || length(gender_filter) == 0) {
+    return(list(apply = TRUE, genders = character(0), empty = TRUE))
+  }
+  cleaned <- unique(clean_gender(gender_filter))
+  cleaned <- cleaned[cleaned %in% CANONICAL_GENDERS]
+  if (length(cleaned) == 0) {
+    return(list(apply = TRUE, genders = character(0), empty = TRUE))
+  }
+  list(apply = TRUE, genders = cleaned, empty = FALSE)
+}
+
+#' SQL expression that normalizes stored gender for display / grouping.
+#' Maps NULL and blank/whitespace to 'Unknown'.
+gender_display_sql <- function(column = "be.gender") {
+  paste0("COALESCE(NULLIF(BTRIM(", column, "), ''), 'Unknown')")
+}
+
+#' Build a parameterized SQL WHERE fragment for gender filtering.
+#'
+#' Unknown in the UI maps to NULL or blank values in the database
+#' (schema CHECK allows only 'Male', 'Female', or NULL).
+#'
+#' @param genders Canonical gender values (Male / Female / Unknown)
+#' @param column SQL column reference
+#' @param param_start Next $n parameter index
+#' @return list(clause, params, next_param)
+#'   Empty genders → clause "FALSE" (match nothing; never silent "all")
+build_gender_sql_filter <- function(genders, column = "be.gender", param_start = 1L) {
+  param_start <- as.integer(param_start)
+  genders <- unique(clean_gender(genders))
+  genders <- genders[genders %in% CANONICAL_GENDERS]
+
+  if (length(genders) == 0) {
+    return(list(clause = "FALSE", params = list(), next_param = param_start))
+  }
+
+  # All canonical genders selected → no filter needed
+  if (setequal(genders, CANONICAL_GENDERS)) {
+    return(list(clause = NULL, params = list(), next_param = param_start))
+  }
+
+  known <- intersect(genders, KNOWN_GENDERS)
+  include_unknown <- "Unknown" %in% genders
+
+  parts <- character(0)
+  params <- list()
+  idx <- param_start
+
+  if (length(known) > 0) {
+    placeholders <- paste0("$", idx:(idx + length(known) - 1L), collapse = ",")
+    parts <- c(parts, paste0(column, " IN (", placeholders, ")"))
+    params <- c(params, as.list(known))
+    idx <- idx + length(known)
+  }
+
+  if (include_unknown) {
+    parts <- c(parts, paste0("(", column, " IS NULL OR BTRIM(", column, ") = '')"))
+  }
+
+  list(
+    clause = paste0("(", paste(parts, collapse = " OR "), ")"),
+    params = params,
+    next_param = idx
+  )
 }
 
 # Calculate royalty rate statistics
@@ -337,6 +462,7 @@ create_author_network <- function(book_data) {
   # Create nodes (authors) with error handling
   tryCatch({
     nodes <- book_data %>%
+      mutate(gender = clean_gender(gender)) %>%
       group_by(author_id, author_surname, gender) %>%
       summarise(
         book_count = n(),
@@ -350,6 +476,7 @@ create_author_network <- function(book_data) {
         node_color = case_when(
           gender == "Male" ~ "#1f77b4",
           gender == "Female" ~ "#ff7f0e",
+          gender == "Unknown" ~ "#7f7f7f",
           TRUE ~ "#2ca02c"
         )
       )

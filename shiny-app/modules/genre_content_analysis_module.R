@@ -37,7 +37,12 @@ genreContentAnalysisUI <- function(id) {
           ),
           column(3,
             selectInput(ns("gender_filter"), "Author Gender:",
-                       choices = list("All Authors" = "", "Male Authors" = "Male", "Female Authors" = "Female"),
+                       choices = list(
+                         "All Authors" = "",
+                         "Male Authors" = "Male",
+                         "Female Authors" = "Female",
+                         "Unknown Gender" = "Unknown"
+                       ),
                        selected = "")
           )
         ),
@@ -420,12 +425,13 @@ genreContentAnalysisServer <- function(id) {
                   input$binding_filter, input$genre_filter, NULL, start_year, end_year
                 )
               }, default_value = data.frame())
-              # Aggregate strictly by gender to ensure only two rows
+              # Aggregate by normalized gender (Male / Female / Unknown)
               if (nrow(res) > 0) {
+                res$gender <- clean_gender(res$gender)
                 out <- aggregate(total_sales ~ gender, res, sum)
                 out$genre <- input$genre_filter
                 out$binding <- input$binding_filter
-                out <- out[, c("genre", "binding", "gender", "total_sales")]  # reorder
+                out <- out[, c("genre", "binding", "gender", "total_sales")]
                 out
               } else {
                 data.frame()
@@ -625,15 +631,34 @@ genreContentAnalysisServer <- function(id) {
 
         "genre_gender" = {
           if (nrow(results) > 0 && "gender" %in% names(results) && "genre" %in% names(results)) {
-            male_total <- sum(results[results$gender == "Male", "total_sales"], na.rm = TRUE)
-            female_total <- sum(results[results$gender == "Female", "total_sales"], na.rm = TRUE)
+            results$gender <- clean_gender(results$gender)
+            male_total <- sum(results$total_sales[results$gender == "Male"], na.rm = TRUE)
+            female_total <- sum(results$total_sales[results$gender == "Female"], na.rm = TRUE)
+            unknown_total <- sum(results$total_sales[results$gender == "Unknown"], na.rm = TRUE)
+            known_total <- male_total + female_total
+            overall_total <- known_total + unknown_total
 
             tagList(
               h5("Genre & Gender Insights:"),
               p(paste("Male authors total sales:", format(male_total, big.mark = ","))),
               p(paste("Female authors total sales:", format(female_total, big.mark = ","))),
-              p(paste("Female market share:",
-                     round(female_total/(male_total + female_total) * 100, 1), "%")),
+              p(paste("Unknown gender total sales:", format(unknown_total, big.mark = ","))),
+              p(paste(
+                "Female share of known-gender sales:",
+                if (known_total > 0) {
+                  paste0(round(female_total / known_total * 100, 1), "%")
+                } else {
+                  "N/A"
+                }
+              )),
+              p(paste(
+                "Unknown share of all sales:",
+                if (overall_total > 0) {
+                  paste0(round(unknown_total / overall_total * 100, 1), "%")
+                } else {
+                  "N/A"
+                }
+              )),
               hr(),
               if (nrow(results) > 0) {
                 best_combo <- results[which.max(results$total_sales), ]
@@ -685,14 +710,19 @@ genreContentAnalysisServer <- function(id) {
 
         "gender_binding" = {
           if (nrow(results) > 0 && "gender" %in% names(results)) {
+            results$gender <- clean_gender(results$gender)
             total_m <- sum(results$total_sales[results$gender == "Male"], na.rm = TRUE)
             total_f <- sum(results$total_sales[results$gender == "Female"], na.rm = TRUE)
-            share_f <- if ((total_m + total_f) > 0) round(100 * total_f/(total_m + total_f), 1) else NA
+            total_u <- sum(results$total_sales[results$gender == "Unknown"], na.rm = TRUE)
+            known_total <- total_m + total_f
+            share_f <- if (known_total > 0) round(100 * total_f / known_total, 1) else NA
             tagList(
               h5("Gender-based Sales Insights:"),
               p(paste("Male total:", format(total_m, big.mark = ","))),
               p(paste("Female total:", format(total_f, big.mark = ","))),
-              p(paste("Female share:", paste0(share_f, "%")))
+              p(paste("Unknown total:", format(total_u, big.mark = ","))),
+              p(paste("Female share of known-gender sales:",
+                      if (is.na(share_f)) "N/A" else paste0(share_f, "%")))
             )
           } else {
             p("No gender comparison data available")

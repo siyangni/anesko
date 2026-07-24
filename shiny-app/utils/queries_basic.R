@@ -33,7 +33,8 @@ get_books_summary <- function() {
 }
 
 # Search books
-search_books <- function(search_term = "", genre_filter = NULL, gender_filter = NULL,
+search_books <- function(search_term = "", genre_filter = NULL,
+                        gender_filter = c("Male", "Female", "Unknown"),
                         year_range = c(1860, 1920), publisher_filter = NULL) {
 
   where_conditions <- c("1=1")  # Base condition
@@ -57,12 +58,19 @@ search_books <- function(search_term = "", genre_filter = NULL, gender_filter = 
     param_counter <- param_counter + length(genre_filter)
   }
 
-  # Add gender filter
-  if (!is.null(gender_filter) && length(gender_filter) > 0) {
-    gender_placeholders <- paste0("$", param_counter:(param_counter + length(gender_filter) - 1), collapse = ",")
-    where_conditions <- c(where_conditions, paste0("be.gender IN (", gender_placeholders, ")"))
-    params <- c(params, as.list(gender_filter))
-    param_counter <- param_counter + length(gender_filter)
+  # Add gender filter (multi-select: empty = no matches, not silent "all")
+  gender_sel <- normalize_gender_filter(gender_filter, mode = "multi")
+  if (gender_sel$apply) {
+    gender_sql <- build_gender_sql_filter(
+      gender_sel$genders,
+      column = "be.gender",
+      param_start = param_counter
+    )
+    if (!is.null(gender_sql$clause)) {
+      where_conditions <- c(where_conditions, gender_sql$clause)
+      params <- c(params, gender_sql$params)
+      param_counter <- gender_sql$next_param
+    }
   }
 
   # Add year range filter
@@ -108,7 +116,11 @@ get_filter_options <- function() {
   list(
     genres = safe_db_query("SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"),
     publishers = safe_db_query("SELECT DISTINCT publisher FROM book_entries WHERE publisher IS NOT NULL ORDER BY publisher"),
-    genders = safe_db_query("SELECT DISTINCT gender FROM book_entries WHERE gender IS NOT NULL ORDER BY gender"),
+    # Include Unknown for NULL/blank stored genders so UI filters stay consistent
+    genders = safe_db_query(paste0(
+      "SELECT DISTINCT ", gender_display_sql("gender"), " AS gender ",
+      "FROM book_entries ORDER BY gender"
+    )),
     years = safe_db_query("SELECT MIN(publication_year) as min_year, MAX(publication_year) as max_year FROM book_entries"),
     author_ids = safe_db_query("SELECT DISTINCT author_id FROM book_entries WHERE author_id IS NOT NULL ORDER BY author_id"),
     book_titles = safe_db_query("SELECT DISTINCT book_title FROM book_entries WHERE book_title IS NOT NULL ORDER BY book_title"),
@@ -147,10 +159,12 @@ get_binding_states <- function() {
 }
 
 # Get author gender analysis (updated for new schema)
+# Unknown = NULL/blank gender in DB; always included for consistent reporting
 get_gender_analysis <- function() {
-  query <- "
+  gender_expr <- gender_display_sql("be.gender")
+  query <- paste0("
     SELECT
-      be.gender,
+      ", gender_expr, " AS gender,
       COUNT(*) as book_count,
       COALESCE(SUM(bs.total_sales), 0) as total_sales,
       COALESCE(AVG(bs.total_sales), 0) as avg_sales_per_book,
@@ -158,9 +172,9 @@ get_gender_analysis <- function() {
       COUNT(DISTINCT be.author_id) as unique_author_ids
     FROM book_entries be
     LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
-    WHERE be.gender IN ('Male', 'Female')
-    GROUP BY be.gender
-  "
+    GROUP BY ", gender_expr, "
+    ORDER BY gender
+  ")
   safe_db_query(query)
 }
 

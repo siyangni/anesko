@@ -113,26 +113,36 @@ get_average_sales_by_binding_genre_gender <- function(binding_state = NULL, genr
     params <- c(params, list(paste0("%", genre, "%")))
   }
 
-  if (!is.null(gender) && gender != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("be.gender = $", param_count))
-    params <- c(params, list(gender))
+  # Single-select: "" / NULL = all; "Unknown" maps to NULL/blank rows
+  gender_sel <- normalize_gender_filter(gender, mode = "single")
+  if (gender_sel$apply) {
+    gender_sql <- build_gender_sql_filter(
+      gender_sel$genders,
+      column = "be.gender",
+      param_start = param_count + 1L
+    )
+    if (!is.null(gender_sql$clause)) {
+      where_conditions <- c(where_conditions, gender_sql$clause)
+      params <- c(params, gender_sql$params)
+      param_count <- gender_sql$next_param - 1L
+    }
   }
 
   where_clause <- paste(where_conditions, collapse = " AND ")
+  gender_expr <- gender_display_sql("be.gender")
 
   query <- paste0("
     SELECT
       be.binding,
       be.genre,
-      be.gender,
+      ", gender_expr, " AS gender,
       COUNT(DISTINCT be.book_id) as book_count,
       AVG(bs.sales_count) as avg_sales_per_year,
       SUM(bs.sales_count) / COUNT(DISTINCT be.book_id) as avg_total_sales_per_book
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
     WHERE ", where_clause, "
-    GROUP BY be.binding, be.genre, be.gender
+    GROUP BY be.binding, be.genre, ", gender_expr, "
     ORDER BY avg_total_sales_per_book DESC
   ")
 
@@ -157,25 +167,35 @@ get_total_sales_by_binding_genre_gender <- function(binding_state = NULL, genre 
     params <- c(params, list(paste0("%", genre, "%")))
   }
 
-  if (!is.null(gender) && gender != "") {
-    param_count <- param_count + 1
-    where_conditions <- c(where_conditions, paste0("be.gender = $", param_count))
-    params <- c(params, list(gender))
+  # Single-select: "" / NULL = all; "Unknown" maps to NULL/blank rows
+  gender_sel <- normalize_gender_filter(gender, mode = "single")
+  if (gender_sel$apply) {
+    gender_sql <- build_gender_sql_filter(
+      gender_sel$genders,
+      column = "be.gender",
+      param_start = param_count + 1L
+    )
+    if (!is.null(gender_sql$clause)) {
+      where_conditions <- c(where_conditions, gender_sql$clause)
+      params <- c(params, gender_sql$params)
+      param_count <- gender_sql$next_param - 1L
+    }
   }
 
   where_clause <- paste(where_conditions, collapse = " AND ")
+  gender_expr <- gender_display_sql("be.gender")
 
   query <- paste0("
     SELECT
       be.binding,
       be.genre,
-      be.gender,
+      ", gender_expr, " AS gender,
       COUNT(DISTINCT be.book_id) as book_count,
       SUM(bs.sales_count) as total_sales
     FROM book_entries be
     JOIN book_sales bs ON be.book_id = bs.book_id
     WHERE ", where_clause, "
-    GROUP BY be.binding, be.genre, be.gender
+    GROUP BY be.binding, be.genre, ", gender_expr, "
     ORDER BY total_sales DESC
   ")
 

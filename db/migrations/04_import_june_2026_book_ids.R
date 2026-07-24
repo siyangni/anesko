@@ -246,8 +246,19 @@ normalize_publisher <- function(publisher) {
 }
 
 map_gender <- function(gender) {
-  gender <- trimws(gender)
-  out <- ifelse(gender == "M", "Male", ifelse(gender == "F", "Female", gender))
+  # Blank / whitespace-only → NULL (Unknown at app layer)
+  gender <- trimws(as.character(gender))
+  gender[is.na(gender) | !nzchar(gender)] <- NA_character_
+  out <- ifelse(
+    is.na(gender),
+    NA_character_,
+    ifelse(
+      toupper(gender) %in% c("M", "MALE"),
+      "Male",
+      ifelse(toupper(gender) %in% c("F", "FEMALE"), "Female", NA_character_)
+    )
+  )
+  # Unrecognized non-blank codes also become NULL (Unknown), not raw strings
   null_if_empty(out)
 }
 

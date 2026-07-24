@@ -102,3 +102,89 @@ test_that("make_title_choices uses catalog labels and original values", {
   expect_equal(length(make_title_choices(character(0))), 0)
   expect_equal(length(make_title_choices(c(NA_character_, ""))), 0)
 })
+
+test_that("clean_gender normalizes blank, whitespace, and codes to Unknown/Male/Female", {
+  expect_equal(clean_gender(NULL), character(0))
+  expect_equal(clean_gender(NA_character_), "Unknown")
+  expect_equal(clean_gender(""), "Unknown")
+  expect_equal(clean_gender("   "), "Unknown")
+  expect_equal(clean_gender("Male"), "Male")
+  expect_equal(clean_gender("female"), "Female")
+  expect_equal(clean_gender("M"), "Male")
+  expect_equal(clean_gender("F"), "Female")
+  expect_equal(clean_gender("Unknown"), "Unknown")
+  expect_equal(clean_gender("other"), "Unknown")
+  expect_equal(clean_gender("xyz"), "Unknown")
+  expect_equal(
+    clean_gender(c("Male", NA, "  ", "f", "Unknown")),
+    c("Male", "Unknown", "Unknown", "Female", "Unknown")
+  )
+})
+
+test_that("normalize_gender_filter treats multi empty as empty, not all", {
+  multi_empty <- normalize_gender_filter(NULL, mode = "multi")
+  expect_true(multi_empty$apply)
+  expect_true(multi_empty$empty)
+  expect_equal(multi_empty$genders, character(0))
+
+  multi_empty2 <- normalize_gender_filter(character(0), mode = "multi")
+  expect_true(multi_empty2$empty)
+  expect_equal(multi_empty2$genders, character(0))
+
+  multi_partial <- normalize_gender_filter(c("Male", "  ", "female"), mode = "multi")
+  expect_true(multi_partial$apply)
+  expect_false(multi_partial$empty)
+  expect_equal(sort(multi_partial$genders), c("Female", "Male", "Unknown"))
+})
+
+test_that("normalize_gender_filter treats single empty as all genders", {
+  single_all <- normalize_gender_filter("", mode = "single")
+  expect_false(single_all$apply)
+  expect_false(single_all$empty)
+  expect_equal(single_all$genders, character(0))
+
+  single_null <- normalize_gender_filter(NULL, mode = "single")
+  expect_false(single_null$apply)
+
+  single_male <- normalize_gender_filter("Male", mode = "single")
+  expect_true(single_male$apply)
+  expect_equal(single_male$genders, "Male")
+
+  single_unknown <- normalize_gender_filter("Unknown", mode = "single")
+  expect_true(single_unknown$apply)
+  expect_equal(single_unknown$genders, "Unknown")
+})
+
+test_that("build_gender_sql_filter maps Unknown to NULL/blank and empty to FALSE", {
+  empty_sql <- build_gender_sql_filter(character(0), param_start = 1L)
+  expect_equal(empty_sql$clause, "FALSE")
+  expect_equal(empty_sql$params, list())
+
+  all_sql <- build_gender_sql_filter(c("Male", "Female", "Unknown"), param_start = 1L)
+  expect_null(all_sql$clause)
+  expect_equal(all_sql$params, list())
+
+  male_sql <- build_gender_sql_filter("Male", param_start = 3L)
+  expect_equal(male_sql$clause, "(be.gender IN ($3))")
+  expect_equal(male_sql$params, list("Male"))
+  expect_equal(male_sql$next_param, 4L)
+
+  unknown_sql <- build_gender_sql_filter("Unknown", param_start = 2L)
+  expect_true(grepl("IS NULL", unknown_sql$clause, fixed = TRUE))
+  expect_true(grepl("BTRIM", unknown_sql$clause, fixed = TRUE))
+  expect_equal(unknown_sql$params, list())
+  expect_equal(unknown_sql$next_param, 2L)
+
+  mixed_sql <- build_gender_sql_filter(c("Female", "Unknown"), param_start = 1L)
+  expect_true(grepl("IN \\(\\$1\\)", mixed_sql$clause))
+  expect_true(grepl("IS NULL", mixed_sql$clause, fixed = TRUE))
+  expect_equal(mixed_sql$params, list("Female"))
+  expect_equal(mixed_sql$next_param, 2L)
+})
+
+test_that("gender_display_sql normalizes NULL and blank", {
+  expr <- gender_display_sql("be.gender")
+  expect_true(grepl("COALESCE", expr, fixed = TRUE))
+  expect_true(grepl("BTRIM", expr, fixed = TRUE))
+  expect_true(grepl("Unknown", expr, fixed = TRUE))
+})

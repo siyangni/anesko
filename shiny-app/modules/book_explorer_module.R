@@ -71,10 +71,14 @@ bookExplorerUI <- function(id) {
                              `selected-text-format` = "count > 2"
                            )),
 
-            # Gender filter (updated for new database schema)
+            # Gender filter (Unknown = NULL/blank in DB)
             checkboxGroupInput(ns("gender_filter"), "Author Gender:",
-                             choices = list("Male" = "Male", "Female" = "Female"),
-                             selected = c("Male", "Female")),
+                             choices = list(
+                               "Male" = "Male",
+                               "Female" = "Female",
+                               "Unknown" = "Unknown"
+                             ),
+                             selected = c("Male", "Female", "Unknown")),
 
             # Year range
             sliderInput(ns("year_range"), "Publication Year Range:",
@@ -462,7 +466,8 @@ bookExplorerServer <- function(id) {
     observeEvent(input$reset_filters, {
       updateSelectizeInput(session, "search_term", selected = "")
       shinyWidgets::updatePickerInput(session, "genre_filter", selected = character(0))
-      updateCheckboxGroupInput(session, "gender_filter", selected = c("Male", "Female"))
+      updateCheckboxGroupInput(session, "gender_filter",
+                               selected = c("Male", "Female", "Unknown"))
       updateSliderInput(session, "year_range", value = DEFAULT_YEAR_RANGE)
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
     })

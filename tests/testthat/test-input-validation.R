@@ -13,6 +13,8 @@ list2env(
   ),
   envir = environment()
 )
+# clean_gender / gender helpers are defined in data_processing.R
+source("../../shiny-app/utils/data_processing.R", local = TRUE)
 source("../../shiny-app/utils/input_validation.R", local = TRUE)
 
 test_that("validate_group_by accepts valid values", {
@@ -76,6 +78,17 @@ test_that("validate_dimension accepts valid dimensions", {
   expect_equal(validate_dimension("genre"), "genre")
   expect_equal(validate_dimension("binding"), "binding")
   expect_equal(validate_dimension("gender"), "gender")
+})
+
+test_that("validate_gender normalizes values and keeps empty distinct from all", {
+  expect_equal(validate_gender(NULL), character(0))
+  expect_equal(validate_gender(character(0)), character(0))
+  expect_equal(validate_gender(""), character(0))  # explicit "all" sentinel → empty set
+  expect_equal(validate_gender("Male"), "Male")
+  expect_equal(validate_gender(c("m", "Female", "  ")), c("Male", "Female", "Unknown"))
+  expect_equal(validate_gender("Unknown"), "Unknown")
+  expect_error(validate_gender(NULL, allow_empty = FALSE))
+  expect_error(validate_gender(character(0), allow_empty = FALSE))
 })
 
 test_that("validate_dimension rejects invalid dimensions", {

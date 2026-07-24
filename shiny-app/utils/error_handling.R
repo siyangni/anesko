@@ -98,11 +98,19 @@ check_data_availability <- function(genre_filter, binding_filter, gender_filter,
       params <- c(params, list(paste0("%", genre_filter, "%")))
     }
     
-    if (!is.null(gender_filter) && gender_filter != "") {
-      param_count <- param_count + 1
-      where_conditions <- c(where_conditions, 
-                           paste0("LOWER(be.gender) LIKE LOWER($", param_count, ")"))
-      params <- c(params, list(paste0("%", gender_filter, "%")))
+    # Single-select gender filter; Unknown maps to NULL/blank rows
+    gender_sel <- normalize_gender_filter(gender_filter, mode = "single")
+    if (gender_sel$apply) {
+      gender_sql <- build_gender_sql_filter(
+        gender_sel$genders,
+        column = "be.gender",
+        param_start = param_count + 1L
+      )
+      if (!is.null(gender_sql$clause)) {
+        where_conditions <- c(where_conditions, gender_sql$clause)
+        params <- c(params, gender_sql$params)
+        param_count <- gender_sql$next_param - 1L
+      }
     }
     
     where_clause <- paste(where_conditions, collapse = " AND ")

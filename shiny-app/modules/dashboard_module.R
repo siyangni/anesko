@@ -266,14 +266,17 @@ dashboardServer <- function(id) {
         return(create_pie_chart(data.frame(), "gender", "book_count"))
       }
       
-      # Clean up gender labels (updated for new database schema)
+      # Normalize labels (NULL/blank already cleaned to Unknown in get_gender_analysis)
       plot_data <- data %>%
-        mutate(gender_label = case_when(
-          gender == "Male" ~ "Male Authors",
-          gender == "Female" ~ "Female Authors",
-          is.na(gender) ~ "Unknown",
-          TRUE ~ paste(gender, "Authors")
-        )) %>%
+        mutate(
+          gender = clean_gender(gender),
+          gender_label = case_when(
+            gender == "Male" ~ "Male Authors",
+            gender == "Female" ~ "Female Authors",
+            gender == "Unknown" ~ "Unknown Gender",
+            TRUE ~ paste(gender, "Authors")
+          )
+        ) %>%
         filter(book_count > 0)
       
       create_pie_chart(
