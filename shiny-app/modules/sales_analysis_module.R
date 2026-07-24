@@ -39,7 +39,8 @@ salesAnalysisUI <- function(id) {
                            multiple = FALSE,
                            options = list(
                              placeholder = "Select or type book title...",
-                             create = FALSE
+                             create = FALSE,
+                             onInitialize = I('function() { this.setValue(""); }')
                            ))
           ),
           column(3,
@@ -48,7 +49,8 @@ salesAnalysisUI <- function(id) {
                            multiple = FALSE,
                            options = list(
                              placeholder = "Select or type binding state...",
-                             create = FALSE
+                             create = FALSE,
+                             onInitialize = I('function() { this.setValue(""); }')
                            ))
           )
         ),
@@ -122,18 +124,25 @@ salesAnalysisServer <- function(id) {
       binding_states <- safe_query(get_binding_states,
                                   default_value = data.frame(binding = character(0)))
 
-      # Update book title choices (catalog-style labels; values stay original titles)
+      # Update book title choices (catalog-style labels; values stay original titles).
+      # selected = character(0) prevents selectize from auto-picking the first title.
       if (nrow(book_titles) > 0) {
         updateSelectizeInput(
           session, "book_title",
           choices = make_title_choices(book_titles$book_title),
+          selected = character(0),
           server = TRUE
         )
       }
 
-      # Update binding state choices
+      # Update binding state choices (optional filter — leave empty until user chooses)
       if (nrow(binding_states) > 0) {
-        updateSelectizeInput(session, "binding_state", choices = binding_states$binding, server = TRUE)
+        updateSelectizeInput(
+          session, "binding_state",
+          choices = binding_states$binding,
+          selected = character(0),
+          server = TRUE
+        )
       }
     })
 

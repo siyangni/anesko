@@ -175,7 +175,12 @@ salesTrendsServer <- function(id) {
       # Authors
       authors <- safe_query(get_author_surnames, default_value = data.frame(author_surname = character(0)))
       if (!is.null(authors) && nrow(authors) > 0) {
-        updateSelectizeInput(session, "author_filter", choices = authors$author_surname, server = TRUE)
+        updateSelectizeInput(
+          session, "author_filter",
+          choices = authors$author_surname,
+          selected = character(0),
+          server = TRUE
+        )
       }
 
       # Publishers

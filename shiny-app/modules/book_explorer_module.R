@@ -58,7 +58,8 @@ bookExplorerUI <- function(id) {
                              placeholder = "Type a title or author…",
                              create = TRUE,
                              maxOptions = 100,
-                             closeAfterSelect = TRUE
+                             closeAfterSelect = TRUE,
+                             onInitialize = I('function() { this.setValue(""); }')
                            )),
 
             # Genre filter (with searchable multi-select)
@@ -142,15 +143,27 @@ bookExplorerUI <- function(id) {
               fluidRow(
                 column(4,
                   selectizeInput(ns("cmp_book_title_1"), "Book Title A:", choices = NULL, multiple = FALSE,
-                    options = list(placeholder = "Select first book title...", create = FALSE))
+                    options = list(
+                      placeholder = "Select first book title...",
+                      create = FALSE,
+                      onInitialize = I('function() { this.setValue(""); }')
+                    ))
                 ),
                 column(4,
                   selectizeInput(ns("cmp_book_title_2"), "Book Title B:", choices = NULL, multiple = FALSE,
-                    options = list(placeholder = "Select second book title...", create = FALSE))
+                    options = list(
+                      placeholder = "Select second book title...",
+                      create = FALSE,
+                      onInitialize = I('function() { this.setValue(""); }')
+                    ))
                 ),
                 column(4,
                   selectizeInput(ns("cmp_binding"), "Binding Type:", choices = NULL, multiple = FALSE,
-                    options = list(placeholder = "Select binding type...", create = FALSE))
+                    options = list(
+                      placeholder = "Select binding type...",
+                      create = FALSE,
+                      onInitialize = I('function() { this.setValue(""); }')
+                    ))
                 )
               ),
               div(style = "margin-top: 8px;",
@@ -240,19 +253,45 @@ bookExplorerServer <- function(id) {
       if (length(search_choices) > 0) {
         search_choices <- search_choices[order(names(search_choices), unname(search_choices))]
       }
-      updateSelectizeInput(session, "search_term", choices = search_choices, server = TRUE)
+      # selected = character(0): do not auto-select first choice when populating
+      updateSelectizeInput(
+        session, "search_term",
+        choices = search_choices,
+        selected = character(0),
+        server = TRUE
+      )
 
       # Comparison inputs: labels = catalog form (+ year), values = original titles
-      updateSelectizeInput(session, "cmp_book_title_1", choices = cmp_choices, server = TRUE)
-      updateSelectizeInput(session, "cmp_book_title_2", choices = cmp_choices, server = TRUE)
+      updateSelectizeInput(
+        session, "cmp_book_title_1",
+        choices = cmp_choices,
+        selected = character(0),
+        server = TRUE
+      )
+      updateSelectizeInput(
+        session, "cmp_book_title_2",
+        choices = cmp_choices,
+        selected = character(0),
+        server = TRUE
+      )
 
       # Fill binding options
       binding_states <- safe_query(get_binding_states, default_value = data.frame(binding = character(0)))
       if (nrow(binding_states) > 0) {
         bindings <- sort(unique(stringr::str_to_title(trimws(binding_states$binding))))
-        updateSelectizeInput(session, "cmp_binding", choices = stats::setNames(bindings, bindings), server = TRUE)
+        updateSelectizeInput(
+          session, "cmp_binding",
+          choices = stats::setNames(bindings, bindings),
+          selected = character(0),
+          server = TRUE
+        )
       } else {
-        updateSelectizeInput(session, "cmp_binding", choices = character(0), server = TRUE)
+        updateSelectizeInput(
+          session, "cmp_binding",
+          choices = character(0),
+          selected = character(0),
+          server = TRUE
+        )
       }
     })
 
@@ -498,7 +537,7 @@ bookExplorerServer <- function(id) {
 
     # Reset filters
     observeEvent(input$reset_filters, {
-      updateSelectizeInput(session, "search_term", selected = "")
+      updateSelectizeInput(session, "search_term", selected = character(0), server = TRUE)
       shinyWidgets::updatePickerInput(session, "genre_filter", selected = character(0))
       updateCheckboxGroupInput(session, "gender_filter",
                                selected = gender_filter_choices(mode = "multi"))

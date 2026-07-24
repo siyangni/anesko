@@ -63,7 +63,8 @@ authorAnalysisUI <- function(id) {
                                  options = list(
                                    placeholder = "Select author surname...",
                                    create = TRUE,
-                                   persist = TRUE
+                                   persist = TRUE,
+                                   onInitialize = I('function() { this.setValue(""); }')
                                  )),
                   br(),
                   selectizeInput(ns("author_id"), "Author ID:",
@@ -72,7 +73,8 @@ authorAnalysisUI <- function(id) {
                                  options = list(
                                    placeholder = "Select author ID (optional)...",
                                    create = FALSE,
-                                   persist = TRUE
+                                   persist = TRUE,
+                                   onInitialize = I('function() { this.setValue(""); }')
                                  ))
                 )
               )
@@ -262,10 +264,13 @@ authorAnalysisServer <- function(id) {
         raw_df = bind_df
       )
       if (length(bind_choices) > 0) {
-        updateSelectizeInput(session, "binding_filter",
-                             choices = bind_choices,
-                             selected = "",
-                             server = TRUE)
+        # "" is the intentional "All Binding Types" sentinel from binding_filter_choices()
+        updateSelectizeInput(
+          session, "binding_filter",
+          choices = bind_choices,
+          selected = "",
+          server = TRUE
+        )
       }
 
       # Author surname choices via shared query (single SQL semantics across analyses)
@@ -286,16 +291,22 @@ authorAnalysisServer <- function(id) {
                        options = list(
                          placeholder = "Select author ID (optional)...",
                          create = FALSE,
-                         persist = TRUE
+                         persist = TRUE,
+                         onInitialize = I('function() { this.setValue(""); }')
                        ))
       })
 
-      # Populate Author ID choices after a surname is selected (once; shared SQL)
+      # Populate Author ID choices after a surname is selected (once; shared SQL).
+      # Leave empty — optional disambiguator; do not auto-pick first ID.
       observeEvent(input$author_name, {
         surname <- input$author_name
         if (is.null(surname) || identical(surname, "")) {
-          updateSelectizeInput(session, "author_id",
-                               choices = character(0), selected = NULL, server = TRUE)
+          updateSelectizeInput(
+            session, "author_id",
+            choices = character(0),
+            selected = character(0),
+            server = TRUE
+          )
           return()
         }
         choices <- safe_query(
@@ -305,26 +316,18 @@ authorAnalysisServer <- function(id) {
         updateSelectizeInput(
           session, "author_id",
           choices = choices,
-          selected = NULL,
+          selected = character(0),
           server = TRUE
         )
       })
 
-      # Initialize dropdown with choices
+      # Initialize dropdown with choices (empty selection until user picks)
       updateSelectizeInput(
         session, "author_name",
         choices = author_choices,
-        selected = NULL,
+        selected = character(0),
         server = TRUE
       )
-
-      binding_states <- safe_query(get_binding_states,
-                                   default_value = data.frame(binding = character(0)))
-      if (nrow(binding_states) > 0) {
-        updateSelectizeInput(session, "binding_filter",
-                             choices = binding_states$binding,
-                             server = TRUE)
-      }
     })
 
     # Map standardized IDs to internal handlers (global reactive)

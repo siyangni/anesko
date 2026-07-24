@@ -73,7 +73,10 @@ royaltyQueryUI <- function(id) {
                 choices = NULL, multiple = FALSE,
                 options = list(
                   placeholder = "Search for book title...",
-                  maxOptions = 200, create = FALSE
+                  maxOptions = 200,
+                  create = FALSE,
+                  # Keep empty until user chooses (selectize otherwise auto-picks first item)
+                  onInitialize = I('function() { this.setValue(""); }')
                 )
               ),
               helpText("Search and select a specific book title.")
@@ -85,7 +88,7 @@ royaltyQueryUI <- function(id) {
                 options = list(
                   placeholder = "All bindings (optional)",
                   allowEmptyOption = TRUE,
-                  clearable = TRUE
+                  onInitialize = I('function() { this.setValue(""); }')
                 )
               ),
               helpText("Choose a specific binding type or leave blank for all bindings. Click × to clear selection.")
@@ -101,7 +104,9 @@ royaltyQueryUI <- function(id) {
                 choices = NULL, multiple = FALSE,
                 options = list(
                   placeholder = "Search for author surname...",
-                  maxOptions = 200, create = TRUE
+                  maxOptions = 200,
+                  create = TRUE,
+                  onInitialize = I('function() { this.setValue(""); }')
                 )
               ),
               helpText("Search and select an author surname.")
@@ -112,7 +117,8 @@ royaltyQueryUI <- function(id) {
                 choices = NULL, multiple = FALSE,
                 options = list(
                   placeholder = "Select author ID (optional)...",
-                  create = FALSE
+                  create = FALSE,
+                  onInitialize = I('function() { this.setValue(""); }')
                 )
               ),
               helpText("Optional: Select specific author ID if multiple exist.")
@@ -232,52 +238,67 @@ royaltyQueryServer <- function(id) {
       last_results_query_type(NULL)
     })
 
+    # One-shot choice population. Always pass selected = character(0) so selectize
+    # does not auto-select the first book/author/binding when choices load.
     observe({
-      # Book titles (catalog-style labels; values stay original stored titles)
       book_titles <- safe_query(get_book_titles,
                                default_value = data.frame(book_title = character(0)))
       if (!is.null(book_titles) && nrow(book_titles) > 0) {
         updateSelectizeInput(
           session, "royalty_book_title",
           choices = make_title_choices(book_titles$book_title),
+          selected = character(0),
           server = TRUE
         )
       }
 
-      # Binding states
       bindings <- safe_query(get_binding_states, default_value = data.frame(binding = character(0)))
       if (!is.null(bindings) && nrow(bindings) > 0) {
         binding_choices <- sort(unique(trimws(bindings$binding)))
-        updateSelectizeInput(session, "royalty_binding_state", choices = binding_choices, server = TRUE)
+        updateSelectizeInput(
+          session, "royalty_binding_state",
+          choices = binding_choices,
+          selected = character(0),
+          server = TRUE
+        )
       }
 
-      # Author surnames (shared query semantics with author analysis)
       author_choices <- safe_query(
         author_surname_select_choices,
         default_value = character(0)
       )
-      updateSelectizeInput(session, "royalty_author_name", choices = author_choices, server = TRUE)
+      updateSelectizeInput(
+        session, "royalty_author_name",
+        choices = author_choices,
+        selected = character(0),
+        server = TRUE
+      )
+    })
 
-      # Clear author ID when surname cleared; populate when selected
-      observeEvent(input$royalty_author_name, {
-        surname <- input$royalty_author_name
-        if (is.null(surname) || identical(surname, "")) {
-          updateSelectizeInput(session, "royalty_author_id",
-                               choices = character(0), selected = NULL, server = TRUE)
-          return()
-        }
-        choices <- safe_query(
-          function() author_id_select_choices(surname),
-          default_value = character(0)
-        )
+    # Depend on surname changes only (not nested inside the init observe)
+    observeEvent(input$royalty_author_name, {
+      surname <- input$royalty_author_name
+      if (is.null(surname) || identical(surname, "")) {
         updateSelectizeInput(
           session, "royalty_author_id",
-          choices = choices,
-          selected = NULL,
+          choices = character(0),
+          selected = character(0),
           server = TRUE
         )
-      }, ignoreInit = TRUE)
-    })
+        return()
+      }
+      choices <- safe_query(
+        function() author_id_select_choices(surname),
+        default_value = character(0)
+      )
+      # Optional disambiguator — leave empty; never auto-pick the first ID
+      updateSelectizeInput(
+        session, "royalty_author_id",
+        choices = choices,
+        selected = character(0),
+        server = TRUE
+      )
+    }, ignoreInit = TRUE)
 
     # Combined royalty calculation reactive for both book and author queries
     royalty_results <- eventReactive(input$calculate_royalty, {

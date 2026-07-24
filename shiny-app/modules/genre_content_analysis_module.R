@@ -93,11 +93,19 @@ genreContentAnalysisUI <- function(id) {
             ns = ns,
             column(6,
               selectizeInput(ns("book_title_1"), "Book Title A:", choices = NULL, multiple = FALSE,
-                             options = list(placeholder = "Select first book title...", create = FALSE))
+                             options = list(
+                               placeholder = "Select first book title...",
+                               create = FALSE,
+                               onInitialize = I('function() { this.setValue(""); }')
+                             ))
             ),
             column(6,
               selectizeInput(ns("book_title_2"), "Book Title B:", choices = NULL, multiple = FALSE,
-                             options = list(placeholder = "Select second book title...", create = FALSE))
+                             options = list(
+                               placeholder = "Select second book title...",
+                               create = FALSE,
+                               onInitialize = I('function() { this.setValue(""); }')
+                             ))
             )
           )
         ),
@@ -213,15 +221,6 @@ genreContentAnalysisServer <- function(id) {
     })
 
 
-	    # Initialize book title choices for comparison dropdowns (catalog-style labels)
-	    observe({
-	      titles_df <- safe_query(get_book_titles, default_value = data.frame(book_title = character(0)))
-	      titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
-	      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
-	      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
-	    })
-
-
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
 
@@ -231,13 +230,24 @@ genreContentAnalysisServer <- function(id) {
       c(resolved$start, resolved$end)
     })
 
-    # Initialize book title choices for comparison UI (catalog-style labels)
+    # Initialize book title choices for comparison UI (catalog-style labels).
+    # selected = character(0) keeps placeholders until the user picks a title.
     observe({
       titles_df <- safe_query(get_book_titles,
                               default_value = data.frame(book_title = character(0)))
       titles <- if (nrow(titles_df) > 0) make_title_choices(titles_df$book_title) else character(0)
-      updateSelectizeInput(session, "book_title_1", choices = titles, server = TRUE)
-      updateSelectizeInput(session, "book_title_2", choices = titles, server = TRUE)
+      updateSelectizeInput(
+        session, "book_title_1",
+        choices = titles,
+        selected = character(0),
+        server = TRUE
+      )
+      updateSelectizeInput(
+        session, "book_title_2",
+        choices = titles,
+        selected = character(0),
+        server = TRUE
+      )
     })
 
     # Navigation handlers
