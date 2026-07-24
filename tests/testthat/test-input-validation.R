@@ -37,7 +37,7 @@ test_that("validate_year accepts valid years", {
   expect_equal(validate_year(1900), 1900L)
   expect_warning(
     expect_equal(validate_year(2020), 2020L),
-    "outside dataset range"
+    "outside expected year range"
   )
   expect_equal(validate_year(1860), 1860L)
 })
