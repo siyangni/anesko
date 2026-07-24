@@ -1,4 +1,4 @@
-# Year concepts: publication vs sales isolation, and publication filter bounds.
+# Year concepts: publication vs sales isolation, and shared period/filter helpers.
 
 list2env(
   list(
@@ -6,6 +6,7 @@ list2env(
     MAX_YEAR = 1920L,
     DEFAULT_YEAR_RANGE = c(1880L, 1910L),
     PUBLICATION_YEAR_BUFFER = 5L,
+    SALES_YEAR_BUFFER = 2L,
     FORMAT_MILLION_THRESHOLD = 1000000,
     FORMAT_THOUSAND_THRESHOLD = 1000,
     MAX_FILTER_VALUES = 100,
@@ -176,4 +177,132 @@ test_that("filter_min/max always include full observed span with buffer headroom
     expect_equal(res$default_range[[1]], res$observed_min)
     expect_equal(res$default_range[[2]], res$observed_max)
   }
+})
+
+test_that("compute_sales_year_bounds uses SALES_YEAR_BUFFER by default", {
+  b <- compute_sales_year_bounds(1858, 1920)
+  expect_equal(b$observed_min, 1858L)
+  expect_equal(b$observed_max, 1920L)
+  expect_equal(b$filter_min, 1856L)  # 1858 - 2
+  expect_equal(b$filter_max, 1922L)  # 1920 + 2
+  expect_equal(b$default_range, c(1858L, 1920L))
+
+  custom <- compute_sales_year_bounds(1860, 1910, buffer = 0L)
+  expect_equal(custom$filter_min, 1860L)
+  expect_equal(custom$filter_max, 1910L)
+})
+
+test_that("sales filter helpers expose slider limits, full range, and preset", {
+  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1858, 1919, buffer = 2L)
+
+  expect_equal(sales_slider_min(), 1856L)
+  expect_equal(sales_slider_max(), 1921L)
+  expect_equal(sales_default_range(), c(1858L, 1919L))
+
+  # Preset is DEFAULT_YEAR_RANGE clamped into available filter limits
+  expect_equal(sales_preset_range(), c(1880L, 1910L))
+
+  # When preset falls outside available span, clamp or fall back
+  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1890, 1905, buffer = 0L)
+  preset <- sales_preset_range()
+  expect_equal(preset[[1]], 1890L)  # clamped up from 1880
+  expect_equal(preset[[2]], 1905L)  # clamped down from 1910
+})
+
+test_that("year_to_date_string and date range arg builders are consistent", {
+  expect_equal(year_to_date_string(1880, "start"), "1880-01-01")
+  expect_equal(year_to_date_string(1910, "end"), "1910-12-31")
+
+  args <- year_range_to_date_args(1860, 1920, min_year = 1858, max_year = 1922)
+  expect_equal(args$start, "1860-01-01")
+  expect_equal(args$end, "1920-12-31")
+  expect_equal(args$min, "1858-01-01")
+  expect_equal(args$max, "1922-12-31")
+
+  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1858, 1920, buffer = 2L)
+  sales_args <- sales_date_range_args(use_preset = FALSE)
+  expect_equal(sales_args$start, "1858-01-01")
+  expect_equal(sales_args$end, "1920-12-31")
+  expect_equal(sales_args$min, "1856-01-01")
+  expect_equal(sales_args$max, "1922-12-31")
+
+  preset_args <- sales_date_range_args(use_preset = TRUE)
+  expect_equal(preset_args$start, "1880-01-01")
+  expect_equal(preset_args$end, "1910-12-31")
+})
+
+test_that("sales-year UI modules use dynamic sales bounds helpers", {
+  st <- paste(readLines("../../shiny-app/modules/sales_trends_module.R", warn = FALSE),
+              collapse = "\n")
+  expect_true(grepl("sales_slider_min\\(\\)", st))
+  expect_true(grepl("sales_slider_max\\(\\)", st))
+  expect_true(grepl("sales_preset_range\\(\\)", st))
+  expect_false(grepl("min\\s*=\\s*MIN_YEAR", st))
+
+  rq <- paste(readLines("../../shiny-app/modules/royalty_query_module.R", warn = FALSE),
+              collapse = "\n")
+  expect_true(grepl("sales_slider_min\\(\\)", rq))
+  expect_true(grepl("sales_preset_range\\(\\)", rq))
+
+  be <- paste(readLines("../../shiny-app/modules/book_explorer_module.R", warn = FALSE),
+              collapse = "\n")
+  expect_true(grepl("sales_slider_min\\(\\)", be))
+  expect_true(grepl("sales_preset_range\\(\\)", be))
+
+  ga <- paste(readLines("../../shiny-app/modules/genre_analysis_module.R", warn = FALSE),
+              collapse = "\n")
+  expect_true(grepl("sales_date_range_args", ga))
+  expect_false(grepl('start = "1860-01-01"', ga, fixed = TRUE))
+
+  aa <- paste(readLines("../../shiny-app/modules/author_analysis_module.R", warn = FALSE),
+              collapse = "\n")
+  expect_true(grepl("sales_slider_min\\(\\)", aa) || grepl("sales_default_range\\(\\)", aa))
+  expect_true(grepl("publication_slider_min\\(\\)", aa) || grepl("publication_date_range_args", aa))
+})
+
+test_that("modules load genre/binding choices via shared filter helpers", {
+  modules <- c(
+    "../../shiny-app/modules/genre_analysis_module.R",
+    "../../shiny-app/modules/genre_content_analysis_module.R",
+    "../../shiny-app/modules/author_analysis_module.R",
+    "../../shiny-app/modules/sales_trends_module.R",
+    "../../shiny-app/modules/book_explorer_module.R"
+  )
+  for (path in modules) {
+    src <- paste(readLines(path, warn = FALSE), collapse = "\n")
+    expect_true(
+      grepl("genre_filter_choices", src) || grepl("get_filter_options", src),
+      info = paste("expected shared filter helper in", path)
+    )
+  }
+})
+
+test_that("shared filter choice builders normalize options consistently", {
+  genres_df <- data.frame(genre = c("F", "N", "  ", NA_character_), stringsAsFactors = FALSE)
+  g_all <- genre_filter_choices(include_all = TRUE, raw_df = genres_df)
+  expect_true("" %in% unname(g_all))
+  expect_true("F" %in% unname(g_all))
+  expect_true("N" %in% unname(g_all))
+  expect_false(any(is.na(unname(g_all)) | unname(g_all) == "  "))
+
+  g_multi <- genre_filter_choices(include_all = FALSE, raw_df = genres_df)
+  expect_false("" %in% unname(g_multi))
+
+  empty_g <- genre_filter_choices(include_all = TRUE, raw_df = data.frame(genre = character(0)))
+  expect_equal(unname(empty_g), "")
+
+  binds_df <- data.frame(binding = c("cloth", "Paper", "", NA_character_), stringsAsFactors = FALSE)
+  b_all <- binding_filter_choices(include_all = TRUE, title_case = FALSE, raw_df = binds_df)
+  expect_true("" %in% unname(b_all))
+  expect_true("cloth" %in% unname(b_all) || "Cloth" %in% unname(b_all))
+
+  pubs <- publisher_filter_choices(
+    raw_df = data.frame(publisher = c("Harper", " Scribner ", ""), stringsAsFactors = FALSE)
+  )
+  expect_equal(sort(unname(pubs)), c("Harper", "Scribner"))
+
+  expect_equal(gender_filter_choices("multi"), c("Male", "Female", "Unknown"))
+  single_g <- gender_filter_choices("single")
+  expect_true("" %in% unname(single_g))
+  expect_true("Male" %in% unname(single_g))
 })

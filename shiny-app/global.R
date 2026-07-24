@@ -101,6 +101,20 @@ PUBLICATION_YEAR_BOUNDS <- tryCatch({
   compute_publication_year_bounds(MIN_YEAR, MAX_YEAR)
 })
 
+# Sales-year filter limits = observed book_sales.year min/max + buffer.
+# Modules must use sales_slider_* / sales_default_range / sales_preset_range
+# instead of hardcoding MIN_YEAR/MAX_YEAR so availability stays consistent.
+SALES_YEAR_BOUNDS <- tryCatch({
+  if (!is.null(pool)) {
+    refresh_sales_year_bounds()
+  } else {
+    compute_sales_year_bounds(MIN_YEAR, MAX_YEAR)
+  }
+}, error = function(e) {
+  warning("Sales year bounds init failed: ", e$message)
+  compute_sales_year_bounds(MIN_YEAR, MAX_YEAR)
+})
+
 # Release DB pool (and allow the OS to free the listen port) when the app stops.
 # Triggered by Ctrl+C / session end / runApp() returning — not by kill -9.
 shiny::onStop(function() {

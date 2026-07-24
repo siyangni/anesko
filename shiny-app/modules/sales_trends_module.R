@@ -30,11 +30,13 @@ salesTrendsUI <- function(id) {
             tags$div(class = "control-group-large",
               sliderInput(
                 ns("year_range"), "Sales Year Range:",
-                min = MIN_YEAR, max = MAX_YEAR, value = DEFAULT_YEAR_RANGE,
+                min = sales_slider_min(),
+                max = sales_slider_max(),
+                value = sales_preset_range(),
                 step = 1, sep = ""
               ),
               helpText(
-                "Filters annual sales by the year copies were sold (book_sales.year), not publication year.",
+                "Filters annual sales by the year copies were sold (book_sales.year), not publication year. Slider covers the full observed sales span plus a small buffer.",
                 style = "font-size: 13px; margin-top: -6px;"
               ),
               tags$div(class = "control-group-large",
@@ -56,8 +58,8 @@ salesTrendsUI <- function(id) {
               tags$div(class = "control-group-large",
                 checkboxGroupInput(
                   ns("gender_filter"), "Author Gender:",
-                  choices = c("Male", "Female", "Unknown"),
-                  selected = c("Male", "Female", "Unknown")
+                  choices = gender_filter_choices(mode = "multi"),
+                  selected = gender_filter_choices(mode = "multi")
                 )
               )
             )
@@ -177,23 +179,34 @@ salesTrendsServer <- function(id) {
       }
 
       # Publishers
-      pubs <- safe_query(function() safe_db_query("SELECT DISTINCT publisher FROM book_entries WHERE publisher IS NOT NULL ORDER BY publisher"),
-                         default_value = data.frame(publisher = character(0)))
-      if (!is.null(pubs) && nrow(pubs) > 0) {
-        shinyWidgets::updatePickerInput(session, "publisher_filter", choices = pubs$publisher)
+      opts <- safe_query(get_filter_options, default_value = list(
+        publishers = data.frame(publisher = character(0)),
+        genres = data.frame(genre = character(0)),
+        binding_states = data.frame(binding = character(0))
+      ))
+
+      # Publishers / genres / bindings from shared filter helpers
+      pub_choices <- publisher_filter_choices(raw_df = opts$publishers)
+      if (length(pub_choices) > 0) {
+        shinyWidgets::updatePickerInput(session, "publisher_filter", choices = pub_choices)
       }
 
-      # Genres
-      genres <- safe_query(function() safe_db_query("SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"),
-                           default_value = data.frame(genre = character(0)))
-      if (!is.null(genres) && nrow(genres) > 0) {
-        shinyWidgets::updatePickerInput(session, "genre_filter", choices = genres$genre)
+      genre_choices <- genre_filter_choices(include_all = FALSE, raw_df = opts$genres)
+      if (length(genre_choices) > 0) {
+        shinyWidgets::updatePickerInput(session, "genre_filter", choices = genre_choices)
       }
 
-      # Bindings
-      binds <- safe_query(get_binding_states, default_value = data.frame(binding = character(0)))
-      if (!is.null(binds) && nrow(binds) > 0) {
-        shinyWidgets::updatePickerInput(session, "binding_filter", choices = sort(unique(stringr::str_to_title(trimws(binds$binding)))))
+      bind_df <- if (is.null(opts$binding_states)) {
+        data.frame(binding = character(0))
+      } else {
+        opts$binding_states
+      }
+      bind_choices <- binding_filter_choices(
+        include_all = FALSE,
+        raw_df = bind_df
+      )
+      if (length(bind_choices) > 0) {
+        shinyWidgets::updatePickerInput(session, "binding_filter", choices = bind_choices)
       }
 
       # Top books for selection (catalog-style title labels; values stay book_id)
@@ -212,7 +225,12 @@ salesTrendsServer <- function(id) {
 
     # Reset filters
     observeEvent(input$reset, {
-      updateSliderInput(session, "year_range", value = DEFAULT_YEAR_RANGE)
+      updateSliderInput(
+        session, "year_range",
+        min = sales_slider_min(),
+        max = sales_slider_max(),
+        value = sales_preset_range()
+      )
       updateRadioButtons(session, "group_dim", selected = "gender")
       updateSelectizeInput(session, "author_filter", selected = character(0), server = TRUE)
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
@@ -220,13 +238,13 @@ salesTrendsServer <- function(id) {
       shinyWidgets::updatePickerInput(session, "binding_filter", selected = character(0))
       shinyWidgets::updatePickerInput(session, "book_filter", selected = character(0))
       updateCheckboxGroupInput(session, "gender_filter",
-                              selected = c("Male", "Female", "Unknown"))
+                              selected = gender_filter_choices(mode = "multi"))
       updateCheckboxGroupInput(session, "secondary_options", selected = c("include_unknown_gender"))
     })
 
     # Build filters reactive
     filters <- reactive({
-      sales_years <- resolve_year_range(input$year_range, default = DEFAULT_YEAR_RANGE)
+      sales_years <- resolve_year_range(input$year_range, default = sales_preset_range())
       list(
         sales_start_year = sales_years$start,
         sales_end_year = sales_years$end,

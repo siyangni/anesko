@@ -66,6 +66,64 @@ refresh_publication_year_bounds <- function(buffer = NULL) {
   invisible(bounds)
 }
 
+#' Observed sales-year span from book_sales.year, plus filter buffer.
+#'
+#' @param buffer Years of headroom beyond observed min/max (default SALES_YEAR_BUFFER)
+#' @return list from compute_sales_year_bounds()
+get_sales_year_bounds <- function(buffer = NULL) {
+  if (is.null(buffer)) {
+    buffer <- if (exists("SALES_YEAR_BUFFER")) {
+      as.integer(SALES_YEAR_BUFFER)
+    } else {
+      2L
+    }
+  }
+
+  res <- tryCatch(
+    safe_db_query(
+      "SELECT MIN(year) AS min_year,
+              MAX(year) AS max_year
+       FROM book_sales
+       WHERE year IS NOT NULL"
+    ),
+    error = function(e) data.frame(min_year = NA_integer_, max_year = NA_integer_)
+  )
+
+  obs_min <- if (!is.null(res) && nrow(res) > 0) res$min_year[1] else NA_integer_
+  obs_max <- if (!is.null(res) && nrow(res) > 0) res$max_year[1] else NA_integer_
+
+  compute_sales_year_bounds(
+    observed_min = obs_min,
+    observed_max = obs_max,
+    buffer = buffer
+  )
+}
+
+#' Refresh global SALES_YEAR_BOUNDS (call after DB pool is ready).
+refresh_sales_year_bounds <- function(buffer = NULL) {
+  bounds <- tryCatch(
+    get_sales_year_bounds(buffer = buffer),
+    error = function(e) {
+      warning("Could not load sales year bounds from DB: ", e$message)
+      compute_sales_year_bounds(
+        observed_min = if (exists("MIN_YEAR")) MIN_YEAR else 1860L,
+        observed_max = if (exists("MAX_YEAR")) MAX_YEAR else 1920L,
+        buffer = buffer
+      )
+    }
+  )
+  assign("SALES_YEAR_BOUNDS", bounds, envir = .GlobalEnv)
+  invisible(bounds)
+}
+
+#' Refresh both publication and sales year bound caches.
+refresh_year_bounds <- function() {
+  list(
+    publication = refresh_publication_year_bounds(),
+    sales = refresh_sales_year_bounds()
+  )
+}
+
 # Get books with sales summary
 get_books_summary <- function() {
   query <- "
@@ -180,6 +238,9 @@ search_books <- function(search_term = "", genre_filter = NULL,
 }
 
 # Get unique values for filters (updated for new schema)
+# Period availability: years = publication span; sales_years = sales span.
+# Prefer publication_* / sales_* helpers for UI limits; this list is for
+# dropdown option population and lightweight diagnostics.
 get_filter_options <- function() {
   list(
     genres = safe_db_query("SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"),
@@ -189,7 +250,14 @@ get_filter_options <- function() {
       "SELECT DISTINCT ", gender_display_sql("gender"), " AS gender ",
       "FROM book_entries ORDER BY gender"
     )),
-    years = safe_db_query("SELECT MIN(publication_year) as min_year, MAX(publication_year) as max_year FROM book_entries"),
+    years = safe_db_query(
+      "SELECT MIN(publication_year) as min_year, MAX(publication_year) as max_year
+       FROM book_entries WHERE publication_year IS NOT NULL"
+    ),
+    sales_years = safe_db_query(
+      "SELECT MIN(year) as min_year, MAX(year) as max_year
+       FROM book_sales WHERE year IS NOT NULL"
+    ),
     author_ids = safe_db_query("SELECT DISTINCT author_id FROM book_entries WHERE author_id IS NOT NULL ORDER BY author_id"),
     book_titles = safe_db_query("SELECT DISTINCT book_title FROM book_entries WHERE book_title IS NOT NULL ORDER BY book_title"),
     binding_states = safe_db_query("SELECT DISTINCT binding FROM book_entries WHERE binding IS NOT NULL ORDER BY binding")

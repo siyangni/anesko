@@ -31,12 +31,15 @@ genreAnalysisUI <- function(id) {
         fluidRow(
           column(3,
             tags$div(class = "control-group",
-              dateRangeInput(ns("date_range"), "Sales Year Range:",
-                            start = "1860-01-01", end = "1920-12-31",
-                            min = "1860-01-01", max = "1920-12-31",
-                            format = "yyyy"),
+              {
+                sales_dr <- sales_date_range_args(use_preset = FALSE)
+                dateRangeInput(ns("date_range"), "Sales Year Range:",
+                              start = sales_dr$start, end = sales_dr$end,
+                              min = sales_dr$min, max = sales_dr$max,
+                              format = "yyyy")
+              },
               helpText(
-                "Years when copies were sold (not publication year).",
+                "Years when copies were sold (not publication year). Covers the full observed sales span plus a small buffer.",
                 style = "font-size: 13px; margin-top: -6px;"
               )
             )
@@ -60,12 +63,7 @@ genreAnalysisUI <- function(id) {
           column(3,
             tags$div(class = "control-group",
               selectInput(ns("gender_filter"), "Author Gender:",
-                         choices = list(
-                           "All Authors" = "",
-                           "Male Authors" = "Male",
-                           "Female Authors" = "Female",
-                           "Unknown Gender" = "Unknown"
-                         ),
+                         choices = gender_filter_choices(mode = "single"),
                          selected = "")
             )
           )
@@ -166,16 +164,29 @@ genreAnalysisUI <- function(id) {
             condition = "input.analysis_type == 'period_comparison'",
             ns = ns,
             column(6,
-              dateRangeInput(ns("date_range_p1"), "Period 1 (Sales Years):",
-                             start = "1860-01-01", end = "1900-12-31",
-                             min = "1860-01-01", max = "1920-12-31",
-                             format = "yyyy")
+              {
+                # Default split: early half vs late half of observed sales span
+                smin <- sales_slider_min()
+                smax <- sales_slider_max()
+                mid <- as.integer(floor((smin + smax) / 2))
+                p1 <- year_range_to_date_args(smin, mid, min_year = smin, max_year = smax)
+                dateRangeInput(ns("date_range_p1"), "Period 1 (Sales Years):",
+                               start = p1$start, end = p1$end,
+                               min = p1$min, max = p1$max,
+                               format = "yyyy")
+              }
             ),
             column(6,
-              dateRangeInput(ns("date_range_p2"), "Period 2 (Sales Years):",
-                             start = "1901-01-01", end = "1920-12-31",
-                             min = "1860-01-01", max = "1920-12-31",
-                             format = "yyyy")
+              {
+                smin <- sales_slider_min()
+                smax <- sales_slider_max()
+                mid <- as.integer(floor((smin + smax) / 2))
+                p2 <- year_range_to_date_args(mid + 1L, smax, min_year = smin, max_year = smax)
+                dateRangeInput(ns("date_range_p2"), "Period 2 (Sales Years):",
+                               start = p2$start, end = p2$end,
+                               min = p2$min, max = p2$max,
+                               format = "yyyy")
+              }
             )
           )
         )
@@ -234,38 +245,31 @@ genreAnalysisUI <- function(id) {
 genreAnalysisServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
-    # Initialize genre choices
+    # Initialize genre / binding choices from shared filter helpers
     observe({
-      genres <- safe_query(function() {
-        query <- "SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"
-        result <- safe_db_query(query)
-        if (nrow(result) > 0) {
-          choices <- c("All Genres" = "", setNames(result$genre, result$genre))
-          return(choices)
-        }
-        return(c("All Genres" = ""))
-      }, default_value = c("All Genres" = ""))
-
-      updateSelectInput(session, "genre_filter", choices = genres)
+      opts <- safe_query(get_filter_options, default_value = list(
+        genres = data.frame(genre = character(0)),
+        binding_states = data.frame(binding = character(0))
+      ))
+      updateSelectInput(
+        session, "genre_filter",
+        choices = genre_filter_choices(include_all = TRUE, raw_df = opts$genres)
+      )
+      bind_df <- if (is.null(opts$binding_states)) {
+        data.frame(binding = character(0))
+      } else {
+        opts$binding_states
+      }
+      updateSelectizeInput(
+        session, "binding_filter",
+        choices = binding_filter_choices(
+          include_all = TRUE,
+          raw_df = bind_df
+        ),
+        selected = "",
+        server = TRUE
+      )
     })
-
-        # Initialize binding choices
-        observe({
-          binding_states <- safe_query(get_binding_states,
-                                       default_value = data.frame(binding = character(0)))
-          if (nrow(binding_states) > 0) {
-            bindings <- binding_states$binding
-            bindings <- sort(unique(stringr::str_to_title(trimws(bindings))))
-            updateSelectizeInput(session, "binding_filter",
-                                 choices = c("All Binding Types" = "", stats::setNames(bindings, bindings)),
-                                 selected = "",
-                                 server = TRUE)
-          } else {
-            updateSelectizeInput(session, "binding_filter",
-                                 choices = c("All Binding Types" = ""),
-                                 selected = "")
-          }
-        })
 
 
     # Map standardized IDs to internal handlers (global reactive)
@@ -543,7 +547,7 @@ genreAnalysisServer <- function(id) {
 
     # Sales years from date range control
     year_range <- reactive({
-      resolved <- resolve_year_range(input$date_range, default = c(MIN_YEAR, MAX_YEAR))
+      resolved <- resolve_year_range(input$date_range, default = sales_default_range())
       c(resolved$start, resolved$end)
     })
 

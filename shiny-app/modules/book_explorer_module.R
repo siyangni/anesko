@@ -73,12 +73,8 @@ bookExplorerUI <- function(id) {
 
             # Gender filter (Unknown = NULL/blank in DB)
             checkboxGroupInput(ns("gender_filter"), "Author Gender:",
-                             choices = list(
-                               "Male" = "Male",
-                               "Female" = "Female",
-                               "Unknown" = "Unknown"
-                             ),
-                             selected = c("Male", "Female", "Unknown")),
+                             choices = gender_filter_choices(mode = "multi"),
+                             selected = gender_filter_choices(mode = "multi")),
 
             # Publication year: full observed catalog span ± buffer (see app_config)
             sliderInput(ns("year_range"), "Publication Year Range:",
@@ -136,8 +132,10 @@ bookExplorerUI <- function(id) {
                 column(12,
                   sliderInput(
                     ns("cmp_sales_year_range"), "Sales Year Range (for comparison):",
-                    min = MIN_YEAR, max = MAX_YEAR,
-                    value = DEFAULT_YEAR_RANGE, step = 1, sep = ""
+                    min = sales_slider_min(),
+                    max = sales_slider_max(),
+                    value = sales_preset_range(),
+                    step = 1, sep = ""
                   )
                 )
               ),
@@ -186,24 +184,25 @@ bookExplorerUI <- function(id) {
 bookExplorerServer <- function(id) {
   moduleServer(id, function(input, output, session) {
 
-    # Initialize filter options
+    # Initialize filter options from shared helpers (same source as other modules)
     observe({
       filter_options <- safe_query(get_filter_options,
-                                  default_value = list(genres = data.frame(),
-                                                      publishers = data.frame(),
-                                                      genders = data.frame()))
+                                  default_value = list(
+                                    genres = data.frame(genre = character(0)),
+                                    publishers = data.frame(publisher = character(0)),
+                                    genders = data.frame(gender = character(0))
+                                  ))
 
-      # Update genre choices
-      if (nrow(filter_options$genres) > 0) {
-        genre_choices <- setNames(filter_options$genres$genre,
-                                 sapply(filter_options$genres$genre, clean_genre))
+      genre_choices <- genre_filter_choices(
+        include_all = FALSE,
+        raw_df = filter_options$genres
+      )
+      if (length(genre_choices) > 0) {
         shinyWidgets::updatePickerInput(session, "genre_filter", choices = genre_choices)
       }
 
-      # Update publisher choices
-      if (nrow(filter_options$publishers) > 0) {
-        publisher_choices <- setNames(filter_options$publishers$publisher,
-                                    filter_options$publishers$publisher)
+      publisher_choices <- publisher_filter_choices(raw_df = filter_options$publishers)
+      if (length(publisher_choices) > 0) {
         shinyWidgets::updatePickerInput(session, "publisher_filter", choices = publisher_choices)
       }
     })
@@ -310,7 +309,7 @@ bookExplorerServer <- function(id) {
       # Sales years for comparison (not publication years)
       sales_years <- resolve_year_range(
         input$cmp_sales_year_range,
-        default = DEFAULT_YEAR_RANGE
+        default = sales_preset_range()
       )
 
       # Query data with error handling
@@ -502,14 +501,19 @@ bookExplorerServer <- function(id) {
       updateSelectizeInput(session, "search_term", selected = "")
       shinyWidgets::updatePickerInput(session, "genre_filter", selected = character(0))
       updateCheckboxGroupInput(session, "gender_filter",
-                               selected = c("Male", "Female", "Unknown"))
+                               selected = gender_filter_choices(mode = "multi"))
       updateSliderInput(
         session, "year_range",
         min = publication_slider_min(),
         max = publication_slider_max(),
         value = publication_default_range()
       )
-      updateSliderInput(session, "cmp_sales_year_range", value = DEFAULT_YEAR_RANGE)
+      updateSliderInput(
+        session, "cmp_sales_year_range",
+        min = sales_slider_min(),
+        max = sales_slider_max(),
+        value = sales_preset_range()
+      )
       shinyWidgets::updatePickerInput(session, "publisher_filter", selected = character(0))
     })
 

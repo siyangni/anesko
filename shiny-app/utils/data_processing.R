@@ -2,9 +2,19 @@
 # Functions for data transformation, aggregation, and preparation
 # Updated for new PostgreSQL database schema with author_id and proper NULLs
 
-# NULL coalescing operator used throughout the application
+# NULL coalescing operator used throughout the application.
+# Only treats NULL, zero-length, and scalar atomic NA as missing.
+# Do NOT run is.na() on data.frames/lists: length(df) is ncol, so a
+# one-column data.frame would incorrectly enter the NA branch and then
+# && would error with "length = n in coercion to logical(1)".
 `%||%` <- function(x, y) {
-  if (is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) y else x
+  if (is.null(x) || length(x) == 0L) {
+    return(y)
+  }
+  if (is.atomic(x) && length(x) == 1L && is.na(x)) {
+    return(y)
+  }
+  x
 }
 
 # -----------------------------------------------------------------------------
@@ -168,6 +178,262 @@ publication_default_range <- function() {
 #' Min/max for publication-year sliders and date inputs (observed + buffer).
 publication_slider_min <- function() publication_filter_limits()$filter_min
 publication_slider_max <- function() publication_filter_limits()$filter_max
+
+# -----------------------------------------------------------------------------
+# Sales-year filter bounds (book_sales.year)
+# Parallel to publication bounds so modules share one source of truth for
+# what years are selectable. Observed span comes from the DB at startup.
+# -----------------------------------------------------------------------------
+
+#' Compute sales-year filter bounds from observed book_sales.year span + buffer.
+#'
+#' Same shape as compute_publication_year_bounds(); buffer defaults to
+#' SALES_YEAR_BUFFER (typically smaller than the publication buffer).
+compute_sales_year_bounds <- function(observed_min,
+                                      observed_max,
+                                      buffer = NULL,
+                                      fallback_min = NULL,
+                                      fallback_max = NULL) {
+  if (is.null(buffer)) {
+    buffer <- if (exists("SALES_YEAR_BUFFER")) {
+      as.integer(SALES_YEAR_BUFFER)
+    } else {
+      2L
+    }
+  }
+  compute_publication_year_bounds(
+    observed_min = observed_min,
+    observed_max = observed_max,
+    buffer = buffer,
+    fallback_min = fallback_min,
+    fallback_max = fallback_max
+  )
+}
+
+#' Access current sales-year filter limits (global cache or fallback).
+sales_filter_limits <- function() {
+  if (exists("SALES_YEAR_BOUNDS", inherits = TRUE)) {
+    bounds <- get("SALES_YEAR_BOUNDS", inherits = TRUE)
+    if (is.list(bounds) &&
+        all(c("filter_min", "filter_max", "default_range") %in% names(bounds))) {
+      return(bounds)
+    }
+  }
+  compute_sales_year_bounds(
+    observed_min = if (exists("MIN_YEAR")) MIN_YEAR else 1860L,
+    observed_max = if (exists("MAX_YEAR")) MAX_YEAR else 1920L
+  )
+}
+
+#' Full observed sales-year span (default selection for period analysis UIs).
+sales_default_range <- function() {
+  sales_filter_limits()$default_range
+}
+
+#' Min/max for sales-year sliders and date inputs (observed + buffer).
+sales_slider_min <- function() sales_filter_limits()$filter_min
+sales_slider_max <- function() sales_filter_limits()$filter_max
+
+#' Focused sales-year preset (DEFAULT_YEAR_RANGE) clamped to available bounds.
+#'
+#' Used by Sales Trends, Royalty Query, and Book Explorer comparisons so the
+#' default window stays the curated middle period when data allows.
+sales_preset_range <- function() {
+  lim <- sales_filter_limits()
+  preset <- if (exists("DEFAULT_YEAR_RANGE")) {
+    as.integer(DEFAULT_YEAR_RANGE)
+  } else {
+    lim$default_range
+  }
+  if (length(preset) < 2 || any(is.na(preset))) {
+    return(lim$default_range)
+  }
+  start <- max(preset[[1]], lim$filter_min)
+  end <- min(preset[[2]], lim$filter_max)
+  if (is.na(start) || is.na(end) || start > end) {
+    return(lim$default_range)
+  }
+  c(as.integer(start), as.integer(end))
+}
+
+#' Format a calendar year as an ISO date string for dateRangeInput.
+#' @param year Integer year
+#' @param bound "start" → YYYY-01-01, "end" → YYYY-12-31
+year_to_date_string <- function(year, bound = c("start", "end")) {
+  bound <- match.arg(bound)
+  y <- as.integer(year)[[1]]
+  if (is.na(y)) {
+    stop("year_to_date_string: year must be a non-NA integer")
+  }
+  if (identical(bound, "start")) {
+    paste0(y, "-01-01")
+  } else {
+    paste0(y, "-12-31")
+  }
+}
+
+#' dateRangeInput start/end/min/max args from a year span.
+#'
+#' @param start_year Inclusive start year
+#' @param end_year Inclusive end year
+#' @param min_year Optional min bound (defaults to start_year)
+#' @param max_year Optional max bound (defaults to end_year)
+#' @return named list(start, end, min, max) of date strings
+year_range_to_date_args <- function(start_year,
+                                    end_year,
+                                    min_year = NULL,
+                                    max_year = NULL) {
+  min_year <- min_year %||% start_year
+  max_year <- max_year %||% end_year
+  list(
+    start = year_to_date_string(start_year, "start"),
+    end = year_to_date_string(end_year, "end"),
+    min = year_to_date_string(min_year, "start"),
+    max = year_to_date_string(max_year, "end")
+  )
+}
+
+#' Sales-year dateRangeInput args using shared sales bounds.
+#'
+#' @param use_preset If TRUE, default selection is sales_preset_range();
+#'   otherwise full observed sales span (sales_default_range()).
+sales_date_range_args <- function(use_preset = FALSE) {
+  sel <- if (isTRUE(use_preset)) sales_preset_range() else sales_default_range()
+  year_range_to_date_args(
+    start_year = sel[[1]],
+    end_year = sel[[2]],
+    min_year = sales_slider_min(),
+    max_year = sales_slider_max()
+  )
+}
+
+#' Publication-year dateRangeInput args using shared publication bounds.
+publication_date_range_args <- function() {
+  sel <- publication_default_range()
+  year_range_to_date_args(
+    start_year = sel[[1]],
+    end_year = sel[[2]],
+    min_year = publication_slider_min(),
+    max_year = publication_slider_max()
+  )
+}
+
+# -----------------------------------------------------------------------------
+# Shared filter option choices (genre, binding, publisher, gender)
+# Modules should use these instead of ad-hoc DISTINCT queries so options stay
+# consistent across Book Explorer, Sales Trends, Genre, and Author Analysis.
+# -----------------------------------------------------------------------------
+
+#' Genre choices for selectInput / pickerInput.
+#'
+#' @param include_all If TRUE, prepend "All Genres" = "" (single-select pattern)
+#' @param raw_df Optional data.frame with a `genre` column (avoids a DB hit in tests)
+#' @return Named character vector suitable for selectInput choices
+genre_filter_choices <- function(include_all = TRUE, raw_df = NULL) {
+  df <- raw_df
+  if (is.null(df)) {
+    df <- tryCatch({
+      if (exists("get_filter_options", mode = "function")) {
+        get_filter_options()$genres
+      } else {
+        data.frame(genre = character(0))
+      }
+    }, error = function(e) data.frame(genre = character(0)))
+  }
+  genres <- character(0)
+  if (!is.null(df) && is.data.frame(df) && nrow(df) > 0 && "genre" %in% names(df)) {
+    genres <- sanitize_filter_values(df$genre)
+  }
+  if (length(genres) == 0) {
+    return(if (isTRUE(include_all)) c("All Genres" = "") else character(0))
+  }
+  # Labels use clean_genre for display; values stay raw codes for SQL match
+  labeled <- stats::setNames(genres, vapply(genres, clean_genre, character(1)))
+  if (isTRUE(include_all)) {
+    c("All Genres" = "", labeled)
+  } else {
+    labeled
+  }
+}
+
+#' Binding choices for selectize / picker inputs.
+#'
+#' @param include_all If TRUE, prepend "All Binding Types" = ""
+#' @param title_case Normalize labels with stringr::str_to_title when available
+#' @param raw_df Optional data.frame with a `binding` column
+binding_filter_choices <- function(include_all = TRUE,
+                                   title_case = TRUE,
+                                   raw_df = NULL) {
+  df <- raw_df
+  if (is.null(df)) {
+    df <- tryCatch({
+      if (exists("get_binding_states", mode = "function")) {
+        get_binding_states()
+      } else if (exists("get_filter_options", mode = "function")) {
+        get_filter_options()$binding_states
+      } else {
+        data.frame(binding = character(0))
+      }
+    }, error = function(e) data.frame(binding = character(0)))
+  }
+  bindings <- character(0)
+  if (!is.null(df) && is.data.frame(df) && nrow(df) > 0 && "binding" %in% names(df)) {
+    bindings <- sanitize_filter_values(df$binding)
+  }
+  if (length(bindings) == 0) {
+    return(if (isTRUE(include_all)) c("All Binding Types" = "") else character(0))
+  }
+  if (isTRUE(title_case) && requireNamespace("stringr", quietly = TRUE)) {
+    labels <- sort(unique(stringr::str_to_title(trimws(bindings))))
+    # Keep value == label after title-case so LIKE filters still work on common forms
+    choices <- stats::setNames(labels, labels)
+  } else {
+    labels <- sort(unique(trimws(bindings)))
+    choices <- stats::setNames(labels, labels)
+  }
+  if (isTRUE(include_all)) {
+    c("All Binding Types" = "", choices)
+  } else {
+    choices
+  }
+}
+
+#' Publisher choices (named value=label, no "All" prefix — multi-select empty = all).
+#' @param raw_df Optional data.frame with a `publisher` column
+publisher_filter_choices <- function(raw_df = NULL) {
+  df <- raw_df
+  if (is.null(df)) {
+    df <- tryCatch({
+      if (exists("get_filter_options", mode = "function")) {
+        get_filter_options()$publishers
+      } else {
+        data.frame(publisher = character(0))
+      }
+    }, error = function(e) data.frame(publisher = character(0)))
+  }
+  if (is.null(df) || !is.data.frame(df) || nrow(df) == 0 || !"publisher" %in% names(df)) {
+    return(character(0))
+  }
+  pubs <- sanitize_filter_values(df$publisher)
+  stats::setNames(pubs, pubs)
+}
+
+#' Standard gender filter choices used across modules.
+#'
+#' @param mode "multi" → bare labels for checkboxGroup; "single" → All + labels
+gender_filter_choices <- function(mode = c("multi", "single")) {
+  mode <- match.arg(mode)
+  base <- c("Male", "Female", "Unknown")
+  if (identical(mode, "multi")) {
+    return(base)
+  }
+  c(
+    "All Genders" = "",
+    "Male Authors" = "Male",
+    "Female Authors" = "Female",
+    "Unknown Gender" = "Unknown"
+  )
+}
 
 # Format numeric values for compact display
 format_number <- function(x, suffix = "") {

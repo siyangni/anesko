@@ -31,5 +31,16 @@ This document describes the structure and contents of the American Authorship Da
 
 **Publication filter bounds:** UI min/max = observed `MIN/MAX(publication_year)` from `book_entries`, plus `PUBLICATION_YEAR_BUFFER` years (default 5) on each side. Default selected range is the full observed span. This keeps all catalog years selectable and leaves headroom for newly imported books without redeploying hardcoded 1860–1920 limits.
 
+**Sales filter bounds:** UI min/max = observed `MIN/MAX(year)` from `book_sales`, plus `SALES_YEAR_BUFFER` years (default 2) on each side. Initialized at app startup as `SALES_YEAR_BOUNDS` (see `refresh_sales_year_bounds()`). Modules must use the shared helpers rather than hardcoding 1860–1920:
+
+| Helper | Purpose |
+|--------|---------|
+| `sales_slider_min()` / `sales_slider_max()` | Selectable min/max for sliders and date inputs |
+| `sales_default_range()` | Full observed sales span (period analysis defaults) |
+| `sales_preset_range()` | `DEFAULT_YEAR_RANGE` (1880–1910) clamped to available bounds (trends / royalty query / book comparisons) |
+| `sales_date_range_args()` | Ready-made `dateRangeInput` start/end/min/max |
+
+**Shared filter options:** Genre, binding, publisher, and gender dropdowns should be populated via `get_filter_options()` and the choice builders `genre_filter_choices()`, `binding_filter_choices()`, `publisher_filter_choices()`, and `gender_filter_choices()` so every module exposes the same option set.
+
 
 [Add more detailed descriptions on the go]

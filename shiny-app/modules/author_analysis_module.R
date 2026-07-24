@@ -19,17 +19,24 @@ authorAnalysisUI <- function(id) {
         fluidRow(
           column(3,
             tags$div(class = "control-group",
-              # Shared control: bounds use publication filter limits (observed + buffer)
-              # so overview mode can cover the full catalog; sales mode still uses
-              # the selected years as sales years.
-              dateRangeInput(
-                ns("date_range"), "Year Range:",
-                start = paste0(publication_default_range()[1], "-01-01"),
-                end = paste0(publication_default_range()[2], "-12-31"),
-                min = paste0(publication_slider_min(), "-01-01"),
-                max = paste0(publication_slider_max(), "-12-31"),
-                format = "yyyy"
-              ),
+              # Shared control: concept switches with analysis type.
+              # Default UI bounds use the union of publication and sales limits so
+              # either mode remains selectable; observe() below tightens label/help
+              # and may re-clamp selection when the concept changes.
+              {
+                union_min <- min(publication_slider_min(), sales_slider_min())
+                union_max <- max(publication_slider_max(), sales_slider_max())
+                # Start on sales concept (gender_performance default analysis type)
+                sales_sel <- sales_default_range()
+                dateRangeInput(
+                  ns("date_range"), "Sales Year Range:",
+                  start = year_to_date_string(sales_sel[[1]], "start"),
+                  end = year_to_date_string(sales_sel[[2]], "end"),
+                  min = year_to_date_string(union_min, "start"),
+                  max = year_to_date_string(union_max, "end"),
+                  format = "yyyy"
+                )
+              },
               uiOutput(ns("year_range_help"))
             )
           ),
@@ -75,12 +82,7 @@ authorAnalysisUI <- function(id) {
               ns = ns,
               tags$div(class = "control-group",
                 selectInput(ns("gender_filter"), "Focus on Gender:",
-                           choices = list(
-                             "All Genders" = "",
-                             "Male Authors" = "Male",
-                             "Female Authors" = "Female",
-                             "Unknown Gender" = "Unknown"
-                           ),
+                           choices = gender_filter_choices(mode = "single"),
                            selected = "")
               )
             )
@@ -198,49 +200,70 @@ authorAnalysisServer <- function(id) {
     output$year_range_help <- renderUI({
       if (identical(input$analysis_type, "author_overview")) {
         helpText(
-          "Publication years: filters books by when they were published.",
+          "Publication years: filters books by when they were published. Covers full observed catalog span plus buffer.",
           style = "font-size: 13px; margin-top: -6px;"
         )
       } else {
         helpText(
-          "Sales years: years when copies were sold (not publication year).",
+          "Sales years: years when copies were sold (not publication year). Covers full observed sales span plus buffer.",
           style = "font-size: 13px; margin-top: -6px;"
         )
       }
     })
 
-    observe({
-      label <- if (identical(input$analysis_type, "author_overview")) {
-        "Publication Year Range:"
-      } else {
-        "Sales Year Range:"
+    # Switch label and available bounds only when analysis type (year concept) changes.
+    # Avoid reading input$date_range as a reactive dependency here to prevent update loops.
+    observeEvent(input$analysis_type, {
+      is_pub <- identical(input$analysis_type, "author_overview")
+      label <- if (is_pub) "Publication Year Range:" else "Sales Year Range:"
+      default_span <- if (is_pub) publication_default_range() else sales_default_range()
+      min_y <- if (is_pub) publication_slider_min() else sales_slider_min()
+      max_y <- if (is_pub) publication_slider_max() else sales_slider_max()
+
+      # Preserve selection if still valid under the new concept bounds
+      current <- isolate(resolve_year_range(
+        input$date_range,
+        default = default_span
+      ))
+      start_y <- max(min(current$start, max_y), min_y)
+      end_y <- min(max(current$end, min_y), max_y)
+      if (is.na(start_y) || is.na(end_y) || start_y > end_y) {
+        start_y <- default_span[[1]]
+        end_y <- default_span[[2]]
       }
-      updateDateRangeInput(session, "date_range", label = label)
-    })
+      updateDateRangeInput(
+        session, "date_range",
+        label = label,
+        start = year_to_date_string(start_y, "start"),
+        end = year_to_date_string(end_y, "end"),
+        min = year_to_date_string(min_y, "start"),
+        max = year_to_date_string(max_y, "end")
+      )
+    }, ignoreNULL = FALSE)
 
-    # Initialize genre choices and binding states
+    # Initialize genre choices and binding states from shared helpers
     observe({
-      # Genre choices
-      genres <- safe_query(function() {
-        query <- "SELECT DISTINCT genre FROM book_entries WHERE genre IS NOT NULL ORDER BY genre"
-        result <- safe_db_query(query)
-        if (nrow(result) > 0) {
-          choices <- c("All Genres" = "", setNames(result$genre, result$genre))
-          return(choices)
-        }
-        return(c("All Genres" = ""))
-      }, default_value = c("All Genres" = ""))
-      updateSelectInput(session, "genre_filter", choices = genres)
+      opts <- safe_query(get_filter_options, default_value = list(
+        genres = data.frame(genre = character(0)),
+        binding_states = data.frame(binding = character(0))
+      ))
+      updateSelectInput(
+        session, "genre_filter",
+        choices = genre_filter_choices(include_all = TRUE, raw_df = opts$genres)
+      )
 
-      # Binding states for gender_comparison
-      binding_states <- safe_query(get_binding_states,
-                                   default_value = data.frame(binding = character(0)))
-      if (nrow(binding_states) > 0) {
-        # Normalize casing and sort alphabetically
-        bindings <- binding_states$binding
-        bindings <- sort(unique(stringr::str_to_title(trimws(bindings))))
+      bind_df <- if (is.null(opts$binding_states)) {
+        data.frame(binding = character(0))
+      } else {
+        opts$binding_states
+      }
+      bind_choices <- binding_filter_choices(
+        include_all = TRUE,
+        raw_df = bind_df
+      )
+      if (length(bind_choices) > 0) {
         updateSelectizeInput(session, "binding_filter",
-                             choices = c("All Binding Types" = "", stats::setNames(bindings, bindings)),
+                             choices = bind_choices,
                              selected = "",
                              server = TRUE)
       }
@@ -349,9 +372,14 @@ authorAnalysisServer <- function(id) {
 
     # Convert date range to years (concept depends on analysis type)
     year_range <- reactive({
+      default_span <- if (identical(input$analysis_type, "author_overview")) {
+        publication_default_range()
+      } else {
+        sales_default_range()
+      }
       resolved <- resolve_year_range(
         input$date_range,
-        default = publication_default_range()
+        default = default_span
       )
       c(resolved$start, resolved$end)
     })

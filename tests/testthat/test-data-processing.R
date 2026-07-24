@@ -33,6 +33,11 @@ test_that("NULL coalescing operator works", {
   expect_equal(NA %||% "default", "default")
   expect_equal(character(0) %||% "default", "default")
   expect_equal(0 %||% "default", 0)  # 0 is not NULL
+  # One-column data.frames must not trip && length error (length(df) == ncol)
+  df <- data.frame(binding = c("Cloth", "Paper"), stringsAsFactors = FALSE)
+  expect_identical(df %||% data.frame(), df)
+  empty_df <- data.frame(binding = character(0), stringsAsFactors = FALSE)
+  expect_identical(empty_df %||% "fallback", empty_df)
 })
 
 test_that("clean_author_id never labels missing as NA string", {
@@ -358,4 +363,17 @@ test_that("format_year_range_label distinguishes publication vs sales", {
     format_year_range_label(1860, 1920, concept = YEAR_CONCEPT_PUBLICATION),
     "publication years 1860–1920"
   )
+})
+
+test_that("sales year helpers and date arg builders work offline", {
+  # Superassign so sales_filter_limits() can find bounds via inherits
+  DEFAULT_YEAR_RANGE <<- c(1880L, 1910L)
+  SALES_YEAR_BOUNDS <<- compute_sales_year_bounds(1858, 1920, buffer = 2L)
+
+  expect_equal(sales_slider_min(), 1856L)
+  expect_equal(sales_slider_max(), 1922L)
+  expect_equal(sales_default_range(), c(1858L, 1920L))
+  expect_equal(sales_preset_range(), c(1880L, 1910L))
+  expect_equal(year_to_date_string(1900, "start"), "1900-01-01")
+  expect_equal(year_to_date_string(1900, "end"), "1900-12-31")
 })

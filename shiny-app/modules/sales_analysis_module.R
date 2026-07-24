@@ -16,10 +16,13 @@ salesAnalysisUI <- function(id) {
 
         fluidRow(
           column(3,
-            dateRangeInput(ns("date_range"), "Date Range:",
-                          start = "1860-01-01", end = "1920-12-31",
-                          min = "1860-01-01", max = "1920-12-31",
-                          format = "yyyy")
+            {
+              sales_dr <- sales_date_range_args(use_preset = FALSE)
+              dateRangeInput(ns("date_range"), "Sales Year Range:",
+                            start = sales_dr$start, end = sales_dr$end,
+                            min = sales_dr$min, max = sales_dr$max,
+                            format = "yyyy")
+            }
           ),
           column(3,
             selectInput(ns("analysis_type"), "Analysis Type:",
@@ -148,13 +151,10 @@ salesAnalysisServer <- function(id) {
     # Reactive values for storing results
     analysis_results <- reactiveVal(data.frame())
 
-    # Convert date range to years
+    # Convert date range to sales years (shared bounds / resolver)
     year_range <- reactive({
-      dates <- input$date_range
-      if (is.null(dates) || length(dates) != 2) {
-        return(c(1860, 1920))
-      }
-      c(as.numeric(format(dates[1], "%Y")), as.numeric(format(dates[2], "%Y")))
+      resolved <- resolve_year_range(input$date_range, default = sales_default_range())
+      c(resolved$start, resolved$end)
     })
 
     # Run analysis when button is clicked

@@ -54,11 +54,13 @@ royaltyQueryUI <- function(id) {
           column(3,
             sliderInput(
               ns("royalty_year_range"), "Sales Year Range:",
-              min = MIN_YEAR, max = MAX_YEAR, value = DEFAULT_YEAR_RANGE,
+              min = sales_slider_min(),
+              max = sales_slider_max(),
+              value = sales_preset_range(),
               step = 1, sep = ""
             ),
             helpText(
-              "Years when copies were sold (book_sales.year). Royalty totals sum sales in this window only."
+              "Years when copies were sold (book_sales.year). Royalty totals sum sales in this window only. Slider covers the full observed sales span plus a small buffer."
             )
           ),
 
@@ -324,7 +326,7 @@ royaltyQueryServer <- function(id) {
 
         sales_years <- resolve_year_range(
           input$royalty_year_range,
-          default = DEFAULT_YEAR_RANGE
+          default = sales_preset_range()
         )
         safe_query(function() {
           get_total_royalty_income_by_author(
@@ -348,7 +350,7 @@ royaltyQueryServer <- function(id) {
 
         sales_years <- resolve_year_range(
           input$royalty_year_range,
-          default = DEFAULT_YEAR_RANGE
+          default = sales_preset_range()
         )
         safe_query(function() {
           # Optional binding: empty / blank / whitespace → all bindings

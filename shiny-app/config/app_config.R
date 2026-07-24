@@ -41,6 +41,11 @@ DEFAULT_YEAR_RANGE <- c(1880, 1910)
 # outside the previous span remain selectable without a redeploy.
 PUBLICATION_YEAR_BUFFER <- 5L
 
+# Sales-year filters: UI bounds = observed min/max in book_sales.year
+# plus a small buffer for newly imported annual sales just outside the span.
+# (Do not hardcode 1860–1920 in modules — use sales_* helpers instead.)
+SALES_YEAR_BUFFER <- 2L
+
 # UI settings
 SIDEBAR_WIDTH <- 300
 NAVBAR_FIXED <- TRUE
