@@ -98,7 +98,6 @@ anesko/
 │   │   ├── plotting.R
 │   │   ├── queries_basic.R
 │   │   ├── queries_royalties.R
-│   │   ├── queries_royalty.R
 │   │   ├── queries_sales.R
 │   │   └── queries_timeseries.R
 │   ├── verify_dropdown_changes.R         [ARCHIVED]

@@ -31,16 +31,12 @@ get_decade_summary <- function() {
   safe_db_query(query)
 }
 
-# Consolidated time-series with flexible grouping and filters
-# Returns columns: year (sales year), group_label, total_sales, book_count
-#
-# sales_start_year / sales_end_year filter book_sales.year (when copies sold).
-# Legacy start_year / end_year are aliases for the same sales-year bounds.
-# Do NOT pass publication years here.
-get_sales_timeseries_filtered <- function(
+# Shared sales-year + dimension filter WHERE for time-series queries.
+# Ensures both trend modes apply identical filter semantics (sales years,
+# gender empty = no match, optional multi-filters empty = all).
+.build_sales_timeseries_where <- function(
   sales_start_year = NULL,
   sales_end_year = NULL,
-  group_by = "gender",
   authors = character(0),
   publishers = character(0),
   genres = character(0),
@@ -49,7 +45,10 @@ get_sales_timeseries_filtered <- function(
   include_unknown_gender = TRUE,
   genders = c("Male", "Female", "Unknown"),
   start_year = NULL,
-  end_year = NULL
+  end_year = NULL,
+  extra_field = NULL,
+  extra_values = NULL,
+  extra_case_insensitive = FALSE
 ) {
   sales_range <- resolve_year_range(
     c(
@@ -58,30 +57,13 @@ get_sales_timeseries_filtered <- function(
     ),
     default = c(MIN_YEAR, MAX_YEAR)
   )
-  sales_start_year <- sales_range$start
-  sales_end_year <- sales_range$end
-  group_expr <- switch(group_by,
-    "gender" = "be.gender",
-    "author" = "be.author_surname",
-    "publisher" = "be.publisher",
-    "book" = "be.book_title",
-    "genre" = "be.genre",
-    "binding" = "be.binding",
-    "be.gender"
-  )
-  # Gender groups normalize NULL/blank → Unknown; other dims keep COALESCE
-  label_expr <- if (identical(group_by, "gender")) {
-    gender_display_sql(group_expr)
-  } else {
-    paste0("COALESCE(", group_expr, ", 'Unknown')")
-  }
 
   # Sales-year filter (book_sales.year — when copies were sold)
   where_clauses <- c(
     "bs.sales_count IS NOT NULL",
     "bs.year BETWEEN $1 AND $2"
   )
-  params <- list(sales_start_year, sales_end_year)
+  params <- list(sales_range$start, sales_range$end)
   next_idx <- 3L
 
   # Multi-select genders: empty must not silently mean "all"
@@ -104,7 +86,9 @@ get_sales_timeseries_filtered <- function(
   # Optional multi filters: empty / blank / whitespace = no restriction
   add_optional_in <- function(field, values, case_insensitive = TRUE) {
     sel <- normalize_optional_filter(values, mode = "multi")
-    if (!sel$apply) return()
+    if (!sel$apply) {
+      return()
+    }
     sql <- build_text_in_sql_filter(
       sel$values,
       column = field,
@@ -121,20 +105,87 @@ get_sales_timeseries_filtered <- function(
   add_optional_in("be.genre", genres, TRUE)
   add_optional_in("be.binding", bindings, TRUE)
   # Book IDs: exact match, optional multi
-  book_sel <- normalize_optional_filter(books, mode = "multi")
-  if (book_sel$apply) {
-    sql <- build_text_in_sql_filter(
-      book_sel$values,
-      column = "be.book_id",
-      param_start = next_idx,
-      case_insensitive = FALSE
-    )
-    where_clauses <- c(where_clauses, sql$clause)
-    params <- c(params, sql$params)
-    next_idx <- sql$next_param
+  add_optional_in("be.book_id", books, FALSE)
+
+  # Optional required dimension values (compare mode)
+  if (!is.null(extra_field) && !is.null(extra_values)) {
+    dim_vals <- sanitize_filter_values(extra_values)
+    if (length(dim_vals) == 0) {
+      return(list(where_sql = NULL, params = list(), sales_range = sales_range))
+    }
+    n <- length(dim_vals)
+    placeholders <- paste0("$", next_idx:(next_idx + n - 1L), collapse = ",")
+    if (isTRUE(extra_case_insensitive)) {
+      where_clauses <- c(
+        where_clauses,
+        paste0("LOWER(", extra_field, ") IN (", placeholders, ")")
+      )
+      params <- c(params, as.list(tolower(dim_vals)))
+    } else {
+      where_clauses <- c(where_clauses, paste0(extra_field, " IN (", placeholders, ")"))
+      params <- c(params, as.list(dim_vals))
+    }
+    next_idx <- next_idx + n
   }
 
-  where_sql <- paste(where_clauses, collapse = " AND ")
+  list(
+    where_sql = paste(where_clauses, collapse = " AND "),
+    params = params,
+    next_param = next_idx,
+    sales_range = sales_range
+  )
+}
+
+# Consolidated time-series with flexible grouping and filters
+# Returns columns: year (sales year), group_label, total_sales, book_count
+#
+# sales_start_year / sales_end_year filter book_sales.year (when copies sold).
+# Legacy start_year / end_year are aliases for the same sales-year bounds.
+# Do NOT pass publication years here.
+get_sales_timeseries_filtered <- function(
+  sales_start_year = NULL,
+  sales_end_year = NULL,
+  group_by = "gender",
+  authors = character(0),
+  publishers = character(0),
+  genres = character(0),
+  bindings = character(0),
+  books = character(0),
+  include_unknown_gender = TRUE,
+  genders = c("Male", "Female", "Unknown"),
+  start_year = NULL,
+  end_year = NULL
+) {
+  group_expr <- switch(group_by,
+    "gender" = "be.gender",
+    "author" = "be.author_surname",
+    "publisher" = "be.publisher",
+    "book" = "be.book_title",
+    "genre" = "be.genre",
+    "binding" = "be.binding",
+    "be.gender"
+  )
+  # Gender groups normalize NULL/blank → Unknown; other dims keep COALESCE
+  label_expr <- if (identical(group_by, "gender")) {
+    gender_display_sql(group_expr)
+  } else {
+    paste0("COALESCE(", group_expr, ", 'Unknown')")
+  }
+
+  built <- .build_sales_timeseries_where(
+    sales_start_year = sales_start_year,
+    sales_end_year = sales_end_year,
+    authors = authors,
+    publishers = publishers,
+    genres = genres,
+    bindings = bindings,
+    books = books,
+    include_unknown_gender = include_unknown_gender,
+    genders = genders,
+    start_year = start_year,
+    end_year = end_year
+  )
+
   query <- paste0(
     "SELECT\n",
     "  bs.year AS sales_year,\n",
@@ -144,11 +195,11 @@ get_sales_timeseries_filtered <- function(
     "  COUNT(DISTINCT be.book_id) AS book_count\n",
     "FROM book_sales bs\n",
     "JOIN book_entries be ON bs.book_id = be.book_id\n",
-    "WHERE ", where_sql, "\n",
+    "WHERE ", built$where_sql, "\n",
     "GROUP BY bs.year, ", label_expr, "\n",
     "ORDER BY bs.year, ", label_expr, "\n"
   )
-  safe_db_query(query, params = params)
+  safe_db_query(query, params = built$params)
 }
 
 # Time series for selected values of a given dimension (compare mode)
@@ -168,17 +219,9 @@ get_sales_timeseries_for_dimension <- function(
   start_year = NULL,
   end_year = NULL
 ) {
-  if (is.null(values) || length(values) == 0) return(data.frame())
-
-  sales_range <- resolve_year_range(
-    c(
-      sales_start_year %||% start_year %||% MIN_YEAR,
-      sales_end_year %||% end_year %||% MAX_YEAR
-    ),
-    default = c(MIN_YEAR, MAX_YEAR)
-  )
-  sales_start_year <- sales_range$start
-  sales_end_year <- sales_range$end
+  if (is.null(values) || length(values) == 0) {
+    return(data.frame())
+  }
 
   field <- switch(dimension,
     "gender" = "be.gender",
@@ -197,61 +240,28 @@ get_sales_timeseries_for_dimension <- function(
     paste0("COALESCE(", field, ", 'Unknown')")
   }
 
-  # Sales-year filter (book_sales.year)
-  where_clauses <- c(
-    "bs.sales_count IS NOT NULL",
-    "bs.year BETWEEN $1 AND $2"
+  built <- .build_sales_timeseries_where(
+    sales_start_year = sales_start_year,
+    sales_end_year = sales_end_year,
+    authors = authors,
+    publishers = publishers,
+    genres = genres,
+    bindings = bindings,
+    books = books,
+    include_unknown_gender = include_unknown_gender,
+    genders = genders,
+    start_year = start_year,
+    end_year = end_year,
+    extra_field = field,
+    extra_values = values,
+    # Gender dimension uses exact IN (Male/Female) via field values;
+    # author/publisher/genre/binding historically used exact column match.
+    extra_case_insensitive = FALSE
   )
-  params <- list(sales_start_year, sales_end_year)
-  next_idx <- 3L
-
-  # Multi-select genders: empty must not silently mean "all"
-  gender_sel <- normalize_gender_filter(genders, mode = "multi")
-  gvals <- gender_sel$genders
-  if (!isTRUE(include_unknown_gender)) {
-    gvals <- setdiff(gvals, "Unknown")
-  }
-  if (gender_sel$empty || (length(gvals) == 0 && gender_sel$apply)) {
-    where_clauses <- c(where_clauses, "FALSE")
-  } else {
-    gender_sql <- build_gender_sql_filter(gvals, column = "be.gender", param_start = next_idx)
-    if (!is.null(gender_sql$clause)) {
-      where_clauses <- c(where_clauses, gender_sql$clause)
-      params <- c(params, gender_sql$params)
-      next_idx <- gender_sql$next_param
-    }
+  if (is.null(built$where_sql)) {
+    return(data.frame())
   }
 
-  # Optional multi filters: empty / blank / whitespace = no restriction
-  add_optional_in <- function(fld, vals, ci = TRUE) {
-    sel <- normalize_optional_filter(vals, mode = "multi")
-    if (!sel$apply) return()
-    sql <- build_text_in_sql_filter(
-      sel$values,
-      column = fld,
-      param_start = next_idx,
-      case_insensitive = ci
-    )
-    where_clauses <<- c(where_clauses, sql$clause)
-    params <<- c(params, sql$params)
-    next_idx <<- sql$next_param
-  }
-
-  add_optional_in("be.author_surname", authors, TRUE)
-  add_optional_in("be.publisher", publishers, TRUE)
-  add_optional_in("be.genre", genres, TRUE)
-  add_optional_in("be.binding", bindings, TRUE)
-  add_optional_in("be.book_id", books, FALSE)
-
-  # Dimension comparison values (required — already guarded above for empty)
-  dim_vals <- sanitize_filter_values(values)
-  if (length(dim_vals) == 0) return(data.frame())
-  n <- length(dim_vals)
-  placeholders <- paste0("$", next_idx:(next_idx + n - 1L), collapse = ",")
-  where_clauses <- c(where_clauses, paste0(field, " IN (", placeholders, ")"))
-  params <- c(params, as.list(dim_vals))
-
-  where_sql <- paste(where_clauses, collapse = " AND ")
   query <- paste0(
     "SELECT\n",
     "  bs.year,\n",
@@ -260,10 +270,10 @@ get_sales_timeseries_for_dimension <- function(
     "  COUNT(DISTINCT be.book_id) AS book_count\n",
     "FROM book_sales bs\n",
     "JOIN book_entries be ON bs.book_id = be.book_id\n",
-    "WHERE ", where_sql, "\n",
+    "WHERE ", built$where_sql, "\n",
     "GROUP BY bs.year, ", label_expr, "\n",
     "ORDER BY bs.year, ", label_expr, "\n"
   )
-  safe_db_query(query, params = params)
+  safe_db_query(query, params = built$params)
 }
 

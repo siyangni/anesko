@@ -46,13 +46,31 @@ has_sales_year_between <- function(body) {
 }
 
 test_that("sales-year query builders do not filter on publication_year", {
-  ts_body <- function_body_source(
+  # Shared timeseries WHERE builder is the single source of filter semantics
+  ts_where <- function_body_source(
+    "../../shiny-app/utils/queries_timeseries.R",
+    ".build_sales_timeseries_where",
+    "get_sales_timeseries_filtered"
+  )
+  expect_true(has_sales_year_between(ts_where))
+  expect_false(has_publication_year_between(ts_where))
+
+  # Public wrappers delegate to the shared builder (no local year filter)
+  ts_filtered <- function_body_source(
     "../../shiny-app/utils/queries_timeseries.R",
     "get_sales_timeseries_filtered",
     "get_sales_timeseries_for_dimension"
   )
-  expect_true(has_sales_year_between(ts_body))
-  expect_false(has_publication_year_between(ts_body))
+  expect_true(grepl("\\.build_sales_timeseries_where", ts_filtered))
+  expect_false(has_publication_year_between(ts_filtered))
+
+  ts_dim <- function_body_source(
+    "../../shiny-app/utils/queries_timeseries.R",
+    "get_sales_timeseries_for_dimension",
+    NULL
+  )
+  expect_true(grepl("\\.build_sales_timeseries_where", ts_dim))
+  expect_false(has_publication_year_between(ts_dim))
 
   sales_where <- function_body_source(
     "../../shiny-app/utils/queries_sales.R",
@@ -62,13 +80,29 @@ test_that("sales-year query builders do not filter on publication_year", {
   expect_true(has_sales_year_between(sales_where))
   expect_false(has_publication_year_between(sales_where))
 
+  title_where <- function_body_source(
+    "../../shiny-app/utils/queries_sales.R",
+    ".build_title_binding_sales_where",
+    "get_book_sales_by_title_binding"
+  )
+  expect_true(has_sales_year_between(title_where))
+  expect_false(has_publication_year_between(title_where))
+
   title_sales <- function_body_source(
     "../../shiny-app/utils/queries_sales.R",
     "get_book_sales_by_title_binding",
     ".build_genre_binding_gender_where"
   )
-  expect_true(has_sales_year_between(title_sales))
+  expect_true(grepl("\\.build_title_binding_sales_where", title_sales))
   expect_false(has_publication_year_between(title_sales))
+
+  title_avg <- function_body_source(
+    "../../shiny-app/utils/queries_sales.R",
+    "get_average_sales_by_book_binding",
+    NULL
+  )
+  expect_true(grepl("\\.build_title_binding_sales_where", title_avg))
+  expect_false(has_publication_year_between(title_avg))
 })
 
 test_that("publication-year query builders do not filter on sales year", {
@@ -83,10 +117,18 @@ test_that("publication-year query builders do not filter on sales year", {
   top_books <- function_body_source(
     "../../shiny-app/utils/queries_sales.R",
     "get_top_books",
-    "get_book_sales_by_title_binding"
+    ".build_title_binding_sales_where"
   )
   expect_true(has_publication_year_between(top_books))
   expect_false(has_sales_year_between(top_books))
+
+  overview <- function_body_source(
+    "../../shiny-app/utils/queries_basic.R",
+    "get_author_overview_books",
+    "get_binding_states"
+  )
+  expect_true(has_publication_year_between(overview))
+  expect_false(has_sales_year_between(overview))
 })
 
 test_that("compute_publication_year_bounds covers observed span plus buffer", {
@@ -266,15 +308,66 @@ test_that("modules load genre/binding choices via shared filter helpers", {
     "../../shiny-app/modules/genre_content_analysis_module.R",
     "../../shiny-app/modules/author_analysis_module.R",
     "../../shiny-app/modules/sales_trends_module.R",
-    "../../shiny-app/modules/book_explorer_module.R"
+    "../../shiny-app/modules/book_explorer_module.R",
+    "../../shiny-app/modules/royalty_analysis_module.R"
   )
   for (path in modules) {
     src <- paste(readLines(path, warn = FALSE), collapse = "\n")
     expect_true(
-      grepl("genre_filter_choices", src) || grepl("get_filter_options", src),
+      grepl("genre_filter_choices", src) ||
+        grepl("get_filter_options", src) ||
+        grepl("publisher_filter_choices", src),
       info = paste("expected shared filter helper in", path)
     )
   }
+})
+
+test_that("author lookup SQL is centralized (no divergent module copies)", {
+  # Shared query functions must exist and use COUNT(DISTINCT book_id)
+  surname_opts <- function_body_source(
+    "../../shiny-app/utils/queries_basic.R",
+    "get_author_surname_options",
+    "get_author_ids_by_surname"
+  )
+  expect_true(grepl("COUNT\\(DISTINCT be\\.book_id\\)", surname_opts))
+
+  ids_by_surname <- function_body_source(
+    "../../shiny-app/utils/queries_basic.R",
+    "get_author_ids_by_surname",
+    "author_surname_select_choices"
+  )
+  expect_true(grepl("COUNT\\(DISTINCT be\\.book_id\\)", ids_by_surname))
+  expect_false(grepl("COUNT\\(\\*\\)\\s+AS book_count", ids_by_surname))
+
+  # Modules must call shared helpers, not re-embed the author lookup SQL
+  author_mod <- paste(readLines("../../shiny-app/modules/author_analysis_module.R",
+                                warn = FALSE), collapse = "\n")
+  expect_true(grepl("author_surname_select_choices", author_mod))
+  expect_true(grepl("author_id_select_choices", author_mod))
+  expect_true(grepl("get_author_overview_books", author_mod))
+  # No inline author_id lookup SQL left in the module
+  expect_false(grepl(
+    "SELECT DISTINCT be\\.author_id, be\\.author_surname",
+    author_mod
+  ))
+  # Exactly one observeEvent for author_name (duplicate was a real bug)
+  matches <- gregexpr("observeEvent\\(input\\$author_name", author_mod)[[1]]
+  n_events <- if (length(matches) == 1L && matches[1] == -1L) 0L else length(matches)
+  expect_equal(n_events, 1L)
+
+  royalty_q <- paste(readLines("../../shiny-app/modules/royalty_query_module.R",
+                               warn = FALSE), collapse = "\n")
+  expect_true(grepl("author_surname_select_choices", royalty_q))
+  expect_true(grepl("author_id_select_choices", royalty_q))
+  expect_false(grepl(
+    "SELECT DISTINCT be\\.author_id, be\\.author_surname",
+    royalty_q
+  ))
+})
+
+test_that("stale queries_royalty.R duplicate is not present", {
+  expect_false(file.exists("../../shiny-app/utils/queries_royalty.R"))
+  expect_true(file.exists("../../shiny-app/utils/queries_royalties.R"))
 })
 
 test_that("shared filter choice builders normalize options consistently", {

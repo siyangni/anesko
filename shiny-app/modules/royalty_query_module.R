@@ -251,60 +251,31 @@ royaltyQueryServer <- function(id) {
         updateSelectizeInput(session, "royalty_binding_state", choices = binding_choices, server = TRUE)
       }
 
-      # Author surnames (for author royalty summary)
-      author_choices <- safe_query(function() {
-        query <- "
-          SELECT
-            be.author_surname,
-            COUNT(DISTINCT be.book_id) AS book_count,
-            COALESCE(SUM(bs.total_sales), 0) AS total_sales
-          FROM book_entries be
-          LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
-          WHERE be.author_surname IS NOT NULL
-          GROUP BY be.author_surname
-          HAVING COUNT(*) >= 1
-          ORDER BY be.author_surname
-          LIMIT 200
-        "
-        df <- safe_db_query(query)
-        if (!is.null(df) && nrow(df) > 0) {
-          labels <- paste0(df$author_surname, " (", df$book_count,
-                           ifelse(df$book_count == 1, " book", " books"), ")")
-          choices <- stats::setNames(df$author_surname, labels)
-          return(choices)
-        }
-        return(character(0))
-      }, default_value = character(0))
+      # Author surnames (shared query semantics with author analysis)
+      author_choices <- safe_query(
+        author_surname_select_choices,
+        default_value = character(0)
+      )
       updateSelectizeInput(session, "royalty_author_name", choices = author_choices, server = TRUE)
 
       # Clear author ID when surname cleared; populate when selected
       observeEvent(input$royalty_author_name, {
         surname <- input$royalty_author_name
         if (is.null(surname) || identical(surname, "")) {
-          updateSelectizeInput(session, "royalty_author_id", choices = character(0), selected = NULL, server = TRUE)
+          updateSelectizeInput(session, "royalty_author_id",
+                               choices = character(0), selected = NULL, server = TRUE)
           return()
         }
-        id_df <- safe_query(function() {
-          q <- "
-            SELECT DISTINCT be.author_id, be.author_surname, COUNT(DISTINCT be.book_id) AS book_count
-            FROM book_entries be
-            WHERE be.author_surname = $1 AND be.author_id IS NOT NULL
-            GROUP BY be.author_id, be.author_surname
-            ORDER BY book_count DESC, be.author_id
-          "
-          safe_db_query(q, params = list(surname))
-        }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
-        if (!is.null(id_df) && nrow(id_df) > 0) {
-          labels <- paste0(
-            format_author_label(id_df$author_id, id_df$author_surname),
-            " (", id_df$book_count,
-            ifelse(id_df$book_count == 1, " book)", " books)")
-          )
-          choices <- stats::setNames(clean_author_id(id_df$author_id), labels)
-          updateSelectizeInput(session, "royalty_author_id", choices = choices, selected = NULL, server = TRUE)
-        } else {
-          updateSelectizeInput(session, "royalty_author_id", choices = character(0), selected = NULL, server = TRUE)
-        }
+        choices <- safe_query(
+          function() author_id_select_choices(surname),
+          default_value = character(0)
+        )
+        updateSelectizeInput(
+          session, "royalty_author_id",
+          choices = choices,
+          selected = NULL,
+          server = TRUE
+        )
       }, ignoreInit = TRUE)
     })
 

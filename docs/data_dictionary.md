@@ -42,5 +42,9 @@ This document describes the structure and contents of the American Authorship Da
 
 **Shared filter options:** Genre, binding, publisher, and gender dropdowns should be populated via `get_filter_options()` and the choice builders `genre_filter_choices()`, `binding_filter_choices()`, `publisher_filter_choices()`, and `gender_filter_choices()` so every module exposes the same option set.
 
+**Shared author lookup SQL:** Author surname/ID pickers and career overview must use the helpers in `queries_basic.R` (`get_author_surname_options`, `get_author_ids_by_surname`, `author_surname_select_choices`, `author_id_select_choices`, `get_author_overview_books`). Book counts always use `COUNT(DISTINCT book_id)` — never re-embed divergent SQL in modules.
+
+**Shared sales filter builders:** Sales-year WHERE clauses for time series and title/binding analyses live in `.build_sales_timeseries_where` and `.build_title_binding_sales_where` / `.build_genre_binding_gender_where` so filter semantics cannot drift between analyses.
+
 
 [Add more detailed descriptions on the go]

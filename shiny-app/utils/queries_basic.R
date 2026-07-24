@@ -289,6 +289,164 @@ get_author_surnames <- function() {
   safe_db_query("SELECT DISTINCT author_surname FROM book_entries WHERE author_surname IS NOT NULL ORDER BY author_surname")
 }
 
+#' Author surnames with book counts for selectize / dropdown labels.
+#'
+#' Single source of truth for author-name pickers (author analysis, royalty query).
+#' book_count uses COUNT(DISTINCT book_id) so multi-row editions do not inflate totals.
+#'
+#' @param limit Max surnames to return (default 200)
+#' @return data.frame(author_surname, book_count, total_sales)
+get_author_surname_options <- function(limit = 200L) {
+  limit <- as.integer(limit)[1]
+  if (is.na(limit) || limit < 1L) {
+    limit <- 200L
+  }
+  query <- "
+    SELECT
+      be.author_surname,
+      COUNT(DISTINCT be.book_id) AS book_count,
+      COALESCE(SUM(bs.total_sales), 0) AS total_sales
+    FROM book_entries be
+    LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
+    WHERE be.author_surname IS NOT NULL
+    GROUP BY be.author_surname
+    HAVING COUNT(DISTINCT be.book_id) >= 1
+    ORDER BY be.author_surname
+    LIMIT $1
+  "
+  safe_db_query(query, params = list(limit))
+}
+
+#' Author IDs for a given surname (for optional Author ID pickers).
+#'
+#' book_count uses COUNT(DISTINCT book_id) consistently across analyses.
+#'
+#' @param surname Exact author_surname match
+#' @return data.frame(author_id, author_surname, book_count)
+get_author_ids_by_surname <- function(surname) {
+  if (is.null(surname) || !nzchar(as.character(surname)[1])) {
+    return(data.frame(
+      author_id = character(0),
+      author_surname = character(0),
+      book_count = integer(0)
+    ))
+  }
+  query <- "
+    SELECT
+      be.author_id,
+      be.author_surname,
+      COUNT(DISTINCT be.book_id) AS book_count
+    FROM book_entries be
+    WHERE be.author_surname = $1
+      AND be.author_id IS NOT NULL
+    GROUP BY be.author_id, be.author_surname
+    ORDER BY book_count DESC, be.author_id
+  "
+  safe_db_query(query, params = list(as.character(surname)[1]))
+}
+
+#' Named choices for an author-surname selectize input.
+#'
+#' @param limit Max surnames
+#' @return named character vector (labels → values), or character(0)
+author_surname_select_choices <- function(limit = 200L) {
+  df <- get_author_surname_options(limit = limit)
+  if (is.null(df) || nrow(df) == 0) {
+    return(character(0))
+  }
+  labels <- paste0(
+    df$author_surname, " (", df$book_count,
+    ifelse(df$book_count == 1, " book", " books"), ")"
+  )
+  stats::setNames(df$author_surname, labels)
+}
+
+#' Named choices for an author-id selectize given a surname.
+#'
+#' @param surname Exact author_surname
+#' @return named character vector (labels → cleaned author_id), or character(0)
+author_id_select_choices <- function(surname) {
+  id_df <- get_author_ids_by_surname(surname)
+  if (is.null(id_df) || nrow(id_df) == 0) {
+    return(character(0))
+  }
+  labels <- paste0(
+    format_author_label(id_df$author_id, id_df$author_surname),
+    " (", id_df$book_count,
+    ifelse(id_df$book_count == 1, " book)", " books)")
+  )
+  stats::setNames(clean_author_id(id_df$author_id), labels)
+}
+
+#' Author career overview books filtered by publication year.
+#'
+#' Publication-year filter (catalog metadata), not sales years.
+#' Optional author_id exact match; otherwise surname substring match.
+#'
+#' @param author_surname Surname (or fragment) for LIKE match when author_id empty
+#' @param author_id Optional exact author_id; empty/NULL → surname match only
+#' @param publication_start_year Start of publication year range
+#' @param publication_end_year End of publication year range
+#' @return data.frame of books with lifetime sales summary columns
+get_author_overview_books <- function(author_surname,
+                                      author_id = NULL,
+                                      publication_start_year = NULL,
+                                      publication_end_year = NULL) {
+  pub_default <- tryCatch(
+    publication_default_range(),
+    error = function(e) c(MIN_YEAR, MAX_YEAR)
+  )
+  pub_range <- resolve_year_range(
+    c(
+      publication_start_year %||% pub_default[[1]],
+      publication_end_year %||% pub_default[[2]]
+    ),
+    default = pub_default
+  )
+
+  author_id_param <- if (is.null(author_id) || !nzchar(as.character(author_id)[1])) {
+    ""
+  } else {
+    as.character(author_id)[1]
+  }
+  author_name_param <- if (is.null(author_surname) || !nzchar(as.character(author_surname)[1])) {
+    ""
+  } else {
+    paste0("%", as.character(author_surname)[1], "%")
+  }
+
+  query <- "
+    SELECT
+      be.book_id,
+      be.book_title,
+      be.author_surname,
+      be.genre,
+      be.binding,
+      be.publication_year,
+      be.retail_price,
+      be.royalty_rate,
+      COALESCE(bs.total_sales, 0) as total_sales,
+      COALESCE(bs.years_with_sales, 0) as years_with_sales,
+      bs.first_sale_year,
+      bs.last_sale_year
+    FROM book_entries be
+    LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
+    WHERE (
+      CASE WHEN $1 <> '' THEN be.author_id = $1 ELSE TRUE END
+    ) AND (
+      CASE WHEN $2 <> '' THEN LOWER(be.author_surname) LIKE LOWER($2) ELSE TRUE END
+    )
+      AND be.publication_year BETWEEN $3 AND $4
+    ORDER BY be.publication_year, be.book_title
+  "
+  safe_db_query(query, params = list(
+    author_id_param,
+    author_name_param,
+    pub_range$start,
+    pub_range$end
+  ))
+}
+
 # Get unique binding states for dropdown
 get_binding_states <- function() {
   safe_db_query("SELECT DISTINCT binding FROM book_entries WHERE binding IS NOT NULL ORDER BY binding")

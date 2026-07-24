@@ -268,30 +268,11 @@ authorAnalysisServer <- function(id) {
                              server = TRUE)
       }
 
-      # Author surname choices for royalty/overview analyses
-      author_choices <- safe_query(function() {
-        query <- "
-          SELECT
-            be.author_surname,
-            COUNT(DISTINCT be.book_id) AS book_count,
-            COALESCE(SUM(bs.total_sales), 0) AS total_sales
-          FROM book_entries be
-          LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
-          WHERE be.author_surname IS NOT NULL
-          GROUP BY be.author_surname
-          HAVING COUNT(*) >= 1
-          ORDER BY be.author_surname
-          LIMIT 200
-        "
-        df <- safe_db_query(query)
-        if (!is.null(df) && nrow(df) > 0) {
-          labels <- paste0(df$author_surname, " (", df$book_count,
-                           ifelse(df$book_count == 1, " book", " books"), ")")
-          choices <- stats::setNames(df$author_surname, labels)
-          return(choices)
-        }
-        return(character(0))
-      }, default_value = character(0))
+      # Author surname choices via shared query (single SQL semantics across analyses)
+      author_choices <- safe_query(
+        author_surname_select_choices,
+        default_value = character(0)
+      )
 
       # Render Author ID input only when a surname is selected
       output$author_id_ui <- renderUI({
@@ -309,36 +290,24 @@ authorAnalysisServer <- function(id) {
                        ))
       })
 
-      # Populate Author ID choices after a surname is selected
+      # Populate Author ID choices after a surname is selected (once; shared SQL)
       observeEvent(input$author_name, {
         surname <- input$author_name
         if (is.null(surname) || identical(surname, "")) {
-          updateSelectizeInput(session, "author_id", choices = character(0), selected = NULL, server = TRUE)
+          updateSelectizeInput(session, "author_id",
+                               choices = character(0), selected = NULL, server = TRUE)
           return()
         }
-        id_df <- safe_query(function() {
-          q <- "
-            SELECT DISTINCT be.author_id, be.author_surname, COUNT(DISTINCT be.book_id) AS book_count
-            FROM book_entries be
-            WHERE be.author_surname = $1 AND be.author_id IS NOT NULL
-            GROUP BY be.author_id, be.author_surname
-            ORDER BY book_count DESC, be.author_id
-          "
-          safe_db_query(q, params = list(surname))
-
-
-        }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
-        if (!is.null(id_df) && nrow(id_df) > 0) {
-          labels <- paste0(
-            format_author_label(id_df$author_id, id_df$author_surname),
-            " (", id_df$book_count,
-            ifelse(id_df$book_count == 1, " book)", " books)")
-          )
-          choices <- stats::setNames(clean_author_id(id_df$author_id), labels)
-          updateSelectizeInput(session, "author_id", choices = choices, selected = NULL, server = TRUE)
-        } else {
-          updateSelectizeInput(session, "author_id", choices = character(0), selected = NULL, server = TRUE)
-        }
+        choices <- safe_query(
+          function() author_id_select_choices(surname),
+          default_value = character(0)
+        )
+        updateSelectizeInput(
+          session, "author_id",
+          choices = choices,
+          selected = NULL,
+          server = TRUE
+        )
       })
 
       # Initialize dropdown with choices
@@ -383,39 +352,6 @@ authorAnalysisServer <- function(id) {
       )
       c(resolved$start, resolved$end)
     })
-
-    # Run analysis when button is clicked
-
-	    # Populate Author ID choices after a surname is selected
-	    observeEvent(input$author_name, {
-	      surname <- input$author_name
-	      if (is.null(surname) || identical(surname, "")) {
-	        updateSelectizeInput(session, "author_id",
-	                             choices = character(0), selected = NULL, server = TRUE)
-	        return()
-	      }
-	      id_df <- safe_query(function() {
-	        q <- "
-	          SELECT DISTINCT be.author_id, be.author_surname, COUNT(*) AS book_count
-	          FROM book_entries be
-	          WHERE be.author_surname = $1 AND be.author_id IS NOT NULL
-	          GROUP BY be.author_id, be.author_surname
-	          ORDER BY book_count DESC, be.author_id
-	        "
-	        safe_db_query(q, params = list(surname))
-	      }, default_value = data.frame(author_id = character(0), author_surname = character(0), book_count = integer(0)))
-	      if (!is.null(id_df) && nrow(id_df) > 0) {
-	        labels <- paste0(
-	          format_author_label(id_df$author_id, id_df$author_surname),
-	          " (", id_df$book_count,
-	          ifelse(id_df$book_count == 1, " book)", " books)")
-	        )
-	        choices <- stats::setNames(clean_author_id(id_df$author_id), labels)
-	        updateSelectizeInput(session, "author_id", choices = choices, selected = NULL, server = TRUE)
-	      } else {
-	        updateSelectizeInput(session, "author_id", choices = character(0), selected = NULL, server = TRUE)
-	      }
-	    })
 
     observeEvent(input$run_analysis, {
       years <- year_range()
@@ -493,39 +429,16 @@ authorAnalysisServer <- function(id) {
               data.frame(Error = "Please enter an author surname")
             } else {
               # Career overview filters by publication year (catalog metadata)
-              author_id_param <- if (is.null(input$author_id) || input$author_id == "") "" else input$author_id
-              author_name_param <- paste0("%", input$author_name, "%")
-
-              query <- "
-                SELECT
-                  be.book_id,
-                  be.book_title,
-                  be.author_surname,
-                  be.genre,
-                  be.binding,
-                  be.publication_year,
-                  be.retail_price,
-                  be.royalty_rate,
-                  COALESCE(bs.total_sales, 0) as total_sales,
-                  COALESCE(bs.years_with_sales, 0) as years_with_sales,
-                  bs.first_sale_year,
-                  bs.last_sale_year
-                FROM book_entries be
-                LEFT JOIN book_sales_summary bs ON be.book_id = bs.book_id
-                WHERE (
-                  CASE WHEN $1 <> '' THEN be.author_id = $1 ELSE TRUE END
-                ) AND (
-                  CASE WHEN $2 <> '' THEN LOWER(be.author_surname) LIKE LOWER($2) ELSE TRUE END
-                )
-                  AND be.publication_year BETWEEN $3 AND $4
-                ORDER BY be.publication_year, be.book_title
-              "
-              safe_db_query(query, params = list(
-                author_id_param,
-                author_name_param,
-                publication_start_year,
-                publication_end_year
-              ))
+              get_author_overview_books(
+                author_surname = input$author_name,
+                author_id = if (is.null(input$author_id) || input$author_id == "") {
+                  NULL
+                } else {
+                  input$author_id
+                },
+                publication_start_year = publication_start_year,
+                publication_end_year = publication_end_year
+              )
             }
           },
 

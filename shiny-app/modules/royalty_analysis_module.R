@@ -162,27 +162,25 @@ royaltyAnalysisServer <- function(id) {
     analysis_tick <- reactiveVal(0L)
     filters_seeded <- reactiveVal(FALSE)
 
-    # Initialize filter choices
+    # Initialize filter choices (shared filter option helpers)
     observe({
-      # Update publisher choices
-      publishers <- safe_db_query(
-        "SELECT DISTINCT publisher FROM book_entries 
-         WHERE publisher IS NOT NULL ORDER BY publisher"
-      )
-      if (!is.null(publishers) && nrow(publishers) > 0) {
-        updateSelectInput(
-          session, "publisher_select",
-          choices = setNames(publishers$publisher, publishers$publisher)
-        )
+      opts <- safe_query(get_filter_options, default_value = list(
+        publishers = data.frame(publisher = character(0))
+      ))
+      pub_choices <- publisher_filter_choices(raw_df = opts$publishers)
+      if (length(pub_choices) > 0) {
+        updateSelectInput(session, "publisher_select", choices = pub_choices)
       }
 
-      # Update author choices (top authors with multiple books)
+      # Multi-book authors for network-style royalty comparison
+      # (specialized filter: min 2 books; COUNT(DISTINCT book_id) for consistency)
       authors <- safe_db_query(
-        "SELECT author_id, author_surname, COUNT(*) as book_count
-         FROM book_entries 
-         WHERE author_id IS NOT NULL 
+        "SELECT author_id, author_surname,
+                COUNT(DISTINCT book_id) as book_count
+         FROM book_entries
+         WHERE author_id IS NOT NULL
          GROUP BY author_id, author_surname
-         HAVING COUNT(*) >= 2
+         HAVING COUNT(DISTINCT book_id) >= 2
          ORDER BY author_surname
          LIMIT 50"
       )
